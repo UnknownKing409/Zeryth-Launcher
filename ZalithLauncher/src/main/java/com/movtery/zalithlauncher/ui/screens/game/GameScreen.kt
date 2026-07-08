@@ -636,7 +636,8 @@ fun GameScreen(
             }
 
             //控制布局层
-            if (isLegacyMode && legacyFile != null) {
+            val hideControls = showGameInfo && AllSettings.hideControlsDuringLoading.state
+            if (!hideControls && isLegacyMode && legacyFile != null) {
                 // Legacy (Zalith 1) mode: native View-based ControlLayout.
                 // Touch routing handled natively — see PojavControlLayout.kt.
                 // When the Touch Controller proxy is enabled, intercept all touch events
@@ -657,7 +658,7 @@ fun GameScreen(
                     },
                     onMouseCursorStateChanged = { viewModel.legacyMouseCursorEnabled = it }
                 )
-            } else if (!isLegacyMode) {
+            } else if (!hideControls && !isLegacyMode) {
                 // Zalith 2 mode: use LayerController's ControlBoxLayout.
                 ControlBoxLayout(
                     modifier = Modifier.fillMaxSize(),
@@ -693,7 +694,7 @@ fun GameScreen(
             }
 
             //物品栏触发层
-            MinecraftHotbar(
+            if (!hideControls) MinecraftHotbar(
                 screenSize = screenSize,
                 rule = AllSettings.hotbarRule.state,
                 widthPercentage = AllSettings.hotbarWidth.state.hotbarPercentage(),
@@ -711,7 +712,7 @@ fun GameScreen(
             if (!isLegacyMode) {
                 viewModel.observableLayout?.let { layout ->
                     val special by layout.special.collectAsStateWithLifecycle()
-                    JoystickControlLayout(
+                    if (!hideControls) JoystickControlLayout(
                         screenSize = screenSize,
                         isGrabbing = isGrabbing,
                         special = special,
