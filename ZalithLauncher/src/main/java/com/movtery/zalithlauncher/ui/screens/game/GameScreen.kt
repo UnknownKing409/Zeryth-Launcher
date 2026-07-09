@@ -32,8 +32,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +51,6 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -533,7 +530,6 @@ fun GameScreen(
     version: Version,
     gameHandler: GameHandler,
     showGameInfo: Boolean,
-    onInfoBoxClose: () -> Unit,
     logState: LogState,
     onLogStateChange: (LogState) -> Unit,
     textInputMode: TextInputMode,
@@ -752,8 +748,7 @@ fun GameScreen(
                 .padding(all = 16.dp),
             versionName = version.getVersionName(),
             versionInfo = version.getVersionInfo()?.getInfoString(),
-            visible = showGameInfo,
-            onClose = onInfoBoxClose
+            visible = showGameInfo
         )
 
         LogBox(
@@ -926,7 +921,6 @@ private fun GameInfoBox(
     versionName: String,
     versionInfo: String?,
     visible: Boolean,
-    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -940,49 +934,34 @@ private fun GameInfoBox(
             influencedByBackground = false,
             shape = MaterialTheme.shapes.extraLarge
         ) {
-            Row {
-                Row(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .padding(vertical = 16.dp)
-                        .padding(start = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    LoadingIndicator(
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    )
+            Row(
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                LoadingIndicator(
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                )
 
-                    //提示信息
-                    Column(
-                        modifier = Modifier.weight(1f, fill = false),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
+                //提示信息
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.game_loading),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.game_loading_version_name, versionName),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    versionInfo?.let { info ->
                         Text(
-                            text = stringResource(R.string.game_loading),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = stringResource(R.string.game_loading_version_name, versionName),
+                            text = stringResource(R.string.game_loading_version_info, info),
                             style = MaterialTheme.typography.labelLarge
                         )
-                        versionInfo?.let { info ->
-                            Text(
-                                text = stringResource(R.string.game_loading_version_info, info),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
                     }
-                }
-
-                IconButton(
-                    modifier = Modifier.padding(top = 4.dp, end = 4.dp),
-                    onClick = onClose
-                ) {
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        painter = painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.generic_close)
-                    )
                 }
             }
         }
@@ -997,7 +976,6 @@ private fun PreviewGameInfoBox() {
             versionName = "1.21.11",
             versionInfo = "1.21.11",
             visible = true,
-            onClose = {}
         )
     }
 }
