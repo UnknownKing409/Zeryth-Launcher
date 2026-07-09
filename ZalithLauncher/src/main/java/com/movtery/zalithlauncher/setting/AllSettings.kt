@@ -485,8 +485,9 @@ object AllSettings : SettingsRegistry() {
 
     /**
      * 启动器任务菜单是否展开
+     * Default is false so the Task Menu starts collapsed when a task is first minimized.
      */
-    val launcherTaskMenuExpanded = boolSetting("launcherTaskMenuExpanded", true)
+    val launcherTaskMenuExpanded = boolSetting("launcherTaskMenuExpanded", false)
 
     /**
      * 在游戏菜单悬浮窗上显示帧率
