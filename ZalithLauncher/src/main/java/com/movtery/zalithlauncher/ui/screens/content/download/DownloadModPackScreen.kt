@@ -61,6 +61,7 @@ import com.movtery.zalithlauncher.game.download.modpack.install.ModPackInstaller
 import com.movtery.zalithlauncher.game.version.download.DownloadFailedException
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.notification.NotificationManager
+import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.components.MarqueeText
 import com.movtery.zalithlauncher.ui.components.NotificationCheck
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
@@ -408,6 +409,7 @@ private fun ModPackInstallOperation(
                             updateOperation(ModPackInstallOperation.None)
                         },
                         onMinimize = {
+                            AllSettings.launcherTaskMenuExpanded.save(false)
                             val bgTask = installer.createBackgroundTask(
                                 onCancelRequest = { onCancel() }
                             )
