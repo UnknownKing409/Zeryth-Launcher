@@ -82,6 +82,12 @@ public final class ZLBridge {
     @Keep public static native void fsrSetQuality(int qualityPreset);
 
     static {
+        // libffmpeg.so (Replay Mod video export) failed to resolve the native_handle_create
+        // symbol via libandroid.so on some Android 14 devices. Force-preload these system
+        // libraries before any other native library belonging to the game process, so the
+        // symbols are resolvable process-wide.
+        NativeLibraryLoader.preloadFFmpegSystemDependencies();
+
         NativeLibraryLoader.loadExitHookLib();
         NativeLibraryLoader.loadPojavLib();
         NativeLibraryLoader.loadPojavAWTLib();
