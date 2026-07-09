@@ -20,6 +20,7 @@ package com.movtery.zalithlauncher.game.download.assets
 
 import android.content.Context
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion
@@ -117,6 +118,11 @@ private fun downloadSingleFile(
     onCancel: () -> Unit = {},
     onFinally: () -> Unit = {}
 ) {
+    //Mods/Resource Packs/Shaders have no foreground install popup with a minimize button —
+    //the download goes straight to the background Task Menu, so it must collapse the menu
+    //immediately here, using the same shared implementation as the popup dialogs' onMinimize.
+    InstallerRestoreRegistry.collapseTaskMenu()
+
     TaskSystem.submitTask(
         Task.runTask(
             id = version.platformSha1() ?: version.platformFileName(),
