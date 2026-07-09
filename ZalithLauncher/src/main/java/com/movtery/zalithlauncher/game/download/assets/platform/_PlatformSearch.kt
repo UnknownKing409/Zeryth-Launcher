@@ -19,6 +19,7 @@
 package com.movtery.zalithlauncher.game.download.assets.platform
 
 import android.util.Log
+import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.game.download.assets.mapExceptionToMessage
 import com.movtery.zalithlauncher.game.download.assets.platform.curseforge.CurseForgeSearcher
 import com.movtery.zalithlauncher.game.download.assets.platform.curseforge.MCIM_CURSEFORGE_API
@@ -41,6 +42,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.util.Collections
 
 private const val TAG = "PlatformSearch"
 
@@ -55,6 +57,20 @@ private val mirrorCurseForgeSearcher = CurseForgeSearcher(
     api = MCIM_CURSEFORGE_API,
     source = "MCIM CurseForge"
 )
+
+/**
+ * Session-scoped LRU cache for project metadata (mod info page data).
+ * Holds up to 50 entries; least-recently-used entries are evicted first.
+ * Avoids redundant network calls when the user navigates back to a mod they already opened.
+ */
+private val projectCache: MutableMap<String, PlatformProject> = Collections.synchronizedMap(
+    object : LinkedHashMap<String, PlatformProject>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PlatformProject>?): Boolean =
+            size > 50
+    }
+)
+
+private fun projectCacheKey(platform: Platform, projectID: String) = "${platform.name}:$projectID"
 
 /**
  * 对资源平台搜索启用镜像源机制进行操作
@@ -104,13 +120,20 @@ suspend fun <E: AbstractPlatformSearcher, T> mirroredPlatformSearcher(
 }
 
 /**
- * 镜像源只能在中国地区使用
+ * 镜像源在中国地区使用，或未配置 CurseForge API 密钥时作为回退使用。
+ *
+ * When [BuildKeys.CURSEFORGE_API] is blank (no API key configured), the MCIM mirror is
+ * always included regardless of region so that requests which would otherwise receive a
+ * 403 Forbidden from the official API can fall back to the mirror automatically.
  */
 fun mirroredCurseForgeSource(
     enabledMirror: Boolean = isChinaMainland()
 ): List<CurseForgeSearcher> {
     val source = AllSettings.assetSearchSource.getValue()
-    val mirrorSource = mirrorCurseForgeSearcher.takeIf { enabledMirror }
+    // Include the mirror whenever the user is in China OR when no API key is configured,
+    // so the official searcher's 403 response is transparently handled by the fallback.
+    val hasApiKey = BuildKeys.CURSEFORGE_API.isNotBlank()
+    val mirrorSource = mirrorCurseForgeSearcher.takeIf { enabledMirror || !hasApiKey }
     return when (source) {
         MirrorSourceType.OFFICIAL_FIRST ->
             listOfNotNull(curseForgeSearcher, mirrorSource)
@@ -253,6 +276,13 @@ suspend fun <E> getProject(
     onSuccess: (PlatformProject) -> Unit,
     onError: (DownloadAssetsState<E>, Throwable) -> Unit
 ) {
+    // Return cached result immediately — avoids a network round-trip when the user
+    // navigates back to a mod page they already opened in this session.
+    projectCache[projectCacheKey(platform, projectID)]?.let { cached ->
+        onSuccess(cached)
+        return
+    }
+
     runCatching {
         when (platform) {
             Platform.CURSEFORGE -> mirroredPlatformSearcher(
@@ -267,7 +297,10 @@ suspend fun <E> getProject(
             }
         }
     }.fold(
-        onSuccess = onSuccess,
+        onSuccess = { result ->
+            projectCache[projectCacheKey(platform, projectID)] = result
+            onSuccess(result)
+        },
         onFailure = { e ->
             if (e !is CancellationException) {
                 Logger.error(TAG, "An exception occurred while retrieving project information.", e)
@@ -286,7 +319,9 @@ suspend fun getProjectByVersion(
     platform: Platform,
     printLog: Boolean = true
 ): PlatformProject = withContext(Dispatchers.IO) {
-    when (platform) {
+    projectCache[projectCacheKey(platform, projectId)]?.let { return@withContext it }
+
+    val result = when (platform) {
         Platform.MODRINTH -> mirroredPlatformSearcher(
             searchers = mirroredModrinthSource(),
             printLog = printLog
@@ -300,6 +335,8 @@ suspend fun getProjectByVersion(
             searcher.getProject(projectId)
         }
     }
+    projectCache[projectCacheKey(platform, projectId)] = result
+    result
 }
 
 suspend fun getVersionByLocalFile(file: File, sha1: String): PlatformVersion? = coroutineScope {

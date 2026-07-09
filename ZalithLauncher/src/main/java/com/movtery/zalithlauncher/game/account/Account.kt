@@ -22,6 +22,7 @@ import android.os.Parcelable
 import androidx.annotation.Keep
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 import com.movtery.zalithlauncher.game.account.wardrobe.CapeFileDownloader
 import com.movtery.zalithlauncher.game.account.wardrobe.SkinFileDownloader
 import com.movtery.zalithlauncher.game.account.wardrobe.SkinModelType
@@ -42,6 +43,7 @@ private const val TAG = "Account"
 @Keep
 @Parcelize
 @Entity(tableName = "accounts")
+@Serializable
 data class Account(
     /**
      * 唯一 UUID，标识该账号

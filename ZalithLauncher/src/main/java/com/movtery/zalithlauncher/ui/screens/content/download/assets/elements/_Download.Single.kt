@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -40,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -108,7 +110,10 @@ fun DownloadSingleOperation(
     operation: DownloadSingleOperation,
     changeOperation: (DownloadSingleOperation) -> Unit,
     doInstall: (PlatformClasses, PlatformVersion, List<Version>) -> Unit,
-    onDependencyClicked: (PlatformVersion.PlatformDependency, PlatformClasses) -> Unit = { _, _ -> }
+    onDependencyClicked: (PlatformVersion.PlatformDependency, PlatformClasses) -> Unit = { _, _ -> },
+    onDownloadAllDependencies: ((List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>, List<Version>, PlatformClasses) -> Unit)? = null,
+    /** 一键安装所选模组，并自动解析、下载、安装其所有必需前置项目 */
+    onInstallWithDependencies: ((PlatformClasses, PlatformVersion, List<Version>, List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>) -> Unit)? = null
 ) {
     when (operation) {
         DownloadSingleOperation.None -> {}
@@ -148,6 +153,18 @@ fun DownloadSingleOperation(
                 onDependencyClicked = { dependency, classes ->
                     changeOperation(DownloadSingleOperation.None)
                     onDependencyClicked(dependency, classes)
+                },
+                onDownloadAllDependencies = onDownloadAllDependencies?.let { callback ->
+                    { deps, versions, cls ->
+                        changeOperation(DownloadSingleOperation.None)
+                        callback(deps, versions, cls)
+                    }
+                },
+                onInstallWithDependencies = onInstallWithDependencies?.let { callback ->
+                    { versions, requiredDeps ->
+                        changeOperation(DownloadSingleOperation.None)
+                        callback(classes, operation.version, versions, requiredDeps)
+                    }
                 }
             )
         }
@@ -174,7 +191,9 @@ private fun DownloadDialog(
     classes: PlatformClasses,
     onDismiss: () -> Unit,
     onInstall: (List<Version>) -> Unit,
-    onDependencyClicked: (PlatformVersion.PlatformDependency, PlatformClasses) -> Unit
+    onDependencyClicked: (PlatformVersion.PlatformDependency, PlatformClasses) -> Unit,
+    onDownloadAllDependencies: ((List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>, List<Version>, PlatformClasses) -> Unit)? = null,
+    onInstallWithDependencies: ((List<Version>, List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>) -> Unit)? = null
 ) {
     val versions by rememberValidVersions()
     val version by VersionsManager.currentVersion.collectAsStateWithLifecycle()
@@ -225,15 +244,15 @@ private fun DownloadDialog(
                     shadowElevation = 6.dp
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .weight(1f, fill = false)
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (hasDeps) {
                                 val listState = rememberLazyListState()
@@ -306,18 +325,72 @@ private fun DownloadDialog(
                             }
                         }
 
+                        if (onDownloadAllDependencies != null && dependencies.isNotEmpty()) {
+                            val actionButtonShape = MaterialTheme.shapes.large
+                            val actionButtonHeight = 46.dp
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                //仅下载所有前置/可选项目，安装行为保持不变
+                                OutlinedButton(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(actionButtonHeight),
+                                    shape = actionButtonShape,
+                                    onClick = {
+                                        onDownloadAllDependencies(
+                                            dependencyProjects,
+                                            selectedVersions.toList(),
+                                            classes
+                                        )
+                                    }
+                                ) {
+                                    MarqueeText(
+                                        text = stringResource(R.string.download_assets_download_all_deps),
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+
+                                //一键安装所选模组及其所有必需前置项目
+                                if (onInstallWithDependencies != null) {
+                                    Button(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(actionButtonHeight),
+                                        shape = actionButtonShape,
+                                        onClick = {
+                                            if (selectedVersions.isNotEmpty()) {
+                                                onInstallWithDependencies(selectedVersions.toList(), dependencies)
+                                            }
+                                        }
+                                    ) {
+                                        MarqueeText(
+                                            text = stringResource(R.string.download_assets_install_with_deps),
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             FilledTonalButton(
-                                modifier = Modifier.weight(0.5f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = MaterialTheme.shapes.large,
                                 onClick = onDismiss
                             ) {
                                 MarqueeText(text = stringResource(R.string.generic_cancel))
                             }
                             Button(
-                                modifier = Modifier.weight(0.5f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = MaterialTheme.shapes.large,
                                 onClick = {
                                     if (selectedVersions.isNotEmpty()) {
                                         onInstall(selectedVersions)

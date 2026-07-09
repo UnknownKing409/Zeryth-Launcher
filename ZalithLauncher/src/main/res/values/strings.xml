@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="generic_cancel">Cancel</string>
+    <string name="generic_minimize">Minimize</string>
+    <string name="generic_run_in_background">Run in background</string>
     <string name="generic_confirm">Confirm</string>
     <string name="generic_error">Error</string>
     <string name="generic_tip">Tip</string>
@@ -8,6 +10,7 @@
     <string name="generic_back">Back</string>
     <string name="generic_refresh">Refresh</string>
     <string name="generic_reset">Reset</string>
+    <string name="skin_reset">Reset skin</string>
     <string name="generic_delete">Delete</string>
     <string name="generic_rename">Rename</string>
     <string name="generic_copy">Copy</string>
@@ -17,6 +20,7 @@
     <string name="generic_expand">Expand</string>
     <string name="generic_collapse">Collapse</string>
     <string name="generic_main_menu">Main Menu</string>
+    <string name="generic_none">None</string>
     <string name="generic_download">Download</string>
     <string name="generic_done">Done</string>
     <string name="generic_close">Close</string>
@@ -56,11 +60,13 @@
     <string name="generic_follow_system">Follow System</string>
     <string name="generic_edit">Edit</string>
     <string name="generic_view">View</string>
+    <string name="generic_info">Info</string>
     <!-- Page Title -->
     <string name="page_title_version_list">Version List</string>
     <string name="page_title_version_manage">Manage Versions</string>
     <string name="page_title_account_list">Account List</string>
     <string name="page_title_select_files">Select Path</string>
+    <string name="page_title_file_manager">File Manager</string>
     <string name="page_title_home_page_editor">Home Page Editor</string>
     <!-- Files -->
     <string name="files_browse_folder">Browse Folder</string>
@@ -75,6 +81,21 @@
     <string name="days_ago">%d days ago</string>
     <string name="months_ago">%d months ago</string>
     <string name="years_ago">%d years ago</string>
+    <string name="play_time_last_played">Last played: %s</string>
+    <string name="play_time_total">Play time: %s</string>
+    <string name="play_time_hours_minutes">%1$dh %2$dm</string>
+    <string name="play_time_minutes">%dm</string>
+    <!-- Game Stats -->
+    <string name="stats_game_stats">Game Statistics</string>
+    <string name="stats_play_time_graph">Play Time (Last 7 Days)</string>
+    <string name="stats_daily_hours">Today\'s Play Time</string>
+    <string name="stats_daily_hours_value">%s today</string>
+    <string name="stats_per_version">Play Time by Version</string>
+    <string name="stats_last_log">Last Game Log</string>
+    <string name="stats_no_log">No log available yet</string>
+    <string name="stats_no_data">No data yet</string>
+    <string name="stats_view_all">View All</string>
+    <string name="stats_today_header">TODAY\'S STATISTICS</string>
     <string name="empty_holder" translatable="false">%s</string>
     <!-- Sort By -->
     <string name="sort_by">Sort By</string>
@@ -107,10 +128,13 @@
     <string name="crash_exit_message">JVM exited with code %d.</string>
     <string name="crash_singnal_message">JVM aborted due to fatal signal %d.</string>
     <string name="crash_exit_note">For details on the cause, please check the log file. If you are unable to resolve the issue yourself, please send the log file to someone who can analyze it. They may be able to help you diagnose and fix the problem. Please do not take a screenshot of the current screen, as screenshots may not provide sufficient information to resolve the issue.</string>
+    <string name="crash_missing_dependency_hint">This crash looks like it was caused by a missing mod dependency: %1$s. Make sure %1$s is installed and compatible with your other mods (missing class: %2$s).</string>
+    <string name="crash_missing_dependency_hint_generic">This crash looks like it was caused by a missing class from a mod or one of its dependencies (%1$s). Check your mod list for missing or incompatible dependencies.</string>
     <string name="crash_type">Crash Type: %s</string>
     <string name="crash_type_launcher">Launcher Crash</string>
     <string name="crash_type_game">Game Crash</string>
     <string name="crash_share_logs">Share Logs</string>
+    <string name="crash_view_logs">View Logs</string>
     <string name="crash_restart">Restart</string>
     <string name="crash_exit">Exit</string>
     <string name="crash_link_share_button">Share Link</string>
@@ -129,6 +153,7 @@
     <string name="error_connection_failed">Failed to connect to server</string>
     <string name="error_parse_failed">Failed to parse data</string>
     <string name="error_bad_request">(%s) The server could not understand the request</string>
+    <string name="error_client_error">(%s) Error from your client</string>
     <string name="error_unauthorized">(%s) Please check your credentials and try again</string>
     <string name="error_forbidden">(%s) You do not have permission to access this resource</string>
     <string name="error_notfound">(%s) The requested resource could not be found</string>
@@ -141,6 +166,7 @@
     <string name="error_bad_gateway">(%s) The server received an invalid response from an upstream server</string>
     <string name="error_service_unavailable">(%s) The server is temporarily unable to handle the request</string>
     <string name="error_gateway_timeout">(%s) The server did not receive a timely response</string>
+    <string name="error_unknown">(%s) Unknown error</string>
     <!-- Splash Screen -->
     <string name="splash_screen_unpack_desc">The launcher needs to install these files to ensure Minecraft runs properly. They are included in the app and must be extracted first. Click the button below to start extraction and update.</string>
     <string name="splash_screen_installing">The launcher is extracting these files. Once done, it will automatically enter the main screen. Please wait patiently.</string>
@@ -202,6 +228,8 @@
     <string name="download_game_addon_recommended">%s Recommended</string>
     <string name="download_game_addon_not_installable">Not installable automatically</string>
     <string name="download_game_addon_warning_api">%s is not selected. Without installing it, most mods will not work!</string>
+    <string name="download_game_addon_skip_compatibility">Bypass compatibility check</string>
+    <string name="download_game_addon_skip_compatibility_warning">Bypassing compatibility checks may cause the game to fail to start or crash. Please use with caution.</string>
     <string name="download_game_install_title">Installing Game</string>
     <string name="download_game_install_vanilla">Downloading Vanilla %s</string>
     <string name="download_game_install_base_download_file">Download %1$s %2$s main file</string>
@@ -407,8 +435,12 @@
     <string name="game_menu_option_force_close_text">Forcing the currently running game to close may cause save data corruption or prevent settings from being saved. Avoid this action unless necessary.</string>
     <string name="game_menu_option_switch_log">Log Output</string>
     <string name="game_menu_option_input_method">Switch Input Method</string>
+    <string name="game_menu_option_mouse_cursor_on">Show Mouse Cursor</string>
+    <string name="game_menu_option_mouse_cursor_off">Hide Mouse Cursor</string>
     <string name="game_menu_option_switch_fps">FPS Display</string>
     <string name="game_menu_option_switch_memory">Memory Display</string>
+    <string name="game_menu_option_fps_settings">FPS Settings</string>
+    <string name="game_menu_option_ram_settings">RAM Settings</string>
     <string name="game_menu_option_menu_ball_opacity">Menu Overlay Opacity</string>
     <string name="game_menu_option_send_keycode">Send Keycode</string>
     <string name="game_menu_option_replacement_control">Replace Control Layout</string>
@@ -477,6 +509,7 @@
     <string name="account_logging_profile_not_exists">Please create a Minecraft player profile first, then try logging in again!</string>
     <string name="account_logging_not_purchased_minecraft">Minecraft ownership not verified. Please purchase it from Minecraft\'s official website.</string>
     <string name="account_type_microsoft">Microsoft</string>
+    <string name="account_type_ely_by">Ely.by</string>
     <string name="account_type_local">Offline</string>
     <string name="account_add_new_server">Add Auth Server</string>
     <string name="account_add_new_server_button">Add Auth</string>
@@ -599,7 +632,7 @@
     <string name="files_select_dir">Select Folder</string>
     <string name="files_current_path">Current path: %s</string>
     <string name="files_no_selectable_content">No selectable content</string>
-    <string name="file_invalid_length">Name too long! (Current: %d, Max: %d)</string>
+    <string name="file_invalid_length" formatted="false">Name too long! (Current: %d, Max: %d)</string>
     <string name="file_invalid_leading_or_trailing_space">Cannot start or end with a space!</string>
     <!-- Java Runtime -->
     <string name="multirt_runtime_corrupt">Corrupted Java runtime</string>
@@ -635,6 +668,18 @@
     <string name="versions_manage_pin">Pin</string>
     <string name="versions_manage_install_exists">Version name already exists!</string>
     <string name="versions_manage_invalid">Invalid version</string>
+    <string name="versions_manage_mod_updates">%d mod updates</string>
+    <string name="versions_manage_add_shortcut">Add to Home Screen</string>
+    <string name="versions_manage_launch">Launch</string>
+    <string name="versions_manage_view_mode_list">List</string>
+    <string name="versions_manage_view_mode_grid">Grid</string>
+    <string name="versions_manage_view_mode_compact">Compact</string>
+    <string name="launcher_stats_toggle">Today\'s Stats</string>
+    <string name="launcher_dashboard_tab_versions">Versions</string>
+    <string name="launcher_dashboard_mode">Dashboard Mode</string>
+    <string name="turnip_driver_installed">Installed Drivers</string>
+    <string name="turnip_driver_available">Available to Download</string>
+    <string name="turnip_driver_delete_confirm">Delete driver "%s"? This cannot be undone.</string>
     <string name="versions_manage_rename_version">Rename Version</string>
     <string name="versions_manage_copy_version">Copy Version</string>
     <string name="versions_manage_copy_version_tip">Copy the current version as a new version, with version isolation enabled by default. Check "Copy All Files" below to also include all generated files (resource packs, saves, game settings, etc.).</string>
@@ -870,7 +915,7 @@
     <string name="settings_tab_gamepad">Gamepad</string>
     <string name="settings_tab_launcher">Launcher</string>
     <string name="settings_tab_java_manage">Java</string>
-    <string name="settings_tab_control_manage">Controls</string>
+    <string name="settings_tab_control_manage">Layout</string>
     <string name="settings_tab_info_about">About</string>
     <string name="settings_renderer_global_renderer_title">Global Renderer</string>
     <string name="settings_renderer_global_renderer_summary">The global default renderer uses a dynamic library translation layer to ensure the game runs smoothly on mobile devices</string>
@@ -884,6 +929,15 @@
     <string name="settings_renderer_sustained_performance_summary">When enabled, the system provides more stable performance for the game, suitable for long play sessions, but may slightly reduce device responsiveness to prevent overheating</string>
     <string name="settings_renderer_shader_dump_title">Shader Logging</string>
     <string name="settings_renderer_shader_dump_summary">Output the converted shader code during game runtime to a log file for easier debugging and graphics rendering analysis</string>
+    <string name="settings_renderer_fsr_title">FSR1 Upscaling</string>
+    <string name="settings_renderer_fsr_summary">AMD FidelityFX Super Resolution 1.0 — scales up a lower-resolution render to full resolution with edge reconstruction</string>
+    <string name="settings_renderer_fsr_quality_title">FSR Quality</string>
+    <string name="settings_renderer_fsr_quality_summary">Higher quality = higher internal render resolution</string>
+    <string name="settings_renderer_fsr_quality_ultra">Ultra Quality</string>
+    <string name="settings_renderer_fsr_quality_quality">Quality</string>
+    <string name="settings_renderer_fsr_quality_balanced">Balanced</string>
+    <string name="settings_renderer_fsr_quality_performance">Performance</string>
+    <string name="sidebar_shortcut_menu">Shortcut Menu</string>
     <string name="settings_renderer_vulkan_driver_system_title">Use System Vulkan Driver</string>
     <string name="settings_renderer_vulkan_driver_system_summary">When enabled, the launcher will force the use of the system\'s built-in Vulkan driver (for Adreno GPUs) instead of the default Turnip driver. This setting only affects the Zink backend and related mods that use Vulkan rendering</string>
     <string name="settings_renderer_zink_driver_adreno">The launcher detected your device has an Adreno GPU. Enabling this option may cause the Zink renderer to malfunction. Are you sure you want to enable it?</string>
@@ -1227,9 +1281,29 @@
     <string name="about_launcher_title">About Launcher</string>
     <string name="about_launcher_version">Launcher Version: %s</string>
     <string name="about_launcher_author_movtery_title">MovTery</string>
-    <string name="about_launcher_author_movtery_text">Author of %s</string>
-    <string name="about_launcher_project_link">Project Link</string>
+    <string name="about_launcher_author_movtery_text">Author of Zalith Launcher 2</string>
+    <string name="about_launcher_author_star1xr_title">Star1xr</string>
+    <string name="about_launcher_author_star1xr_text">Author of Zalith Launcher 2 Plus</string>
+    <string name="about_launcher_author_rami1l_title">Rami1l</string>
+    <string name="about_launcher_author_rami1l_text">Author of Zeryth Launcher</string>
+    <string name="about_launcher_project_link">GitHub Link</string>
     <string name="about_sponsor">Sponsorship Support</string>
+    <string name="disclaimer_title">Unofficial Version</string>
+    <string name="disclaimer_content">Zeryth Launcher is an unofficial fork of Zalith Launcher 2.</string>
+    <string name="disclaimer_original_repo">Original Repo</string>
+    <string name="launcher_fork_subtitle">A fork of Zalith Launcher 2</string>
+    <string name="settings_renderer_external_driver">External Driver</string>
+    <string name="settings_renderer_tab_builtin">Built-in</string>
+    <string name="settings_renderer_tab_external">App Renderers</string>
+    <string name="settings_renderer_tab_external_empty_title">No App Renderers Installed</string>
+    <string name="settings_renderer_tab_external_empty">No renderer plugin apps are installed. Tap the download button to find compatible FCL or ZalithLauncher renderer plugins.</string>
+    <string name="settings_renderer_download_turnip">Download Turnip Driver</string>
+    <string name="settings_renderer_download_turnip_summary">Select a Turnip driver version and download it from GitHub</string>
+    <string name="settings_renderer_turnip_downloading">Downloading Turnip Driver...</string>
+    <string name="settings_renderer_turnip_extracting">Extracting Turnip Driver...</string>
+    <string name="settings_renderer_turnip_success">Turnip Driver installed successfully</string>
+    <string name="launcher_ram_usage">RAM: %1$dMB / %2$dMB</string>
+    <string name="launcher_fps_display">FPS: %d</string>
     <string name="about_acknowledgements_title">Acknowledgements</string>
     <string name="about_acknowledgements_pojav_text">%s uses the launch backend from PojavLauncher</string>
     <string name="about_acknowledgements_pcl_text">%s references parts of the implementation from PCL2</string>
@@ -1287,4 +1361,115 @@
     <string name="festivals_new_year">Happy New Year!</string>
     <string name="festivals_april_fools">Happy April Fools\' Day!</string>
     <string name="festivals_christmas">Merry Christmas!</string>
+    <!-- Custom Cape Upload -->
+    <string name="account_change_cape_upload">Change Cape</string>
+    <string name="account_change_cape_reset">Reset Cape</string>
+    <string name="account_change_cape_invalid">Invalid cape file! Cape must be 64x32 pixels PNG.</string>
+    <string name="account_change_cape_failed_to_import">Failed to import cape: %s</string>
+
+    <!-- Rank and Play Time -->
+    <string name="rank_novice">Novice</string>
+    <string name="rank_player">Player</string>
+    <string name="rank_experienced">Experienced</string>
+    <string name="rank_veteran">Veteran</string>
+    <string name="rank_master">Master</string>
+    <string name="rank_legend">Legend</string>
+    <string name="play_time_format">Play Time: %s Hours</string>
+    <string name="settings_chroma_name_title">Chroma Username</string>
+    <string name="chroma_mode_red_blue">Red &amp; Blue</string>
+    <string name="chroma_mode_sunset">Sunset</string>
+    <string name="chroma_mode_ocean">Ocean</string>
+    <string name="chroma_mode_forest">Forest</string>
+    <string name="chroma_mode_neon">Neon</string>
+    <string name="settings_tip_import_export">You can export or import settings from launcher settings.</string>
+    <string name="settings_import">Import Settings</string>
+    <string name="settings_export">Export Settings</string>
+    <string name="settings_import_accounts">Import Accounts</string>
+    <string name="settings_export_accounts">Export Accounts</string>
+    <string name="settings_import_success">Import successful!</string>
+    <string name="settings_import_failed">Import failed!</string>
+    <string name="settings_export_success">Exported to: %s</string>
+    <string name="settings_export_failed">Export failed!</string>
+    <string name="storage_permission_request_title">Storage Permission Required</string>
+    <string name="storage_permission_request_message">To export settings/accounts to public storage, we need storage permission.</string>
+
+    <!-- Zalith 1 Legacy Control Layout Management -->
+    <string name="control_manage_tab_zalith2">Zalith 2</string>
+    <string name="control_manage_tab_legacy">Zalith 1 Legacy</string>
+    <string name="legacy_control_manage_title">Legacy Layouts</string>
+    <string name="legacy_control_manage_empty">No legacy layouts found. Import a Zalith Launcher 1 layout (.json) to get started.</string>
+    <string name="legacy_control_manage_import">Import Legacy</string>
+    <string name="legacy_control_manage_not_legacy">This file is not a valid Zalith Launcher 1 control layout.</string>
+    <string name="legacy_control_manage_import_failed">Failed to import layout: %s</string>
+    <string name="legacy_control_manage_delete_message">Delete the layout \"%s\"?</string>
+    <string name="legacy_control_manage_info_buttons">Buttons</string>
+    <string name="legacy_control_manage_info_joysticks">Joysticks</string>
+    <string name="legacy_control_manage_info_drawers">Drawers</string>
+    <string name="legacy_control_manage_info_format_version">Format Version</string>
+    <string name="legacy_control_manage_edit_info">Edit Info</string>
+    <string name="legacy_control_manage_duplicate">Duplicate</string>
+    <string name="legacy_control_manage_create_new">Create New</string>
+    <string name="legacy_control_manage_builtin_badge">Built-in</string>
+    <string name="legacy_control_manage_active_in_game">Active (used in-game)</string>
+    <string name="legacy_control_manage_convert_to_zalith2">Convert to Zalith 2</string>
+    <!-- Default Control System Selector -->
+    <string name="settings_control_default_system_title">Default Control System</string>
+    <string name="settings_control_default_system_summary">Choose which control system launches Minecraft by default</string>
+    <string name="settings_control_default_system_zalith2">Zalith Launcher 2</string>
+    <string name="settings_control_default_system_legacy">Zalith Launcher 1 (Legacy)</string>
+    <string name="legacy_control_editor_no_buttons">No buttons yet. Tap + to add one.</string>
+    <string name="legacy_control_editor_add_button">Add Button</string>
+    <string name="legacy_control_editor_edit_button">Edit Button</string>
+    <string name="legacy_control_editor_keycodes">Key Codes (e.g. 29 or 29,30)</string>
+    <string name="legacy_control_editor_unsaved_title">Unsaved Changes</string>
+    <string name="legacy_control_editor_unsaved_message">You have unsaved changes. Save before leaving?</string>
+    <string name="legacy_control_editor_width">Width (dp)</string>
+    <string name="legacy_control_editor_height">Height (dp)</string>
+    <string name="legacy_control_editor_corner_radius">Corner Radius (0–90)</string>
+    <string name="legacy_control_editor_toggle">Toggle Button</string>
+    <string name="legacy_control_editor_display_game">Show in Game</string>
+    <string name="legacy_control_editor_display_menu">Show in Menu</string>
+    <string name="legacy_control_editor_hint_keycodes">Special: –1 Keyboard · –3 Left Click · –4 Right Click · –7/–8 Scroll</string>
+    <string name="control_type_selector_label">In-game control system</string>
+    <string name="control_type_zalith2">Zalith Launcher 2</string>
+    <string name="control_type_legacy">Legacy (Zalith 1)</string>
+    <string name="controls_settings_button_snapping">Button Snapping</string>
+    <string name="controls_settings_button_snapping_distance">Button Snapping Distance</string>
+    <string name="customctrl_addbutton">Add Button</string>
+    <string name="customctrl_addbutton_drawer">Add Drawer</string>
+    <string name="customctrl_addbutton_joystick">Add Joystick</string>
+    <string name="customctrl_editor_exit">Exit Editor</string>
+    <string name="customctrl_export">Save and Share</string>
+    <string name="customctrl_selectdefault">Select Default Control Layout</string>
+    <string name="option_edit_controls">Edit Control Layout</string>
+    <string name="pedit_control">Control Layout</string>
+    <string name="controls_add_control_button">Button</string>
+    <string name="global_save_and_exit">Save and Exit</string>
+    <string name="customctrl_menu_open">Open menu</string>
+    <string name="generic_load">Load</string>
+    <!-- ZL1 Backport: file provider authority for control layout export -->
+    <string name="storageProviderAuthorities" translatable="false">com.movtery.zalithlauncher.v2.provider</string>
+
+      <string name="legacy_control_editor_add_joystick">Add Joystick</string>
+      <string name="legacy_control_editor_add_drawer">Add Drawer</string>
+      <string name="legacy_control_editor_forward_lock">Forward Lock (stay forward)</string>
+      <string name="legacy_control_editor_absolute_mode">Absolute Mode (jump to touch)</string>
+      <string name="legacy_control_editor_hint_joystick_keycodes">Keycodes: W=87 · S=83 · A=65 · D=68 (GLFW key integers)</string>
+      <string name="legacy_control_editor_joystick_options">Joystick Options</string>
+    <string name="legacy_control_manage_set_default">Set as Default</string>
+
+    <!-- Upstream sync: build-76 additions -->
+    <string name="download_assets_download_all_deps">Download Dependencies</string>
+    <string name="download_assets_install_with_deps">Install with Dependencies</string>
+    <string name="mods_update_all">Update All Mods</string>
+    <string name="account_add_server_quick_ely_by">Quick add: Ely.by</string>
+    <string name="download_game_classic_picker">Classic version list</string>
+    <string name="download_game_classic_picker_summary">Show only release versions without search bar</string>
+    <string name="download_game_installed_at_top">Installed versions first</string>
+    <string name="stats_play_time">Play Time</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_month">This Month</string>
+    <string name="stats_all_time">All Time</string>
+    <string name="stats_most_played">Most Played</string>
+    <string name="stats_play_time_title">Play Time Statistics</string>
 </resources>

@@ -83,8 +83,10 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.GamePathItemLayout
 import com.movtery.zalithlauncher.ui.screens.content.elements.GamePathOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionCategory
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionCategoryItem
+import com.movtery.zalithlauncher.ui.screens.content.elements.VersionItemCallbacks
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionItemLayout
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionsOperation
+import com.movtery.zalithlauncher.utils.ShortcutUtils
 import com.movtery.zalithlauncher.utils.animation.swapAnimateDpAsState
 import com.movtery.zalithlauncher.utils.canHandlePermission
 import com.movtery.zalithlauncher.utils.checkStoragePermissions
@@ -232,7 +234,8 @@ fun VersionsManageScreen(
     navigateToVersions: (Version) -> Unit,
     navigateToExport: (Version) -> Unit,
     eventViewModel: EventViewModel,
-    submitError: (ErrorViewModel.ThrowableMessage) -> Unit
+    submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
+    onLaunchGame: (Version) -> Unit = {}
 ) {
     val viewModel = rememberVersionViewModel()
     val context = LocalContext.current
@@ -303,7 +306,8 @@ fun VersionsManageScreen(
                 },
                 onInstall = {
                     backScreenViewModel.navigateToDownload()
-                }
+                },
+                onLaunchGame = onLaunchGame
             )
 
             CleanupOperation(
@@ -444,7 +448,9 @@ private fun VersionsLayout(
     onRefresh: () -> Unit,
     onVersionPinned: () -> Unit,
     onInstall: () -> Unit,
+    onLaunchGame: (Version) -> Unit = {},
 ) {
+    val context = LocalContext.current
     val surfaceYOffset by swapAnimateDpAsState(
         targetValue = (-40).dp,
         swapIn = isVisible
@@ -534,29 +540,33 @@ private fun VersionsLayout(
                         state = scrollState,
                     ) {
                         items(versions, key = { it.toString() }) { version ->
+                            val callbacks = remember(version) {
+                                VersionItemCallbacks(
+                                    submitError = submitError,
+                                    onSelected = {
+                                        if (version == currentVersion) return@VersionItemCallbacks
+                                        if (!VersionsManager.saveVersion(version)) {
+                                            versionsOperation = VersionsOperation.InvalidDelete(version)
+                                        }
+                                    },
+                                    onSettingsClick = { navigateToVersions(version) },
+                                    onRenameClick = { versionsOperation = VersionsOperation.Rename(version) },
+                                    onCopyClick = { versionsOperation = VersionsOperation.Copy(version) },
+                                    onExportClick = { navigateToExport(version) },
+                                    onDeleteClick = { versionsOperation = VersionsOperation.Delete(version) },
+                                    onPinned = onVersionPinned,
+                                    onAddShortcutClick = { ShortcutUtils.pinVersion(context, version) },
+                                    onLaunchClick = { onLaunchGame(version) }
+                                )
+                            }
                             VersionItemLayout(
                                 version = version,
                                 selected = version == currentVersion,
-                                submitError = submitError,
+                                callbacks = callbacks,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 6.dp)
-                                    .animateItem(),
-                                onSelected = {
-                                    if (version == currentVersion) return@VersionItemLayout
-                                    if (!VersionsManager.saveVersion(version)) {
-                                        //不允许选择无效版本
-                                        versionsOperation = VersionsOperation.InvalidDelete(version)
-                                    }
-                                },
-                                onSettingsClick = {
-                                    navigateToVersions(version)
-                                },
-                                onRenameClick = { versionsOperation = VersionsOperation.Rename(version) },
-                                onCopyClick = { versionsOperation = VersionsOperation.Copy(version) },
-                                onExportClick = { navigateToExport(version) },
-                                onDeleteClick = { versionsOperation = VersionsOperation.Delete(version) },
-                                onPinned = onVersionPinned
+                                    .animateItem()
                             )
                         }
                     }

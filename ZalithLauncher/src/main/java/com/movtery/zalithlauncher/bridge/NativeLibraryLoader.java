@@ -18,7 +18,48 @@
 
 package com.movtery.zalithlauncher.bridge;
 
+import android.util.Log;
+
 public class NativeLibraryLoader {
+    private static final String TAG = "NativeLibraryLoader";
+
+    /**
+     * On some devices running Android 14 (API 34), the linker raised the following
+     * error when exporting video through Replay Mod via libffmpeg.so:
+     * "cannot locate symbol native_handle_create referenced by libandroid.so"
+     * <p>
+     * Inspecting libffmpeg.so with readelf shows it does not directly depend on
+     * libandroid, but some of the sub-libraries FFmpeg uses underneath (MediaCodec/AImage
+     * based hardware encoder paths) indirectly trigger these symbols at runtime. The issue
+     * stems from these system libraries not yet being loaded/linked into the process by
+     * the time FFmpeg is dlopen'd.
+     * <p>
+     * Fix: before the game process starts (i.e. before {@link ZLBridge} is first touched
+     * and the actual pojavexec/awt libraries are loaded), force-preload these system
+     * libraries at the Java layer via System.loadLibrary so their symbols become resolvable
+     * process-wide.
+     * <p>
+     * On some devices/architectures one of these libraries may not be found or may already
+     * be loaded; each one is therefore loaded independently inside its own try/catch so a
+     * missing library never prevents the game from starting.
+     */
+    public static void preloadFFmpegSystemDependencies() {
+        loadSystemLibraryQuietly("cutils");
+        loadSystemLibraryQuietly("android");
+        loadSystemLibraryQuietly("mediandk");
+    }
+
+    private static void loadSystemLibraryQuietly(String libraryName) {
+        try {
+            System.loadLibrary(libraryName);
+            Log.i(TAG, "Preloaded system library: lib" + libraryName + ".so");
+        } catch (UnsatisfiedLinkError | SecurityException e) {
+            // This library may be unavailable or inaccessible on some devices/architectures;
+            // log it quietly and continue so the game is never prevented from starting.
+            Log.w(TAG, "Failed to preload system library: lib" + libraryName + ".so", e);
+        }
+    }
+
     public static void loadPojavLib() {
         System.loadLibrary("pojavexec");
     }

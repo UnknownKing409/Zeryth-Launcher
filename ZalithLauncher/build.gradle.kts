@@ -2,6 +2,8 @@ import com.android.build.api.variant.FilterConfiguration.FilterType.ABI
 import com.android.build.api.variant.impl.VariantOutputImpl
 import com.android.build.gradle.tasks.MergeSourceSetFolders
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URL
+import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
@@ -46,10 +48,10 @@ android {
 
     signingConfigs {
         create("releaseBuild") {
-            storeFile = file("zalith_launcher.jks")
-            storePassword = getKeyFromLocal("STORE_PASSWORD", ".store_password.txt")
-            keyAlias = "movtery_zalith"
-            keyPassword = getKeyFromLocal("KEY_PASSWORD", ".key_password.txt")
+            storeFile = file("zalith_launcher_debug.jks")
+            storePassword = defaultStorePassword
+            keyAlias = "movtery_zalith_debug"
+            keyPassword = defaultKeyPassword
         }
         create("debugBuild") {
             storeFile = file("zalith_launcher_debug.jks")
@@ -121,6 +123,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures {
+        viewBinding = true
         compose = true
         buildConfig = true
         prefab = true
@@ -165,6 +168,70 @@ androidComponents {
     }
 }
 
+
+val mobileGluesLibs by tasks.registering {
+    val abis = setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+    doLast {
+        val jniLibsDir = file("src/main/jniLibs")
+        val allExist = abis.all { file("$jniLibsDir/$it/libMobileGlues.so").exists() }
+        if (allExist) return@doLast
+
+        val apiUrl = URL("https://api.github.com/repos/MobileGL-Dev/MobileGlues-release/releases/latest")
+        val conn = apiUrl.openConnection() as java.net.HttpURLConnection
+        conn.setRequestProperty("Accept", "application/json")
+        val releaseJson = conn.inputStream.readAllBytes().decodeToString()
+        conn.disconnect()
+
+        val assetUrl = Regex("\"browser_download_url\":\"([^\"]+\\.apk)\"").find(releaseJson)?.groupValues?.get(1)
+            ?: throw GradleException("No APK asset found in latest MobileGlues release")
+
+        val apkFile = layout.buildDirectory.file("tmp/mobileglues.apk").get().asFile
+        apkFile.parentFile.mkdirs()
+
+        logger.lifecycle("Downloading MobileGlues from $assetUrl")
+        URL(assetUrl).openStream().use { input ->
+            apkFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        // The upstream release APK packages the native library with an
+        // all-lowercase filename (lib/<abi>/libmobileglues.so), while the
+        // launcher's runtime (LIB_MESA_NAME / DLOPEN) looks for the
+        // mixed-case "libMobileGlues.so". Android's storage is
+        // case-sensitive, so a naive case-sensitive zip entry lookup never
+        // matches and the library silently never gets bundled, causing a
+        // "library libMobileGlues.so not found" crash at launch. Resolve
+        // the entry case-insensitively and always write the extracted file
+        // out using the exact case the runtime expects.
+        ZipFile(apkFile).use { zip ->
+            abis.forEach { abi ->
+                val expectedSuffix = "lib/$abi/libmobileglues.so"
+                val entry = zip.entries().asSequence()
+                    .firstOrNull { it.name.equals(expectedSuffix, ignoreCase = true) }
+                if (entry != null) {
+                    val outDir = file("$jniLibsDir/$abi")
+                    outDir.mkdirs()
+                    zip.getInputStream(entry).use { input ->
+                        File(outDir, "libMobileGlues.so").outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    logger.lifecycle("Extracted ${entry.name} -> $abi/libMobileGlues.so")
+                } else {
+                    logger.warn("lib/$abi/libmobileglues.so not found in MobileGlues release APK")
+                }
+            }
+        }
+        apkFile.delete()
+    }
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibs") }.configureEach {
+        dependsOn(mobileGluesLibs)
+    }
+}
 
 kotlin {
     compilerOptions {

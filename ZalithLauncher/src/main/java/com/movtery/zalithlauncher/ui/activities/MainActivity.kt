@@ -46,6 +46,7 @@ import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.control.ControlManager
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
+import com.movtery.zalithlauncher.ui.activities.EXTRA_LAUNCH_VERSION
 import com.movtery.zalithlauncher.notification.NotificationManager
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.path.URL_SUPPORT
@@ -57,6 +58,7 @@ import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.content.elements.Background
 import com.movtery.zalithlauncher.ui.screens.content.elements.LaunchGameOperation
 import com.movtery.zalithlauncher.ui.screens.content.navigateToLogView
+import com.movtery.zalithlauncher.ui.screens.content.navigateToWeb
 import com.movtery.zalithlauncher.ui.screens.main.MainScreen
 import com.movtery.zalithlauncher.ui.screens.main.crashlogs.LogShareMenu
 import com.movtery.zalithlauncher.ui.screens.main.crashlogs.LogShareMenuOperation
@@ -166,6 +168,7 @@ class MainActivity : BaseAppCompatActivity() {
     private var isCaptureKey = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        sInstance = this
         super.onCreate(savedInstanceState)
 
         //初始化通知管理（创建渠道）
@@ -209,6 +212,12 @@ class MainActivity : BaseAppCompatActivity() {
                         val url = event.url
                         withContext(Dispatchers.Main) {
                             this@MainActivity.openLink(url)
+                        }
+                    }
+                    is EventViewModel.Event.OpenWeb -> {
+                        val url = event.url
+                        withContext(Dispatchers.Main) {
+                            screenBackStackModel.mainScreen.backStack.navigateToWeb(url)
                         }
                     }
                     is EventViewModel.Event.CheckUpdate -> {
@@ -710,6 +719,17 @@ class MainActivity : BaseAppCompatActivity() {
     private fun handleImportIfNeeded(intent: Intent?): Boolean {
         if (intent == null) return false
 
+        val versionName = intent.getStringExtra(EXTRA_LAUNCH_VERSION)
+        if (versionName != null) {
+            intent.removeExtra(EXTRA_LAUNCH_VERSION)
+            val version = VersionsManager.getVersion(versionName)
+            if (version != null) {
+                VersionsManager.saveVersion(version)
+                launchGameViewModel.tryLaunch(version)
+            }
+            return true
+        }
+
         val type = intent.getStringExtra(EXTRA_IMPORT_TYPE) ?: return false
 
         val importing = when (type) {
@@ -781,4 +801,31 @@ class MainActivity : BaseAppCompatActivity() {
         }
         return super.dispatchKeyEvent(event)
     }
+
+      companion object {
+          private var sInstance: MainActivity? = null
+
+          /**
+           * ZL1 Backport: toggle the software keyboard state.
+           */
+          @JvmStatic
+          fun switchKeyboardState() {
+              sInstance?.let { activity ->
+                  activity.runOnUiThread {
+                      val imm = activity.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                              as android.view.inputmethod.InputMethodManager
+                      imm.toggleSoftInput(android.view.inputmethod.InputMethodManager.SHOW_FORCED, 0)
+                  }
+              }
+          }
+
+          /**
+           * ZL1 Backport: toggle the virtual mouse.
+           */
+          @JvmStatic
+          fun toggleMouse(context: android.content.Context) {
+              // No-op stub: ZL2 handles mouse toggle differently.
+          }
+      }
+  
 }

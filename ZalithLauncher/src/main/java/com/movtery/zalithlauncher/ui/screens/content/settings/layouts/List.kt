@@ -75,6 +75,7 @@ private fun <E> BaseListSettingsCard(
     innerShape: Dp = 4.dp,
     summary: String? = null,
     middleLayout: (@Composable ColumnScope.() -> Unit)? = null,
+    topContent: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable RowScope.() -> Unit)? = null,
     enabled: Boolean = true,
     itemListPadding: PaddingValues = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp),
@@ -156,6 +157,7 @@ private fun <E> BaseListSettingsCard(
                                 .fillMaxWidth()
                                 .padding(itemListPadding)
                         ) {
+                            topContent?.invoke()
                             items.forEach { item ->
                                 itemLayout(item)
                             }
@@ -181,6 +183,8 @@ fun <E> ListSettingsCard(
     getItemText: @Composable (E) -> String,
     getItemId: (E) -> String,
     getItemSummary: (@Composable (E) -> Unit)? = null,
+    getItemTrailing: (@Composable (E) -> Unit)? = null,
+    topContent: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable RowScope.() -> Unit)? = null,
     enabled: Boolean = true,
     autoCollapse: Boolean = true,
@@ -214,6 +218,9 @@ fun <E> ListSettingsCard(
                 summary = getItemSummary?.let {
                     { it.invoke(item) }
                 },
+                trailing = getItemTrailing?.let {
+                    { it.invoke(item) }
+                },
                 onClick = {
                     if (expanded && getItemId(selectedItem) != getItemId(item)) {
                         selectedItem = item
@@ -234,6 +241,7 @@ fun <E> ListSettingsCard(
                 style = MaterialTheme.typography.labelSmall
             )
         },
+        topContent = topContent,
         trailingIcon = trailingIcon,
         enabled = enabled,
         itemListPadding = itemListPadding,
@@ -255,6 +263,8 @@ fun <E> ListSettingsCard(
     getItemText: @Composable (E) -> String,
     getItemId: (E) -> String,
     getItemSummary: (@Composable (E) -> Unit)? = null,
+    getItemTrailing: (@Composable (E) -> Unit)? = null,
+    topContent: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable RowScope.() -> Unit)? = null,
     enabled: Boolean = true,
     autoCollapse: Boolean = true,
@@ -276,6 +286,8 @@ fun <E> ListSettingsCard(
         getItemText = getItemText,
         getItemId = getItemId,
         getItemSummary = getItemSummary,
+        getItemTrailing = getItemTrailing,
+        topContent = topContent,
         trailingIcon = trailingIcon,
         enabled = enabled,
         autoCollapse = autoCollapse,

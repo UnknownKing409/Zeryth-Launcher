@@ -65,6 +65,8 @@ import com.movtery.zalithlauncher.library.libraryData
 import com.movtery.zalithlauncher.path.URL_COMMUNITY
 import com.movtery.zalithlauncher.path.URL_MCMOD
 import com.movtery.zalithlauncher.path.URL_PROJECT
+import com.movtery.zalithlauncher.path.URL_RAMI1L
+import com.movtery.zalithlauncher.path.URL_STAR1XR
 import com.movtery.zalithlauncher.path.URL_SUPPORT
 import com.movtery.zalithlauncher.path.URL_WEBLATE
 import com.movtery.zalithlauncher.ui.base.BaseScreen
@@ -129,6 +131,32 @@ fun AboutInfoScreen(
                                     onClick = { openLink(URL_SUPPORT) }
                                 ) {
                                     Text(text = stringResource(R.string.about_sponsor))
+                                }
+                            }
+                        )
+
+                        ButtonIconItem(
+                            icon = painterResource(R.drawable.img_avatar_rami1l),
+                            title = stringResource(R.string.about_launcher_author_rami1l_title),
+                            text = stringResource(R.string.about_launcher_author_rami1l_text),
+                            button = {
+                                Button(
+                                    onClick = { openLink(URL_RAMI1L) }
+                                ) {
+                                    Text(text = stringResource(R.string.about_launcher_project_link))
+                                }
+                            }
+                        )
+
+                        ButtonIconItem(
+                            icon = painterResource(R.drawable.img_star1xr),
+                            title = stringResource(R.string.about_launcher_author_star1xr_title),
+                            text = stringResource(R.string.about_launcher_author_star1xr_text, BuildKeys.LAUNCHER_NAME),
+                            button = {
+                                Button(
+                                    onClick = { openLink(URL_STAR1XR) }
+                                ) {
+                                    Text(text = stringResource(R.string.about_launcher_project_link))
                                 }
                             }
                         )

@@ -31,6 +31,7 @@ import com.movtery.zalithlauncher.game.path.GamePathManager
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
 import com.movtery.zalithlauncher.setting.enums.AppLanguage
 import com.movtery.zalithlauncher.setting.enums.BackgroundBlur
+import com.movtery.zalithlauncher.setting.enums.ChromaMode
 import com.movtery.zalithlauncher.setting.enums.DarkMode
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
 import com.movtery.zalithlauncher.setting.enums.HomePageType
@@ -415,6 +416,10 @@ object AllSettings : SettingsRegistry() {
     val homePageURL = stringSetting("homePageURL", "")
 
     /**
+     * 版本列表视图模式：0=列表(LIST), 1=网格(GRID)
+     */
+    val versionViewMode = intSetting("versionViewMode", 0, 0..2)
+    /**
      * 启动器上次检查更新时，用户选择忽略的版本号
      */
     val lastIgnoredVersion = intSetting("lastIgnoredVersion", null)
@@ -449,6 +454,23 @@ object AllSettings : SettingsRegistry() {
      * 全局默认控制布局文件名
      */
     val controlLayout = stringSetting("controlLayout", "")
+    val legacyControlLayout = stringSetting("legacyControlLayout", "")
+    /**
+     * Active control type: "zalith2" or "legacy"
+     */
+    val controlType = stringSetting("controlType", "zalith2")
+
+    /** Legacy (ZL1 backport) button snapping — snap control buttons to a grid when editing */
+    val buttonSnapping = boolSetting("buttonSnapping", false)
+
+    /** Legacy (ZL1 backport) button snapping distance in dp */
+    val buttonSnappingDistance = intSetting("buttonSnappingDistance", 8, 1..64)
+
+    /** Legacy (ZL1 backport) global button scale percentage (25–200 %) */
+    val buttonScale = intSetting("buttonscale", 100, 25..200)
+
+    /** Legacy (ZL1 backport) whether button labels are shown in all-caps */
+    val buttonAllCaps = boolSetting("buttonAllCaps", false)
 
     //Other
     /**
@@ -463,8 +485,9 @@ object AllSettings : SettingsRegistry() {
 
     /**
      * 启动器任务菜单是否展开
+     * Default is false so the Task Menu starts collapsed when a task is first minimized.
      */
-    val launcherTaskMenuExpanded = boolSetting("launcherTaskMenuExpanded", true)
+    val launcherTaskMenuExpanded = boolSetting("launcherTaskMenuExpanded", false)
 
     /**
      * 在游戏菜单悬浮窗上显示帧率
@@ -525,6 +548,11 @@ object AllSettings : SettingsRegistry() {
      * 游戏内控制布局的整体不透明度
      */
     val controlsOpacity = intSetting("controlsOpacity", 100, 0..100)
+
+    /**
+     * 加载时隐藏控制布局
+     */
+    val hideControlsDuringLoading = boolSetting("hideControlsDuringLoading", true)
 
     /**
      * 控制布局编辑器：是否开启控件吸附功能
@@ -623,9 +651,29 @@ object AllSettings : SettingsRegistry() {
     val lastUpgradeCheck = longSetting("lastUpgradeCheck", 0L)
 
     /**
+     * 是否已接受非官方声明
+     */
+    val disclaimerAccepted = boolSetting("disclaimerAccepted", false)
+
+    /**
      * 玩家结束运行游戏的次数
      */
     val finishedGame = intSetting("finishedGame", 0)
+
+    /**
+     * 玩家在模拟器中运行游戏的总时长（毫秒）
+     */
+    val playTime = longSetting("playTime", 0L)
+
+    /**
+     * 彩虹（Chroma）用户名特效模式
+     */
+    val chromaMode = enumSetting("chromaMode", ChromaMode.NONE)
+
+    /**
+     * 是否显示设置导出/导入提示
+     */
+    val showSettingsTip = boolSetting("showSettingsTip", true)
 
     /**
      * 是否在打开启动器时，根据特定的运行游戏次数，显示赞助支持弹窗
@@ -656,4 +704,20 @@ object AllSettings : SettingsRegistry() {
      * 启动 MC26.2+ 时，自动检查 Vulkan
      */
     val autoVulkanChecker = boolSetting("autoVulkanChecker", true)
+
+    //FSR
+    val fsrEnabled = boolSetting("fsrEnabled", false)
+    val fsrQuality = intSetting("fsrQuality", 2, 1..4) // 1=UltraQuality, 2=Quality, 3=Balanced, 4=Performance
+
+      // ZL1 Legacy Backport setting (named to avoid JVM signature clash with getDisableGestures)
+      val zl1DisableGestures = boolSetting("zl1_disableGestures", false)
+
+      // ZL1 Legacy Backport @JvmStatic accessors — callable as AllSettings.xxx() from Java
+      @JvmStatic fun getGyroSmoothing() = gyroscopeSmoothing
+      @JvmStatic fun getGyroSampleRate() = gyroscopeSampleRate
+      @JvmStatic fun getMouseScale() = mouseSize
+      @JvmStatic fun getMouseSpeed() = mouseCaptureSensitivity
+      @JvmStatic fun getDisableGestures() = zl1DisableGestures
+      @JvmStatic fun getDeadZoneScale() = gamepadDeadZoneScale
+  
 }

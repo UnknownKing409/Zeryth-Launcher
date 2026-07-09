@@ -154,6 +154,7 @@ fun SimpleListItem(
     selected: Boolean,
     itemName: String,
     summary: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
     onClick: () -> Unit = {}
 ) {
@@ -168,6 +169,7 @@ fun SimpleListItem(
             onClick = onClick
         )
         Column(
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
@@ -176,6 +178,7 @@ fun SimpleListItem(
             )
             summary?.invoke()
         }
+        trailing?.invoke()
     }
 }
 

@@ -379,7 +379,7 @@
     <string name="files_select_dir">Pilih Folder</string>
     <string name="files_current_path">Jalur saat ini: %s</string>
     <string name="files_no_selectable_content">Tidak ada konten untuk dipilih</string>
-    <string name="file_invalid_length">Nama terlalu panjang! (Saat ini: %d, Maks: %d)</string>
+    <string name="file_invalid_length" formatted="false">Nama terlalu panjang! (Saat ini: %d, Maks: %d)</string>
     <string name="multirt_runtime_corrupt">Java runtime rusak</string>
     <string name="multirt_runtime_incompatible_arch">Arsitektur tidak kompatibel: %s</string>
     <string name="multirt_runtime_delete_message">Kamu yakin ingin menghapus Java runtime %s? Tindakan ini tidak bisa dibatalkan!</string>
@@ -502,6 +502,7 @@
     <string name="minecraft_download_progress_retry_downloading_files">Mencoba mengunduh ulang\n(%1$d/%2$d, %3$s/%4$s)</string>
     <string name="minecraft_download_failed">Terjadi kesalahan saat mengunduh Minecraft</string>
     <string name="generic_reset">Reset</string>
+    <string name="skin_reset">Reset skin</string>
     <string name="generic_cancel">Batal</string>
     <string name="generic_confirm">Konfirmasi</string>
     <string name="generic_error">Kesalahan</string>

@@ -8,6 +8,7 @@
     <string name="generic_back">Voltar</string>
     <string name="generic_refresh">Recarregar</string>
     <string name="generic_reset">Resetar</string>
+    <string name="skin_reset">Resetar skin</string>
     <string name="generic_delete">Apagar</string>
     <string name="generic_rename">Renomear</string>
     <string name="generic_copy">Copiar</string>
@@ -533,7 +534,7 @@
     <string name="files_select_dir">Selecionar Pasta</string>
     <string name="files_current_path">Caminho atual: %s</string>
     <string name="files_no_selectable_content">Nenhum conteúdo selecionável</string>
-    <string name="file_invalid_length">Nome muito longo! (Atual: %d, Máximo: %d)</string>
+    <string name="file_invalid_length" formatted="false">Nome muito longo! (Atual: %d, Máximo: %d)</string>
     <string name="file_invalid_leading_or_trailing_space">Não é possível começar ou terminar com um espaço!</string>
     <string name="multirt_runtime_corrupt">Java runtime Corrompido</string>
     <string name="multirt_runtime_incompatible_arch">Arquitetura incompatível: %s</string>

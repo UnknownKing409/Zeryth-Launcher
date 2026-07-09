@@ -56,8 +56,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -76,11 +79,16 @@ import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
+import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
+import com.movtery.zalithlauncher.coroutine.TitledTask
+import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialog
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
 import com.movtery.zalithlauncher.ui.base.applyFullscreen
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
+import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.TextRailItem
 import com.movtery.zalithlauncher.ui.screens.BackStackNavKey
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
@@ -88,10 +96,13 @@ import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.TitledNavKey
 import com.movtery.zalithlauncher.ui.screens.content.AccountManageScreen
 import com.movtery.zalithlauncher.ui.screens.content.DownloadScreen
+import com.movtery.zalithlauncher.ui.screens.content.FileManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileSelectorScreen
 import com.movtery.zalithlauncher.ui.screens.content.HomePageEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.LauncherScreen
+import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.LicenseScreen
+import com.movtery.zalithlauncher.ui.screens.content.GameStatsScreen
 import com.movtery.zalithlauncher.ui.screens.content.LogViewScreen
 import com.movtery.zalithlauncher.ui.screens.content.MultiplayerScreen
 import com.movtery.zalithlauncher.ui.screens.content.SettingsScreen
@@ -127,29 +138,49 @@ fun MainScreen(
 ) {
     val tasks by TaskSystem.tasksFlow.collectAsStateWithLifecycle()
 
-    //监控当前是否有任务正在进行
+    //çæ§å½åæ¯å¦æä»»å¡æ­£å¨è¿è¡
     LaunchedEffect(tasks) {
         if (tasks.isEmpty()) {
             eventViewModel.sendKeepScreen(false)
         } else {
-            //有任务正在进行，避免熄屏
+            //æä»»å¡æ­£å¨è¿è¡ï¼é¿åçå±
             eventViewModel.sendKeepScreen(true)
         }
     }
 
     val isTaskMenuExpanded = AllSettings.launcherTaskMenuExpanded.state
+    val showDisclaimer = AllSettings.disclaimerAccepted.state
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    if (!showDisclaimer) {
+        SimpleAlertDialog(
+            title = stringResource(R.string.disclaimer_title),
+            text = stringResource(R.string.disclaimer_content),
+            confirmText = stringResource(R.string.generic_got_it),
+            dismissText = stringResource(R.string.disclaimer_original_repo),
+            onConfirm = {
+                AllSettings.disclaimerAccepted.save(true)
+            },
+            onDismiss = {
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(URL_ORIGINAL_PROJECT))
+                context.startActivity(intent)
+            }
+        )
+    }
 
     fun changeTasksExpandedState() {
         AllSettings.launcherTaskMenuExpanded.save(!isTaskMenuExpanded)
     }
 
-    /** 回到主页面通用函数 */
+    /** åå°ä¸»é¡µé¢éç¨å½æ° */
     val toMainScreen: () -> Unit = {
         screenBackStackModel.mainScreen.clearWith(NormalNavKey.LauncherMain)
     }
 
     val mainScreenKey = screenBackStackModel.mainScreen.currentKey
     val inLauncherScreen = mainScreenKey == null || mainScreenKey is NormalNavKey.LauncherMain
+    val launcherRightPanelCollapsed by screenBackStackModel.launcherRightPanelCollapsed.collectAsStateWithLifecycle()
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     val isBackgroundValid = LocalBackgroundViewModel.current?.isValid == true
     val launcherBackgroundOpacity = AllSettings.launcherBackgroundOpacity.state.toFloat() / 100f
@@ -198,7 +229,13 @@ fun MainScreen(
                 changeExpandedState = {
                     changeTasksExpandedState()
                 },
+                onTitleClick = { showAboutDialog = true },
+                launcherRightPanelCollapsed = launcherRightPanelCollapsed,
             )
+
+            if (showAboutDialog) {
+                AboutDialog(onDismissRequest = { showAboutDialog = false })
+            }
 
             Box(
                 modifier = Modifier
@@ -234,6 +271,7 @@ fun MainScreen(
 private fun <E: TitledNavKey> TopBar(
     mainScreenKey: E?,
     inLauncherScreen: Boolean,
+    launcherRightPanelCollapsed: Boolean = false,
     taskRunning: Boolean,
     isTasksExpanded: Boolean,
     modifier: Modifier = Modifier,
@@ -244,6 +282,7 @@ private fun <E: TitledNavKey> TopBar(
     toDownloadScreen: () -> Unit,
     toMultiplayerScreen: () -> Unit,
     changeExpandedState: () -> Unit,
+    onTitleClick: () -> Unit = {},
 ) {
     val festivals = LocalFestivals.current
 
@@ -256,6 +295,8 @@ private fun <E: TitledNavKey> TopBar(
     ) {
         ConstraintLayout(modifier = modifier) {
             val (backCenter, title, endButtons) = createRefs()
+            val rightPanelGuidelineOffset = if (inLauncherScreen && !launcherRightPanelCollapsed) 290.dp else 0.dp
+            val contentEnd = createGuidelineFromEnd(rightPanelGuidelineOffset)
 
             val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
@@ -278,7 +319,7 @@ private fun <E: TitledNavKey> TopBar(
                             modifier = Modifier.fillMaxHeight(),
                             onClick = {
                                 if (!inLauncherScreen) {
-                                    //不在主屏幕时才允许返回
+                                    //ä¸å¨ä¸»å±å¹æ¶æåè®¸è¿å
                                     backDispatcher?.onBackPressed() ?: run {
                                         onScreenBack()
                                     }
@@ -296,7 +337,7 @@ private fun <E: TitledNavKey> TopBar(
                             modifier = Modifier.fillMaxHeight(),
                             onClick = {
                                 if (!inLauncherScreen) {
-                                    //不在主屏幕时才允许回到主页面
+                                    //ä¸å¨ä¸»å±å¹æ¶æåè®¸åå°ä¸»é¡µé¢
                                     toMainScreen()
                                 }
                             }
@@ -315,7 +356,12 @@ private fun <E: TitledNavKey> TopBar(
             Crossfade(
                 modifier = Modifier.constrainAs(title) {
                     centerVerticallyTo(parent)
-                    start.linkTo(backCenter.end, margin = 16.dp)
+                    if (inLauncherScreen) {
+                        start.linkTo(parent.start)
+                        end.linkTo(contentEnd)
+                    } else {
+                        start.linkTo(backCenter.end, margin = 16.dp)
+                    }
                 },
                 targetState = parentRes to childRes
             ) { (parent, child) ->
@@ -324,19 +370,24 @@ private fun <E: TitledNavKey> TopBar(
                 val maxLines = 1
 
                 if (parent == null) {
-                    if (festivals.isEmpty()) {
-                        Text(
-                            text = BuildKeys.LAUNCHER_IDENTIFIER,
-                            style = style,
-                            softWrap = softWarp,
-                            maxLines = maxLines
-                        )
-                    } else {
-                        FestivalTitleText(
-                            festivals = festivals,
-                            style = style,
-                            maxLines = maxLines
-                        )
+                    Column(
+                        modifier = Modifier.clickable { onTitleClick() },
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (festivals.isEmpty()) {
+                            Text(
+                                text = BuildKeys.LAUNCHER_IDENTIFIER,
+                                style = style,
+                                softWrap = softWarp,
+                                maxLines = maxLines
+                            )
+                        } else {
+                            FestivalTitleText(
+                                festivals = festivals,
+                                style = style,
+                                maxLines = maxLines
+                            )
+                        }
                     }
                 } else {
                     val parentText = stringResource(parent)
@@ -471,31 +522,36 @@ private fun NavigationUI(
     }
 
     if (backStack.isNotEmpty()) {
-        /** 导航至版本详细信息屏幕 */
-        val navigateToVersions: (Version) -> Unit = { version ->
-            screenBackStackModel.mainScreen.navigateTo(
-                screenKey = NestedNavKey.VersionSettings(version),
-                useClassEquality = true
-            )
+        /** å¯¼èªè³çæ¬è¯¦ç»ä¿¡æ¯å±å¹ */
+        val navigateToVersions: (Version) -> Unit = remember(screenBackStackModel) {
+            { version ->
+                screenBackStackModel.mainScreen.navigateTo(
+                    screenKey = NestedNavKey.VersionSettings(version),
+                    useClassEquality = true
+                )
+            }
         }
-        /** 导航至整合包导出屏幕 */
-        val navigateToExport: (Version) -> Unit = { version ->
-            screenBackStackModel.mainScreen.removeAndNavigateTo(
-                remove = NestedNavKey.VersionSettings::class,
-                screenKey = NestedNavKey.VersionExport(version),
-                useClassEquality = true
-            )
+        /** å¯¼èªè³æ´ååå¯¼åºå±å¹ */
+        val navigateToExport: (Version) -> Unit = remember(screenBackStackModel) {
+            { version ->
+                screenBackStackModel.mainScreen.removeAndNavigateTo(
+                    remove = NestedNavKey.VersionSettings::class,
+                    screenKey = NestedNavKey.VersionExport(version),
+                    useClassEquality = true
+                )
+            }
         }
 
-        NavDisplay(
-            backStack = backStack,
-            modifier = modifier,
-            onBack = {
-                onBack(backStack)
-            },
-            transitionSpec = rememberTransitionSpec(),
-            popTransitionSpec = rememberTransitionSpec(),
-            entryProvider = entryProvider {
+        val provider = remember(
+            screenBackStackModel,
+            toMainScreen,
+            eventViewModel,
+            modpackImportViewModel,
+            submitError,
+            navigateToVersions,
+            navigateToExport
+        ) {
+            entryProvider {
                 entry<NormalNavKey.LauncherMain> {
                     LauncherScreen(
                         backStackViewModel = screenBackStackModel,
@@ -510,6 +566,12 @@ private fun NavigationUI(
                         },
                         onHomePageEvent = { event ->
                             eventViewModel.sendEvent(EventViewModel.Event.HomePage.Event(event))
+                        },
+                        onNavigateToStats = {
+                            backStack.navigateTo(NormalNavKey.GameStats)
+                        },
+                        onNavigateToLog = { logPath ->
+                            backStack.navigateTo(NormalNavKey.LogView(logPath))
                         }
                     )
                 }
@@ -554,7 +616,12 @@ private fun NavigationUI(
                         navigateToVersions = navigateToVersions,
                         navigateToExport = navigateToExport,
                         eventViewModel = eventViewModel,
-                        submitError = submitError
+                        submitError = submitError,
+                        onLaunchGame = { version ->
+                            eventViewModel.sendEvent(
+                                EventViewModel.Event.Launch.Game(version)
+                            )
+                        }
                     )
                 }
                 entry<NormalNavKey.FileSelector> { key ->
@@ -611,7 +678,26 @@ private fun NavigationUI(
                         backStackViewModel = screenBackStackModel,
                     )
                 }
+                entry<NormalNavKey.GameStats> {
+                    GameStatsScreen(
+                        backStackViewModel = screenBackStackModel,
+                    )
+                }
+                entry<NormalNavKey.FileManager> { key ->
+                    FileManagerScreen(initialPath = key.initialPath)
+                }
             }
+        }
+
+        NavDisplay(
+            backStack = backStack,
+            modifier = modifier,
+            onBack = {
+                onBack(backStack)
+            },
+            transitionSpec = rememberTransitionSpec(),
+            popTransitionSpec = rememberTransitionSpec(),
+            entryProvider = provider
         )
     } else {
         Box(modifier)
@@ -625,6 +711,29 @@ private fun TaskMenu(
     modifier: Modifier = Modifier,
     changeExpandedState: () -> Unit = {}
 ) {
+    var restoredEntry by remember { mutableStateOf<InstallerRestoreRegistry.RestorableInstaller?>(null) }
+
+    // Restore dialog: shown when user taps a minimized installer task
+    restoredEntry?.let { entry ->
+        val restoredTasks = entry.tasksFlow.collectAsStateWithLifecycle()
+        if (restoredTasks.value.isNotEmpty()) {
+            TitleTaskFlowDialog(
+                title = entry.title,
+                tasks = restoredTasks.value,
+                onCancel = {
+                    entry.onCancel()
+                    restoredEntry = null
+                },
+                onMinimize = {
+                    // Re-minimize: just dismiss the restored overlay
+                    restoredEntry = null
+                }
+            )
+        } else {
+            // Tasks finished while dialog was open — dismiss cleanly
+            restoredEntry = null
+        }
+    }
     val show = isExpanded && tasks.isNotEmpty()
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -686,17 +795,24 @@ private fun TaskMenu(
                         .weight(1f),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    items(tasks) { task ->
+                    items(
+                        items = tasks,
+                        key = { it.id },
+                        contentType = { "task" }
+                    ) { task ->
+                        val canRestore = InstallerRestoreRegistry.hasEntry(task.id)
                         TaskItem(
                             taskProgress = task.currentProgress,
                             taskMessageRes = task.currentMessageRes,
                             taskMessageArgs = task.currentMessageArgs,
                             taskRateBytesPerSec = task.currentRateBytesPerSec,
+                            onTaskClick = if (canRestore) {
+                                { restoredEntry = InstallerRestoreRegistry.getEntry(task.id) }
+                            } else null,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 6.dp)
                         ) {
-                            //取消任务
                             TaskSystem.cancelTask(task.id)
                         }
                     }
@@ -716,6 +832,7 @@ private fun TaskItem(
     shape: Shape = MaterialTheme.shapes.large,
     color: Color = cardColor(false),
     contentColor: Color = onCardColor(),
+    onTaskClick: (() -> Unit)? = null,
     onCancelClick: () -> Unit = {}
 ) {
     Surface(
@@ -741,6 +858,21 @@ private fun TaskItem(
                 )
             }
 
+            if (onTaskClick != null) {
+                IconButton(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.CenterVertically),
+                    onClick = onTaskClick
+                ) {
+                    Icon(
+                        modifier = Modifier.size(20.dp),
+                        painter = painterResource(R.drawable.ic_arrow_drop_up_rounded),
+                        contentDescription = stringResource(R.string.generic_expand)
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -757,7 +889,7 @@ private fun TaskItem(
                     )
                 }
 
-                if (taskProgress < 0) { //负数则代表不确定
+                if (taskProgress < 0) {
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth()
                     )

@@ -32,8 +32,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +51,6 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -81,6 +78,8 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.bridge.CURSOR_DISABLED
 import com.movtery.zalithlauncher.bridge.ZLBridgeStates
 import com.movtery.zalithlauncher.bridge.ZLNativeInvoker
+import com.movtery.zalithlauncher.game.control.legacy.LegacyControlConverter
+import com.movtery.zalithlauncher.game.control.legacy.PojavControlLayout
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender
 import com.movtery.zalithlauncher.game.keycodes.ControlEventKeycode
 import com.movtery.zalithlauncher.game.keycodes.LwjglGlfwKeycode
@@ -123,6 +122,8 @@ import com.movtery.zalithlauncher.ui.screens.game.elements.GameMenuSubscreen
 import com.movtery.zalithlauncher.ui.screens.game.elements.JoystickManageOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogBox
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogState
+import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
+import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.ReplacementControlOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.ReplacementControlState
 import com.movtery.zalithlauncher.ui.screens.game.elements.SendKeycodeOperation
@@ -141,6 +142,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.filterIsInstance
@@ -162,12 +164,22 @@ private class GameViewModel(
     var gameMenuState by mutableStateOf(MenuState.NONE)
     /** 游戏菜单-控制设置区域Tab选择的索引 */
     var controlMenuTabIndex by mutableIntStateOf(0)
+    /** Legacy模式：虚拟鼠标光标切换请求计数器，悬浮菜单与布局内专用按钮共用同一计数器以保持同步 */
+    var mouseCursorToggleRequest by mutableIntStateOf(0)
+    /** Legacy模式：虚拟鼠标光标当前是否显示 */
+    var legacyMouseCursorEnabled by mutableStateOf(false)
+    /** 切换Legacy模式下的虚拟鼠标光标显示状态 */
+    fun toggleMouseCursor() {
+        mouseCursorToggleRequest++
+    }
     /** 强制关闭弹窗操作状态 */
     var forceCloseState by mutableStateOf<ForceCloseOperation>(ForceCloseOperation.None)
     /** 发送键值操作状态 */
     var sendKeycodeState by mutableStateOf<SendKeycodeState>(SendKeycodeState.None)
     /** 更换控制布局操作状态 */
     var replacementControlState by mutableStateOf<ReplacementControlState>(ReplacementControlState.None)
+    /** 性能设置弹窗操作状态 */
+    var performanceSettingsState by mutableStateOf<PerformanceSettingsOperation>(PerformanceSettingsOperation.None)
     /** 被控制布局层标记为仅滑动的指针列表 */
     var moveOnlyPointers = mutableSetOf<PointerId>()
     /** 鼠标触摸指针处理层占用指针列表 */
@@ -308,6 +320,12 @@ private class GameViewModel(
     }
 
     private fun getLayout(layoutFile: File? = currentControlFile): ControlLayout {
+        if (AllSettings.controlType.getValue() == "legacy") {
+            // In legacy mode, PojavControlLayout (View-based) renders the ZL1 controls
+            // directly — no LayerController conversion needed. Return an empty layout so
+            // the ZL2 ControlBoxLayout renders nothing.
+            return EmptyControlLayout
+        }
         return layoutFile?.let {
             try {
                 loadLayoutFromFile(it)
@@ -512,7 +530,6 @@ fun GameScreen(
     version: Version,
     gameHandler: GameHandler,
     showGameInfo: Boolean,
-    onInfoBoxClose: () -> Unit,
     logState: LogState,
     onLogStateChange: (LogState) -> Unit,
     textInputMode: TextInputMode,
@@ -532,6 +549,12 @@ fun GameScreen(
     val isGrabbing = remember(cursorMode) {
         cursorMode == CURSOR_DISABLED
     }
+    // Legacy mode: PojavLauncher native ControlLayout replaces the LayerController system.
+    val isLegacyMode = AllSettings.controlType.getValue() == "legacy"
+    val legacyFile: File? = if (isLegacyMode) {
+        val name = AllSettings.legacyControlLayout.getValue()
+        if (name.isNotEmpty()) File(PathManager.DIR_LEGACY_CONTROL_LAYOUTS, name).takeIf { it.exists() } else null
+    } else null
     val joystickMovementViewModel: JoystickMovementViewModel = viewModel()
     val terracottaViewModel = rememberTerracottaViewModel(
         keyTag = gameHandler.toString() + "_Terracotta",
@@ -561,12 +584,16 @@ fun GameScreen(
         },
         text = stringResource(R.string.game_menu_option_force_close_text)
     )
-
     ReplacementControlOperation(
         operation = viewModel.replacementControlState,
         onChange = { viewModel.replacementControlState = it },
         currentLayout = viewModel.currentControlFile,
         replacementControl = { viewModel.replaceControlLayout(it) }
+    )
+
+    PerformanceSettingsDialog(
+        operation = viewModel.performanceSettingsState,
+        onDismissRequest = { viewModel.performanceSettingsState = PerformanceSettingsOperation.None }
     )
 
     TerracottaOperation(
@@ -605,40 +632,65 @@ fun GameScreen(
             }
 
             //控制布局层
-            ControlBoxLayout(
-                modifier = Modifier.fillMaxSize(),
-                observedLayout = viewModel.observableLayout,
-                eventHandler = viewModel.eventHandler,
-                checkOccupiedPointers = { viewModel.occupiedPointers.contains(it) },
-                opacity = (AllSettings.controlsOpacity.state.toFloat() / 100f).coerceIn(0f, 1f),
-                markPointerAsMoveOnly = { viewModel.moveOnlyPointers.add(it) },
-                isUsingJoystick = isGrabbing && AllSettings.enableJoystickControl.state,
-                isCursorGrabbing = isGrabbing,
-                hideLayerWhen = viewModel.controlLayerHideState,
-                isDark = isLauncherInDarkTheme()
-            ) {
-                //虚拟鼠标控制层
-                MouseControlLayout(
-                    isTouchProxyEnabled = isTouchProxyEnabled,
-                    modifier = Modifier.fillMaxSize(),
-                    cursorMode = cursorMode,
-                    screenSize = screenSize,
-                    onInputAreaRectUpdated = onInputAreaRectUpdated,
-                    textInputMode = textInputMode,
-                    isMoveOnlyPointer = { viewModel.moveOnlyPointers.contains(it) },
-                    onOccupiedPointer = { viewModel.occupiedPointers.add(it) },
-                    onReleasePointer = {
-                        viewModel.occupiedPointers.remove(it)
-                        viewModel.moveOnlyPointers.remove(it)
+            val hideControls = showGameInfo && AllSettings.hideControlsDuringLoading.state
+            if (!hideControls && isLegacyMode && legacyFile != null) {
+                // Legacy (Zalith 1) mode: native View-based ControlLayout.
+                // Touch routing handled natively — see PojavControlLayout.kt.
+                // When the Touch Controller proxy is enabled, intercept all touch events
+                // at the Compose level (PointerEventPass.Initial) and forward them to the
+                // proxy client so the mod receives pointer positions — matching ZL2 behaviour.
+                PojavControlLayout(
+                    modifier = Modifier.fillMaxSize().then(
+                        if (isTouchProxyEnabled)
+                            Modifier.touchControllerTouchModifier(screenSize = screenSize)
+                        else Modifier
+                    ),
+                    legacyFile = legacyFile,
+                    isGrabbing = isGrabbing,
+                    mouseCursorToggleRequest = viewModel.mouseCursorToggleRequest,
+                    onMenuButtonClicked = { viewModel.switchMenu() },
+                    onKeyboardButtonClicked = {
+                        eventViewModel.sendEvent(EventViewModel.Event.Game.SwitchIme(null))
                     },
-                    onMouseMoved = { viewModel.switchControlLayer(HideLayerWhen.WhenMouse) },
-                    onTouch = { viewModel.switchControlLayer(HideLayerWhen.None) },
-                    gamepadViewModel = gamepadViewModel.takeIf { AllSettings.gamepadControl.state }
+                    onMouseCursorStateChanged = { viewModel.legacyMouseCursorEnabled = it }
                 )
+            } else if (!hideControls && !isLegacyMode) {
+                // Zalith 2 mode: use LayerController's ControlBoxLayout.
+                ControlBoxLayout(
+                    modifier = Modifier.fillMaxSize(),
+                    observedLayout = viewModel.observableLayout,
+                    eventHandler = viewModel.eventHandler,
+                    checkOccupiedPointers = { viewModel.occupiedPointers.contains(it) },
+                    opacity = (AllSettings.controlsOpacity.state.toFloat() / 100f).coerceIn(0f, 1f),
+                    markPointerAsMoveOnly = { viewModel.moveOnlyPointers.add(it) },
+                    isUsingJoystick = isGrabbing && AllSettings.enableJoystickControl.state,
+                    isCursorGrabbing = isGrabbing,
+                    hideLayerWhen = viewModel.controlLayerHideState,
+                    isDark = isLauncherInDarkTheme()
+                ) {
+                    //虚拟鼠标控制层
+                    MouseControlLayout(
+                        isTouchProxyEnabled = isTouchProxyEnabled,
+                        modifier = Modifier.fillMaxSize(),
+                        cursorMode = cursorMode,
+                        screenSize = screenSize,
+                        onInputAreaRectUpdated = onInputAreaRectUpdated,
+                        textInputMode = textInputMode,
+                        isMoveOnlyPointer = { viewModel.moveOnlyPointers.contains(it) },
+                        onOccupiedPointer = { viewModel.occupiedPointers.add(it) },
+                        onReleasePointer = {
+                            viewModel.occupiedPointers.remove(it)
+                            viewModel.moveOnlyPointers.remove(it)
+                        },
+                        onMouseMoved = { viewModel.switchControlLayer(HideLayerWhen.WhenMouse) },
+                        onTouch = { viewModel.switchControlLayer(HideLayerWhen.None) },
+                        gamepadViewModel = gamepadViewModel.takeIf { AllSettings.gamepadControl.state }
+                    )
+                }
             }
 
             //物品栏触发层
-            MinecraftHotbar(
+            if (!hideControls) MinecraftHotbar(
                 screenSize = screenSize,
                 rule = AllSettings.hotbarRule.state,
                 widthPercentage = AllSettings.hotbarWidth.state.hotbarPercentage(),
@@ -652,20 +704,22 @@ fun GameScreen(
                 onReleasePointer = { viewModel.occupiedPointers.remove(it) }
             )
 
-            //摇杆控制层
-            viewModel.observableLayout?.let { layout ->
-                val special by layout.special.collectAsStateWithLifecycle()
-                JoystickControlLayout(
-                    screenSize = screenSize,
-                    isGrabbing = isGrabbing,
-                    special = special,
-                    defaultStyle = viewModel.launcherJoystickStyle,
-                    hideLayerWhen = viewModel.controlLayerHideState,
-                    viewModel = joystickMovementViewModel,
-                    onKeyEvent = { event, pressed ->
-                        viewModel.onKeyEvent(event, pressed)
-                    }
-                )
+            //摇杆控制层 (Zalith 2 only — ControlJoystick handles movement in legacy mode)
+            if (!isLegacyMode) {
+                viewModel.observableLayout?.let { layout ->
+                    val special by layout.special.collectAsStateWithLifecycle()
+                    if (!hideControls) JoystickControlLayout(
+                        screenSize = screenSize,
+                        isGrabbing = isGrabbing,
+                        special = special,
+                        defaultStyle = viewModel.launcherJoystickStyle,
+                        hideLayerWhen = viewModel.controlLayerHideState,
+                        viewModel = joystickMovementViewModel,
+                        onKeyEvent = { event, pressed ->
+                            viewModel.onKeyEvent(event, pressed)
+                        }
+                    )
+                }
             }
         }
 
@@ -694,8 +748,7 @@ fun GameScreen(
                 .padding(all = 16.dp),
             versionName = version.getVersionName(),
             versionInfo = version.getVersionInfo()?.getInfoString(),
-            visible = showGameInfo,
-            onClose = onInfoBoxClose
+            visible = showGameInfo
         )
 
         LogBox(
@@ -714,12 +767,17 @@ fun GameScreen(
             closeScreen = { viewModel.gameMenuState = MenuState.HIDE },
             onForceClose = { viewModel.forceCloseState = ForceCloseOperation.Show },
             onSwitchLog = { onLogStateChange(logState.next()) },
+            onOpenPerformanceFps = { viewModel.performanceSettingsState = PerformanceSettingsOperation.Fps },
+            onOpenPerformanceRam = { viewModel.performanceSettingsState = PerformanceSettingsOperation.Ram },
             enableTerracotta = AllSettings.enableTerracotta.state,
             onOpenTerracottaMenu = { terracottaViewModel.openMenu() },
             onRefreshWindowSize = { eventViewModel.sendEvent(EventViewModel.Event.Game.RefreshSize) },
             onInputMethod = {
                 eventViewModel.sendEvent(EventViewModel.Event.Game.SwitchIme(null))
             },
+            isLegacyMode = isLegacyMode,
+            mouseCursorEnabled = viewModel.legacyMouseCursorEnabled,
+            onToggleMouseCursor = { viewModel.toggleMouseCursor() },
             onSendKeycode = { viewModel.sendKeycodeState = SendKeycodeState.ShowDialog },
             onReplacementControl = { viewModel.replacementControlState = ReplacementControlState.Show },
             onManageJoystick = {
@@ -863,7 +921,6 @@ private fun GameInfoBox(
     versionName: String,
     versionInfo: String?,
     visible: Boolean,
-    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -877,49 +934,34 @@ private fun GameInfoBox(
             influencedByBackground = false,
             shape = MaterialTheme.shapes.extraLarge
         ) {
-            Row {
-                Row(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .padding(vertical = 16.dp)
-                        .padding(start = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    LoadingIndicator(
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    )
+            Row(
+                modifier = Modifier
+                    .padding(vertical = 16.dp)
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                LoadingIndicator(
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                )
 
-                    //提示信息
-                    Column(
-                        modifier = Modifier.weight(1f, fill = false),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
+                //提示信息
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.game_loading),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.game_loading_version_name, versionName),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    versionInfo?.let { info ->
                         Text(
-                            text = stringResource(R.string.game_loading),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = stringResource(R.string.game_loading_version_name, versionName),
+                            text = stringResource(R.string.game_loading_version_info, info),
                             style = MaterialTheme.typography.labelLarge
                         )
-                        versionInfo?.let { info ->
-                            Text(
-                                text = stringResource(R.string.game_loading_version_info, info),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
                     }
-                }
-
-                IconButton(
-                    modifier = Modifier.padding(top = 4.dp, end = 4.dp),
-                    onClick = onClose
-                ) {
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        painter = painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.generic_close)
-                    )
                 }
             }
         }
@@ -934,7 +976,6 @@ private fun PreviewGameInfoBox() {
             versionName = "1.21.11",
             versionInfo = "1.21.11",
             visible = true,
-            onClose = {}
         )
     }
 }

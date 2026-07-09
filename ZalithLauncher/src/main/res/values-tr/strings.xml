@@ -8,6 +8,7 @@
     <string name="generic_back">Geri Dön</string>
     <string name="generic_refresh">Yenile</string>
     <string name="generic_reset">Sıfırla</string>
+    <string name="skin_reset">Skin Sıfırla</string>
     <string name="generic_delete">Sil</string>
     <string name="generic_rename">Yeniden Adlandır</string>
     <string name="generic_copy">Kopyala</string>
@@ -17,6 +18,7 @@
     <string name="generic_expand">Genişlet</string>
     <string name="generic_collapse">Daralt</string>
     <string name="generic_main_menu">Ana Menü</string>
+    <string name="generic_none">Yok</string>
     <string name="generic_download">İndir</string>
     <string name="generic_done">Tamamlandı</string>
     <string name="generic_close">Kapat</string>
@@ -388,7 +390,7 @@
     <string name="files_select_dir">Klasör Seç</string>
     <string name="files_current_path">Geçerli yol: %s</string>
     <string name="files_no_selectable_content">Seçilebilecek içerik yok</string>
-    <string name="file_invalid_length">Ad çok uzun! (Şu an: %d, Maks: %d)</string>
+    <string name="file_invalid_length" formatted="false">Ad çok uzun! (Şu an: %d, Maks: %d)</string>
     <string name="multirt_runtime_corrupt">Bozuk Java çalışma zamanı</string>
     <string name="multirt_runtime_incompatible_arch">Uyumsuz mimari: %s</string>
     <string name="multirt_runtime_delete_message">Java çalışma ortamı %s\'yi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!</string>
@@ -414,6 +416,11 @@
     <string name="versions_manage_no_versions">Kurulu sürüm yok</string>
     <string name="versions_manage_install_exists">Sürüm adı zaten var!</string>
     <string name="versions_manage_invalid">Geçersiz sürüm</string>
+    <string name="versions_manage_mod_updates">%d mod güncellemesi</string>
+    <string name="versions_manage_add_shortcut">Ana Ekrana Ekle</string>
+    <string name="turnip_driver_installed">Yüklü Sürücüler</string>
+    <string name="turnip_driver_available">İndirilebilir</string>
+    <string name="turnip_driver_delete_confirm">"%s" sürücüsü silinsin mi? Bu işlem geri alınamaz.</string>
     <string name="versions_manage_rename_version">Sürümü Yeniden Adlandır</string>
     <string name="versions_manage_copy_version">Sürümü Kopyala</string>
     <string name="versions_manage_copy_version_tip">Geçerli sürümü, varsayılan olarak sürüm izolasyonu etkinleştirilmiş şekilde yeni bir sürüm olarak kopyalayın. Oluşturulan tüm dosyaları (kaynak paketleri, kayıtlar, oyun ayarları vb.) da dahil etmek için aşağıdaki \"Tüm Dosyaları Kopyala\" seçeneğini işaretleyin.</string>
@@ -493,6 +500,15 @@
     <string name="settings_renderer_sustained_performance_summary">Etkinleştirildiğinde, sistem oyuna daha kararlı bir performans sunar; uzun süreli oyunlar için uygundur, ancak aşırı ısınmayı önlemek için cihazın tepki hızını biraz düşürebilir</string>
     <string name="settings_renderer_shader_dump_title">Gölgelengirici Günlüğü</string>
     <string name="settings_renderer_shader_dump_summary">Oyun çalışırken dönüştürülen shader kodunu günlük dosyasına aktarır; grafik render sürecini hata ayıklama veya analiz için kolaylaştırır</string>
+    <string name="settings_renderer_fsr_title">FSR1 Ölçeklendirme</string>
+    <string name="settings_renderer_fsr_summary">AMD FidelityFX Super Resolution 1.0 — daha düşük çözünürlükteki görüntüyü tam çözünürlüğe kenar yeniden yapılandırması ile ölçekler</string>
+    <string name="settings_renderer_fsr_quality_title">FSR Kalitesi</string>
+    <string name="settings_renderer_fsr_quality_summary">Daha yüksek kalite = daha yüksek dahili render çözünürlüğü</string>
+    <string name="settings_renderer_fsr_quality_ultra">Ultra Kalite</string>
+    <string name="settings_renderer_fsr_quality_quality">Kalite</string>
+    <string name="settings_renderer_fsr_quality_balanced">Dengeli</string>
+    <string name="settings_renderer_fsr_quality_performance">Performans</string>
+    <string name="sidebar_shortcut_menu">Kısayol Menüsü</string>
     <string name="settings_renderer_vulkan_driver_system_title">Sistem Vulkan Sürücüsünü Kullan</string>
     <string name="settings_renderer_vulkan_driver_system_summary">Etkinleştirildiğinde, başlatıcı varsayılan Turnip sürücüsü yerine sistemin kendi Vulkan sürücüsünü (Adreno GPU için) zorunlu olarak kullanacaktır. Bu ayar yalnızca Vulkan ile render yapan Zink arka ucu ve ilgili modları etkiler</string>
     <string name="settings_renderer_zink_driver_adreno">Başlatıcı cihazınızın Adreno GPU olduğunu tespit etti; bu seçeneği açmak Zink render cihazının düzgün çalışmamasına yol açabilir. Bu seçeneği açmak istediğinize emin misiniz?</string>
@@ -657,9 +673,15 @@
     <string name="about_launcher_title">Başlatıcı Hakkında</string>
     <string name="about_launcher_version">Başlatıcı Versiyonu: %s</string>
     <string name="about_launcher_author_movtery_title">MovTery</string>
-    <string name="about_launcher_author_movtery_text">%s\'nin Oluşturucusu</string>
-    <string name="about_launcher_project_link">Proje Linki</string>
+    <string name="about_launcher_author_movtery_text">Zalith Launcher 2\'nin Oluşturucusu</string>
+    <string name="about_launcher_author_star1xr_title">Star1xr</string>
+    <string name="about_launcher_author_star1xr_text">%s\'ın Oluşturucusu</string>
+    <string name="about_launcher_project_link">GitHub Linki</string>
     <string name="about_sponsor">Sponsorluk Desteği</string>
+    <string name="disclaimer_title">Resmi Olmayan Sürüm</string>
+    <string name="disclaimer_content">Bu, Zalith Launcher 2\'nin resmi olmayan, değiştirilmiş bir versiyonudur.</string>
+    <string name="disclaimer_original_repo">Orijinal Repo</string>
+    <string name="launcher_fork_subtitle">Zalith Launcher 2\'nin bir çatalıdır</string>
     <string name="about_acknowledgements_title">Teşekkür ve Atıflar</string>
     <string name="about_acknowledgements_pojav_text">%s PojavLauncherdan başlatma backend kodu kullanır</string>
     <string name="about_acknowledgements_pcl_text">%s uygulamasının bazı kısımlarına PCL2den atıfta bulunur</string>
@@ -704,6 +726,8 @@
     <string name="game_menu_option_input_method">Klavye\'yi Aç</string>
     <string name="game_menu_option_switch_fps">Fps Göstergesi</string>
     <string name="game_menu_option_switch_memory">Ram Göstergesi</string>
+    <string name="game_menu_option_fps_settings">FPS Ayarları</string>
+    <string name="game_menu_option_ram_settings">RAM Ayarları</string>
     <string name="game_menu_option_menu_ball_opacity">Menü Şeffaflığı</string>
     <string name="game_menu_option_send_keycode">Tuş Gönder</string>
     <string name="game_menu_option_replacement_control">Kontrol Düzenini Değiştir</string>
@@ -1186,6 +1210,7 @@
     <string name="notification_jvm_running_name">JVM Sürdürme Servisi</string>
     <string name="generic_edit">Düzenle</string>
     <string name="generic_view">Görüntüle</string>
+    <string name="generic_info">Bilgi</string>
     <string name="page_title_home_page_editor">Ana Sayfa Editörü</string>
     <string name="versions_overview_log">Çalıştırma Günlüğü</string>
     <string name="settings_launcher_home_page_title">Ana Sayfa</string>

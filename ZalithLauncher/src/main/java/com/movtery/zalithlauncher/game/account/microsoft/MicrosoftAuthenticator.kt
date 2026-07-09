@@ -18,6 +18,7 @@
 
 package com.movtery.zalithlauncher.game.account.microsoft
 
+import com.movtery.zalithlauncher.BuildConfig
 import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.game.account.Account
 import com.movtery.zalithlauncher.game.account.AccountType
@@ -48,6 +49,7 @@ import com.movtery.zalithlauncher.path.GLOBAL_CLIENT
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.network.httpPostJson
 import com.movtery.zalithlauncher.utils.network.safeBodyAsJson
+import com.movtery.zalithlauncher.utils.network.safeBodyAsText
 import com.movtery.zalithlauncher.utils.network.submitForm
 import com.movtery.zalithlauncher.utils.string.toUuidStr
 import io.ktor.client.plugins.ClientRequestException
@@ -85,11 +87,32 @@ const val XBL_AUTH_URL = "https://user.auth.xboxlive.com"
 const val XSTS_AUTH_URL = "https://xsts.auth.xboxlive.com"
 const val MINECRAFT_SERVICES_URL = "https://api.minecraftservices.com"
 
+private fun debugLog(message: String) {
+    if (BuildConfig.DEBUG) Logger.debug(TAG, message)
+}
+
+/**
+ * Thrown when the build was produced without a valid OAUTH_CLIENT_ID.
+ * This happens when the GitHub Actions secret OAUTH_CLIENT_ID is not set
+ * in the repository settings before building.
+ */
+class MissingOAuthClientIdException : IllegalStateException(
+    "Microsoft login is not configured: OAUTH_CLIENT_ID is empty.\n" +
+    "To fix this:\n" +
+    "1. Register an Azure App at https://entra.microsoft.com\n" +
+    "2. Add the client ID as a GitHub Actions secret named OAUTH_CLIENT_ID\n" +
+    "3. Rebuild the APK from GitHub Actions."
+)
+
 /**
  * 从 Microsoft 身份验证终端节点获取设备代码响应
  * 设备代码用于在单独的设备或浏览器上授权用户
  */
 suspend fun fetchDeviceCodeResponse(context: CoroutineContext): DeviceCodeResponse = coroutineScope {
+    if (BuildKeys.OAUTH_CLIENT_ID.isBlank()) {
+        throw MissingOAuthClientIdException()
+    }
+    debugLog("Stage: OAuth device code — POST $MICROSOFT_AUTH_URL/$TENANT/oauth2/v2.0/devicecode")
     withRetry {
         submitForm(
             url = "$MICROSOFT_AUTH_URL/$TENANT/oauth2/v2.0/devicecode",
@@ -113,6 +136,7 @@ suspend fun getTokenResponse(
 ): TokenResponse = coroutineScope {
     var pollingInterval = codeResponse.interval * 1000L
     val expireTime = System.currentTimeMillis() + codeResponse.expiresIn * 1000L
+    debugLog("Stage: OAuth token poll — POST $MICROSOFT_AUTH_URL$TENANT/oauth2/v2.0/token (interval=${pollingInterval}ms)")
 
     var cancelled = 0
     suspend fun checkIsReallyCancelled(): Boolean {
@@ -136,6 +160,7 @@ suspend fun getTokenResponse(
             )
 
             if (response["token_type"]?.jsonPrimitive?.content == "Bearer") {
+                debugLog("Stage: OAuth token poll — token received")
                 return@coroutineScope TokenResponse(
                     accessToken = response["access_token"].text(),
                     refreshToken = response["refresh_token"].text(),
@@ -143,6 +168,12 @@ suspend fun getTokenResponse(
                 )
             }
         } catch (e: ClientRequestException) {
+            if (BuildConfig.DEBUG) {
+                val errorCode = runCatching {
+                    e.response.safeBodyAsJson<JsonObject>()["error"]?.jsonPrimitive?.content
+                }.getOrNull()
+                debugLog("Stage: OAuth token poll — HTTP ${e.response.status.value} error=$errorCode")
+            }
             handleClientRequestException(e, pollingInterval)
             pollingInterval = adjustPollingInterval(e, pollingInterval)
         } catch (e: CancellationException) {
@@ -213,6 +244,7 @@ private suspend fun refreshAccessToken(
     context: CoroutineContext
 ): Pair<String, String> {
     update(AsyncStatus.GETTING_ACCESS_TOKEN)
+    debugLog("Stage: OAuth refresh — POST $LIVE_AUTH_URL/oauth20_token.srf")
 
     return withRetry {
         val response = submitForm<JsonObject>(
@@ -224,6 +256,7 @@ private suspend fun refreshAccessToken(
             },
             context = context
         )
+        debugLog("Stage: OAuth refresh — access token refreshed")
         Pair(
             response["access_token"].text(),
             response["refresh_token"]?.jsonPrimitive?.content ?: refreshToken
@@ -233,6 +266,7 @@ private suspend fun refreshAccessToken(
 
 private suspend fun authenticateXBL(accessToken: String, update: (AsyncStatus) -> Unit): Pair<String, String> {
     update(AsyncStatus.GETTING_XBL_TOKEN)
+    debugLog("Stage: Xbox Live (XBL) — POST $XBL_AUTH_URL/user/authenticate")
     val requestBody = XBLRequest(
         properties = XBLProperties(
             authMethod = "RPS",
@@ -249,14 +283,22 @@ private suspend fun authenticateXBL(accessToken: String, update: (AsyncStatus) -
             setBody(requestBody)
         }.safeBodyAsJson<JsonObject>()
 
-        //提取uhs
         val uhs = response["DisplayClaims"]?.jsonObject
             ?.get("xui")?.jsonArray
             ?.firstOrNull()?.jsonObject
             ?.get("uhs")?.jsonPrimitive
             ?.content ?: throw Exception("Missing uhs in XBL response")
 
-        Pair(response["Token"].text(), uhs)
+        val xblToken = response["Token"].text()
+        if (xblToken.isEmpty()) {
+            Logger.error(TAG, "Stage: XBL — Token field is empty in XBL response. " +
+                "This usually means the Azure App is missing the XboxLive.signin API permission " +
+                "in the Entra Portal (App ID: 000000004C12AE6F). " +
+                "Response keys: ${response.keys}")
+            throw Exception("XBL token is empty — check Azure App XboxLive.signin API permission")
+        }
+        debugLog("Stage: XBL — token obtained (length=${xblToken.length}, uhs length=${uhs.length})")
+        Pair(xblToken, uhs)
     }
 }
 
@@ -267,6 +309,7 @@ private suspend fun authenticateXSTS(
     context: CoroutineContext
 ): XSTSAuthResult {
     update(AsyncStatus.GETTING_XSTS_TOKEN)
+    debugLog("Stage: XSTS — POST $XSTS_AUTH_URL/xsts/authorize")
 
     return withRetry {
         val response = httpPostJson<JsonObject>(
@@ -282,8 +325,12 @@ private suspend fun authenticateXSTS(
             context = context
         )
 
-        when (response["XErr"].text()) {
-            //Reference : https://github.com/PrismarineJS/prismarine-auth/blob/1aef6e1/src/common/Constants.js#L50-L59
+        val xerr = response["XErr"].text()
+        if (xerr.isNotEmpty()) {
+            debugLog("Stage: XSTS — XErr=$xerr")
+        }
+        //Reference : https://github.com/PrismarineJS/prismarine-auth/blob/1aef6e1/src/common/Constants.js#L50-L59
+        when (xerr) {
             "2148916227" -> throw XboxLoginException(BANNED)
             "2148916229" -> throw XboxLoginException(RESTRICTED)
             "2148916233" -> throw XboxLoginException(UNREGISTERED)
@@ -294,7 +341,16 @@ private suspend fun authenticateXSTS(
             "2148916238" -> throw XboxLoginException(UNDERAGE)
         }
 
-        XSTSAuthResult(token = response["Token"].text(), uhs = uhs)
+        val xstsToken = response["Token"].text()
+        if (xstsToken.isEmpty()) {
+            Logger.error(TAG, "Stage: XSTS — Token field is empty in XSTS response. " +
+                "XErr=${response["XErr"].text()}, response keys: ${response.keys}. " +
+                "An unrecognised XErr code may have caused silent fall-through; " +
+                "passing an empty XSTS token to login_with_xbox would produce HTTP 403.")
+            throw Exception("XSTS token is empty — check response for unknown XErr code")
+        }
+        debugLog("Stage: XSTS — token obtained (length=${xstsToken.length})")
+        XSTSAuthResult(token = xstsToken, uhs = uhs)
     }
 }
 
@@ -304,6 +360,8 @@ private suspend fun authenticateMinecraft(
     context: CoroutineContext
 ): MinecraftAuthResponse {
     update(AsyncStatus.AUTHENTICATE_MINECRAFT)
+    debugLog("Stage: Minecraft Services — POST $MINECRAFT_SERVICES_URL/authentication/login_with_xbox")
+    debugLog("Stage: Minecraft Services — XSTS token length=${xstsResult.token.length}, UHS length=${xstsResult.uhs.length}")
 
     return withRetry {
         runCatching {
@@ -314,7 +372,17 @@ private suspend fun authenticateMinecraft(
             )
         }.onFailure { e ->
             if (e is ResponseException) {
-                when (e.response.status.value) {
+                val status = e.response.status.value
+                debugLog("Stage: Minecraft Services — HTTP $status from login_with_xbox")
+                val errorBody = runCatching { e.response.safeBodyAsText() }
+                    .getOrElse { "<body unreadable: ${it.message}>" }
+                Logger.warning(TAG,
+                    "Stage: Minecraft Services — login_with_xbox returned HTTP $status. " +
+                    "Response body: $errorBody. " +
+                    "If HTTP 403: possible causes are (1) Azure App missing XboxLive.signin " +
+                    "API permission in Entra Portal, (2) XSTS token invalid, " +
+                    "(3) account not linked to Xbox Live, or (4) genuine IP/region block.")
+                when (status) {
                     429 -> throw MinecraftProfileException(FREQUENT)
                     403 -> throw MinecraftProfileException(BLOCKED_IP)
                 }
@@ -325,13 +393,17 @@ private suspend fun authenticateMinecraft(
 
 private suspend fun verifyGameOwnership(accessToken: String, update: (AsyncStatus) -> Unit) {
     update(AsyncStatus.VERIFY_GAME_OWNERSHIP)
+    debugLog("Stage: Game ownership — GET $MINECRAFT_SERVICES_URL/entitlements/mcstore")
     withRetry {
         val response = GLOBAL_CLIENT.get("$MINECRAFT_SERVICES_URL/entitlements/mcstore") {
             header(HttpHeaders.Authorization, "Bearer $accessToken")
         }
-        if (response.safeBodyAsJson<JsonObject>()["items"]?.jsonArray?.isEmpty() != false) {
+        val items = response.safeBodyAsJson<JsonObject>()["items"]?.jsonArray
+        if (items?.isEmpty() != false) {
+            debugLog("Stage: Game ownership — no entitlements found")
             throw NotPurchasedMinecraftException()
         }
+        debugLog("Stage: Game ownership — verified (${items.size} entitlement(s))")
     }
 }
 
@@ -342,6 +414,7 @@ private suspend fun createAccount(
     statusUpdate: (AsyncStatus) -> Unit
 ): Account {
     statusUpdate(AsyncStatus.GETTING_PLAYER_PROFILE)
+    debugLog("Stage: Minecraft Profile API — GET $MINECRAFT_SERVICES_URL/minecraft/profile")
 
     val profile = getPlayerProfile(
         apiUrl = MINECRAFT_SERVICES_URL,
@@ -352,6 +425,7 @@ private suspend fun createAccount(
     //避免同一个账号反复添加
     val account = AccountsManager.loadFromProfileID(profileId, AccountType.MICROSOFT.tag) ?: Account()
 
+    debugLog("Stage: Profile — account created for ${profile.name}")
     return account.apply {
         this.username = profile.name
         this.accessToken = authResponse.accessToken

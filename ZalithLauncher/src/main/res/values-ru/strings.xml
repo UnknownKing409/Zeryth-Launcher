@@ -7,6 +7,7 @@
     <string name="generic_back">Назад</string>
     <string name="generic_refresh">Обновить</string>
     <string name="generic_reset">Сбросить</string>
+    <string name="skin_reset">Сбросить скин</string>
     <string name="generic_delete">Удалить</string>
     <string name="generic_rename">Переименовать</string>
     <string name="generic_copy">Копировать</string>
@@ -221,7 +222,7 @@
     <string name="files_select_dir">Выбрать папку</string>
     <string name="files_current_path">Текущий путь: %s</string>
     <string name="files_no_selectable_content">Нет доступного содержимого для выбора</string>
-    <string name="file_invalid_length">Имя слишком длинное! (Текущее: %d, Максимум: %d)</string>
+    <string name="file_invalid_length" formatted="false">Имя слишком длинное! (Текущее: %d, Максимум: %d)</string>
     <!-- Java Runtime -->
     <string name="multirt_runtime_corrupt">Среда Java повреждена</string>
     <string name="multirt_runtime_incompatible_arch">Несовместимая архитектура: %s</string>

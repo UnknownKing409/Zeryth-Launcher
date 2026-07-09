@@ -60,7 +60,7 @@ sealed interface NormalNavKey : TitledNavKey {
         val saveKey: TitledNavKey,
         val onSelected: (path: String) -> Unit
     ) : NormalNavKey {
-        override val title: Int = R.string.page_title_select_files
+        override val title: Int = R.string.page_title_file_manager
     }
     /** 多人联机屏幕 */
     @Serializable data object Multiplayer: NormalNavKey {
@@ -79,6 +79,10 @@ sealed interface NormalNavKey : TitledNavKey {
         /** 渲染器设置屏幕 */
         @Serializable data object Renderer : Settings {
             override val title: Int = R.string.settings_tab_renderer
+        }
+        /** Turnip 驱动下载屏幕 */
+        @Serializable data object TurnipDrivers : Settings {
+            override val title: Int = R.string.settings_renderer_download_turnip
         }
         /** 游戏设置屏幕 */
         @Serializable data object Game : Settings {
@@ -190,6 +194,18 @@ sealed interface NormalNavKey : TitledNavKey {
         val classes: PlatformClasses,
         val iconUrl: String? = null
     ) : NormalNavKey
+
+    /** 游戏统计屏幕 */
+    @Serializable data object GameStats : NormalNavKey {
+        override val title: Int = R.string.stats_game_stats
+    }
+
+    /** 文件管理屏幕 */
+    @Serializable data class FileManager(
+        val initialPath: String? = null
+    ) : NormalNavKey {
+        override val title: Int = R.string.page_title_file_manager
+    }
 
     /** 协议展示屏幕 */
     @Serializable data class License(

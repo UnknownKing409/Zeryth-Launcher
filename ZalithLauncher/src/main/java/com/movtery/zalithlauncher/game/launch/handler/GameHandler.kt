@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.game.control.ControlManager
+import com.movtery.zalithlauncher.game.control.legacy.LegacyControlManager
 import com.movtery.zalithlauncher.game.input.EfficientAndroidLWJGLKeycode
 import com.movtery.zalithlauncher.game.input.LWJGLCharSender
 import com.movtery.zalithlauncher.game.keycodes.LwjglGlfwKeycode
@@ -212,7 +213,6 @@ class GameHandler(
             version = version,
             gameHandler = this,
             showGameInfo = showGameInfo,
-            onInfoBoxClose = { showGameInfo = false },
             logState = logState,
             onLogStateChange = { logState = it },
             textInputMode = textInputMode,
@@ -229,6 +229,7 @@ class GameHandler(
 
     private fun refreshControls() {
         ControlManager.refresh()
+        LegacyControlManager.refresh()
     }
 
     init {

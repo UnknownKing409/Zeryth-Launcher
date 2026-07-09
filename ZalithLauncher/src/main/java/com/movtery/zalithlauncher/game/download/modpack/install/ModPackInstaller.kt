@@ -21,6 +21,7 @@ package com.movtery.zalithlauncher.game.download.modpack.install
 import android.content.Context
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
+import com.movtery.zalithlauncher.coroutine.TaskState
 import com.movtery.zalithlauncher.coroutine.TaskFlowExecutor
 import com.movtery.zalithlauncher.coroutine.TitledTask
 import com.movtery.zalithlauncher.coroutine.addTask
@@ -40,7 +41,9 @@ import com.movtery.zalithlauncher.utils.network.downloadFromMirrorListSuspend
 import com.movtery.zalithlauncher.utils.network.isUsingMobileData
 import com.movtery.zalithlauncher.utils.network.withSpeedReport
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import org.apache.commons.io.FileUtils
@@ -329,4 +332,52 @@ class ModPackInstaller(
         Logger.debug(TAG, "Created directory: $this")
         return this
     }
+
+      /**
+       * 创建一个用于 TaskSystem 的代理任务，镜像当前安装进度
+       * 用于最小化安装对话框，同时让安装在后台继续运行
+       */
+      fun createBackgroundTask(onCancelRequest: () -> Unit): Task {
+          return Task.runTask(
+              id = "modpack_install_${version.platformSha1() ?: version.platformFileName()}",
+              task = { proxyTask ->
+                  coroutineScope {
+                      val mirrorJob = launch {
+                          // Poll the current task state at a fixed interval.
+                          // Task.currentProgress and friends are Compose mutableState – they are not a Flow
+                          // and do not cause tasksFlow to re-emit on every tick. Collecting tasksFlow only
+                          // fires when the phase list changes (new phase), so we must poll instead.
+                          while (true) {
+                              kotlinx.coroutines.delay(150)
+                              val titledTasks = tasksFlow.value
+                              val running = titledTasks.firstOrNull { it.task.taskState == TaskState.RUNNING }
+                                  ?: titledTasks.lastOrNull()
+                              running?.task?.let { t ->
+                                  proxyTask.updateProgress(t.currentProgress)
+                                  val msgRes = t.currentMessageRes
+                                  val args = t.currentMessageArgs
+                                  if (msgRes != null) {
+                                      if (args != null) proxyTask.updateMessage(msgRes, *args)
+                                      else proxyTask.updateMessage(msgRes)
+                                  }
+                                  if (t.currentRateBytesPerSec >= 0L) proxyTask.updateSpeed(t.currentRateBytesPerSec)
+                                  else proxyTask.clearSpeed()
+                              }
+                          }
+                      }
+                      try {
+                          taskExecutor.awaitCompletion()
+                      } catch (e: kotlinx.coroutines.CancellationException) {
+                          throw e
+                      } catch (_: Exception) {
+                          // 安装完成（成功或失败），代理任务正常结束
+                      } finally {
+                          mirrorJob.cancel()
+                      }
+                  }
+              },
+              onCancel = onCancelRequest
+          )
+      }
+  
 }

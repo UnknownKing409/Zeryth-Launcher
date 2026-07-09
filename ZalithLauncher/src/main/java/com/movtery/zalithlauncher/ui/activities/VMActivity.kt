@@ -81,6 +81,7 @@ import com.movtery.zalithlauncher.game.launch.handler.GameHandler
 import com.movtery.zalithlauncher.game.launch.handler.HandlerType
 import com.movtery.zalithlauncher.game.launch.handler.JVMHandler
 import com.movtery.zalithlauncher.game.multirt.RuntimesManager
+import com.movtery.zalithlauncher.game.version.installed.PlayTimeRepository
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.terracotta.TerracottaVPNService
@@ -128,6 +129,7 @@ data class LaunchSession(
  */
 class VMViewModel : ViewModel() {
     var isRunning = false
+    var startTime = 0L
 
     /**
      * 是否允许VMActivity处理按键
@@ -171,6 +173,7 @@ class VMViewModel : ViewModel() {
         exitListener: (Int, Boolean) -> Unit,
     ) {
         if (_session != null) return
+        startTime = System.currentTimeMillis()
 
         _session = when {
             bundle.getBoolean(INTENT_RUN_GAME) -> {
@@ -181,6 +184,14 @@ class VMViewModel : ViewModel() {
                     activity = activity,
                     config = config,
                     onExit = { code, isSignal ->
+                        val endTime = System.currentTimeMillis()
+                        val duration = endTime - startTime
+                        if (duration > 0) {
+                            val currentPlayTime = AllSettings.playTime.getValue()
+                            AllSettings.playTime.save(currentPlayTime + duration)
+                            PlayTimeRepository.recordSession(config.version.getVersionName(), startTime, endTime)
+                        }
+
                         if (code == 0) {
                             val finishedCount = AllSettings.finishedGame.getValue()
                             if (finishedCount < Int.MAX_VALUE)  {
@@ -220,7 +231,14 @@ class VMViewModel : ViewModel() {
                 val launcher = JvmLauncher(
                     context = activity,
                     jvmLaunchInfo = jvmLaunchInfo,
-                    onExit = exitListener,
+                    onExit = { code, isSignal ->
+                        val duration = System.currentTimeMillis() - startTime
+                        if (duration > 0) {
+                            val currentPlayTime = AllSettings.playTime.getValue()
+                            AllSettings.playTime.save(currentPlayTime + duration)
+                        }
+                        exitListener(code, isSignal)
+                    },
                     openPath = { folder ->
                         _openFolderOperation.update {
                             OpenFolderOperation.OpenFolder(folder)

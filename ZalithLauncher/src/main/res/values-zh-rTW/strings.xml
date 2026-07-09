@@ -8,6 +8,7 @@
     <string name="generic_back">返回</string>
     <string name="generic_refresh">重新整理</string>
     <string name="generic_reset">重設</string>
+    <string name="skin_reset">重設皮膚</string>
     <string name="generic_delete">刪除</string>
     <string name="generic_rename">重新命名</string>
     <string name="generic_copy">複製</string>
@@ -368,6 +369,8 @@
     <string name="game_menu_option_input_method">切換輸入法</string>
     <string name="game_menu_option_switch_fps">幀率顯示</string>
     <string name="game_menu_option_switch_memory">記憶體顯示</string>
+    <string name="game_menu_option_fps_settings">幀率設定</string>
+    <string name="game_menu_option_ram_settings">記憶體設定</string>
     <string name="game_menu_option_menu_ball_opacity">選單懸浮窗不透明度</string>
     <string name="game_menu_option_send_keycode">發送鍵值</string>
     <string name="game_menu_option_replacement_control">更換控制佈局</string>
@@ -546,7 +549,7 @@
     <string name="files_select_dir">選擇此目錄</string>
     <string name="files_current_path">目前路徑：%s</string>
     <string name="files_no_selectable_content">此目錄沒有可選內容</string>
-    <string name="file_invalid_length">名稱過長！(目前長度：%d，最大長度：%d)</string>
+    <string name="file_invalid_length" formatted="false">名稱過長！(目前長度：%d，最大長度：%d)</string>
     <string name="file_invalid_leading_or_trailing_space">不能以空格開頭或結尾！</string>
     <!--  Jre  -->
     <string name="multirt_runtime_corrupt">Java 執行環境損毀</string>
@@ -794,6 +797,15 @@
     <string name="settings_renderer_sustained_performance_summary">啟用後，系統會為遊戲提供更穩定的效能輸出，適用於長時間遊玩，但可能略微降低裝置回應速度以防止過熱</string>
     <string name="settings_renderer_shader_dump_title">著色器日誌輸出</string>
     <string name="settings_renderer_shader_dump_summary">將遊戲執行時轉換後的著色器代碼輸出到日誌檔案，便於偵錯或分析圖形渲染過程</string>
+    <string name="settings_renderer_fsr_title">FSR1 升頻</string>
+    <string name="settings_renderer_fsr_summary">AMD FidelityFX Super Resolution 1.0 — 以邊緣重建技術將低解析度渲染升級至全解析度</string>
+    <string name="settings_renderer_fsr_quality_title">FSR 品質</string>
+    <string name="settings_renderer_fsr_quality_summary">品質越高 = 內部渲染解析度越高</string>
+    <string name="settings_renderer_fsr_quality_ultra">超極致品質</string>
+    <string name="settings_renderer_fsr_quality_quality">品質</string>
+    <string name="settings_renderer_fsr_quality_balanced">平衡</string>
+    <string name="settings_renderer_fsr_quality_performance">效能</string>
+    <string name="sidebar_shortcut_menu">快捷選單</string>
     <string name="settings_renderer_vulkan_driver_system_title">使用系統 Vulkan 驅動程式</string>
     <string name="settings_renderer_vulkan_driver_system_summary">啟用後，啟動器將強制使用系統內建的 Vulkan 驅動程式（適用於 Adreno GPU），而不使用預設的 Turnip 驅動程式。本設定僅影響使用 Vulkan 渲染的 Zink 後端及相關模組</string>
     <string name="settings_renderer_zink_driver_adreno">啟動器偵測到您的裝置為 Adreno GPU，開啟此選項可能會導致 Zink 渲染器無法正常運作，您確定要開啟此選項嗎？</string>

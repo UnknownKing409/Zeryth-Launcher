@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import com.movtery.zalithlauncher.ui.components.verticalScrollWithBar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -49,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -74,14 +76,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.ImageLoader
 import coil3.compose.AsyncImage
-import coil3.gif.GifDecoder
-import coil3.svg.SvgDecoder
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.addons.modloader.ModLoader
 import com.movtery.zalithlauncher.game.path.GamePath
 import com.movtery.zalithlauncher.game.path.GamePathManager
+import com.movtery.zalithlauncher.game.version.installed.PlayTimeRepository
+import com.movtery.zalithlauncher.game.version.mod.update.ModUpdateChecker
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.installed.cleanup.CleanFailedException
@@ -103,6 +104,10 @@ import com.movtery.zalithlauncher.utils.string.getMessageOrToString
 import com.movtery.zalithlauncher.utils.string.isNotEmptyOrBlank
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.FilledTonalButton
 
 private const val TAG = "VersionsManageElements"
 
@@ -672,22 +677,29 @@ fun CleanupOperation(
     }
 }
 
+@Stable
+class VersionItemCallbacks(
+    val submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
+    val onSelected: () -> Unit,
+    val onSettingsClick: () -> Unit,
+    val onRenameClick: () -> Unit,
+    val onCopyClick: () -> Unit,
+    val onExportClick: () -> Unit,
+    val onDeleteClick: () -> Unit,
+    val onPinned: () -> Unit,
+    val onAddShortcutClick: () -> Unit,
+    val onLaunchClick: () -> Unit
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VersionItemLayout(
     version: Version,
     selected: Boolean,
-    submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
+    callbacks: VersionItemCallbacks,
     modifier: Modifier = Modifier,
     color: Color = itemColor(),
-    contentColor: Color = onItemColor(),
-    onSelected: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onRenameClick: () -> Unit = {},
-    onCopyClick: () -> Unit = {},
-    onExportClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {},
-    onPinned: () -> Unit = {}
+    contentColor: Color = onItemColor()
 ) {
     val scale = remember { Animatable(initialValue = 0.95f) }
     LaunchedEffect(Unit) {
@@ -700,7 +712,7 @@ fun VersionItemLayout(
         shape = MaterialTheme.shapes.large,
         onClick = {
             if (selected) return@Surface
-            onSelected()
+            callbacks.onSelected()
         }
     ) {
         Row(
@@ -714,13 +726,25 @@ fun VersionItemLayout(
                 selected = selected,
                 onClick = {
                     if (selected) return@RadioButton
-                    onSelected()
+                    callbacks.onSelected()
                 }
             )
             CommonVersionInfoLayout(
                 modifier = Modifier.weight(1f),
                 version = version
             )
+
+            IconButton(
+                onClick = callbacks.onLaunchClick,
+                enabled = version.isValid()
+            ) {
+                Icon(
+                    modifier = Modifier.size(24.dp),
+                    painter = painterResource(R.drawable.ic_play_arrow_filled),
+                    contentDescription = stringResource(R.string.versions_manage_launch),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
             val saveFailedText = stringResource(R.string.versions_config_failed_to_save)
             IconButton(
@@ -730,14 +754,14 @@ fun VersionItemLayout(
                         version.setPinnedAndSave(!currentValue)
                     }.onFailure { e ->
                         Logger.error(TAG, "Failed to save version config!", e)
-                        submitError(
+                        callbacks.submitError(
                             ErrorViewModel.ThrowableMessage(
                                 title = saveFailedText,
                                 message = e.getMessageOrToString()
                             )
                         )
                     }.onSuccess {
-                        onPinned()
+                        callbacks.onPinned()
                     }
                 },
                 enabled = version.isValid()
@@ -759,7 +783,7 @@ fun VersionItemLayout(
             }
 
             IconButton(
-                onClick = onSettingsClick,
+                onClick = callbacks.onSettingsClick,
                 enabled = version.isValid()
             ) {
                 Icon(
@@ -796,7 +820,7 @@ fun VersionItemLayout(
                             )
                         },
                         onClick = {
-                            onRenameClick()
+                            callbacks.onRenameClick()
                             menuExpanded = false
                         }
                     )
@@ -810,7 +834,7 @@ fun VersionItemLayout(
                             )
                         },
                         onClick = {
-                            onCopyClick()
+                            callbacks.onCopyClick()
                             menuExpanded = false
                         }
                     )
@@ -824,7 +848,21 @@ fun VersionItemLayout(
                             )
                         },
                         onClick = {
-                            onExportClick()
+                            callbacks.onExportClick()
+                            menuExpanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(text = stringResource(R.string.versions_manage_add_shortcut)) },
+                        leadingIcon = {
+                            Icon(
+                                modifier = Modifier.size(20.dp),
+                                painter = painterResource(R.drawable.ic_add_box_outlined),
+                                contentDescription = stringResource(R.string.versions_manage_add_shortcut)
+                            )
+                        },
+                        onClick = {
+                            callbacks.onAddShortcutClick()
                             menuExpanded = false
                         }
                     )
@@ -838,7 +876,7 @@ fun VersionItemLayout(
                             )
                         },
                         onClick = {
-                            onDeleteClick()
+                            callbacks.onDeleteClick()
                             menuExpanded = false
                         }
                     )
@@ -848,6 +886,7 @@ fun VersionItemLayout(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CommonVersionInfoLayout(
     version: Version,
@@ -920,8 +959,74 @@ fun CommonVersionInfoLayout(
                             )
                         }
                     }
+                    val updateCount = remember(versionName) { ModUpdateChecker.getUpdateCount(versionName) }
+                    if (updateCount > 0) {
+                        LittleTextLabel(
+                            text = stringResource(R.string.versions_manage_mod_updates, updateCount),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                            textStyle = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
+            //游戏时间信息
+            if (isValid) {
+                PlayTimeInfoRow(versionName = versionName)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlayTimeInfoRow(versionName: String) {
+    val lastPlayed = remember(versionName) { PlayTimeRepository.getLastPlayed(versionName) }
+    val totalMs = remember(versionName) { PlayTimeRepository.getTotalPlayTime(versionName) }
+
+    if (lastPlayed == 0L && totalMs == 0L) return
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lastPlayedText = remember(lastPlayed) {
+        if (lastPlayed == 0L) null
+        else {
+            val diff = System.currentTimeMillis() - lastPlayed
+            when {
+                diff < 60_000L -> context.getString(R.string.just_now)
+                diff < 3_600_000L -> context.getString(R.string.minutes_ago, (diff / 60_000L).toInt())
+                diff < 86_400_000L -> context.getString(R.string.hours_ago, (diff / 3_600_000L).toInt())
+                diff < 2_592_000_000L -> context.getString(R.string.days_ago, (diff / 86_400_000L).toInt())
+                diff < 31_536_000_000L -> context.getString(R.string.months_ago, (diff / 2_592_000_000L).toInt())
+                else -> context.getString(R.string.years_ago, (diff / 31_536_000_000L).toInt())
+            }
+        }
+    }
+    val totalText = remember(totalMs) {
+        if (totalMs == 0L) null
+        else {
+            val totalMinutes = (totalMs / 60_000L).toInt()
+            val hours = totalMinutes / 60
+            val minutes = totalMinutes % 60
+            if (hours > 0) context.getString(R.string.play_time_hours_minutes, hours, minutes)
+            else context.getString(R.string.play_time_minutes, minutes)
+        }
+    }
+
+    FlowRow(
+        modifier = Modifier.alpha(0.6f),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        lastPlayedText?.let {
+            Text(
+                text = stringResource(R.string.play_time_last_played, it),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        totalText?.let {
+            Text(
+                text = stringResource(R.string.play_time_total, it),
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }
@@ -936,16 +1041,6 @@ fun VersionIconImage(
         version?.let { getLoaderIconRes(it.getVersionInfo()?.loaderInfo?.loader) } ?: R.drawable.img_minecraft
     }
     val defaultIcon = painterResource(defaultIconRes)
-
-    val context = LocalContext.current
-    val loader = remember(version, refreshKey) {
-        ImageLoader.Builder(context)
-            .components {
-                add(GifDecoder.Factory())
-                add(SvgDecoder.Factory())
-            }
-            .build()
-    }
 
     val model = remember(version, refreshKey) {
         version?.let {
@@ -967,7 +1062,6 @@ fun VersionIconImage(
         else -> {
             AsyncImage(
                 model = model,
-                imageLoader = loader,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = modifier
@@ -975,6 +1069,7 @@ fun VersionIconImage(
         }
     }
 }
+
 
 /**
  * 模组加载器图标展示组件，包装 [Image]
@@ -1021,3 +1116,234 @@ private fun getLoaderIconRes(
         else -> defaultIcon
     }
 }
+
+  @OptIn(ExperimentalLayoutApi::class)
+  @Composable
+  fun VersionGridItemLayout(
+      version: Version,
+      selected: Boolean,
+      callbacks: VersionItemCallbacks,
+      modifier: Modifier = Modifier,
+      color: Color = itemColor(),
+      contentColor: Color = onItemColor()
+  ) {
+      val scale = remember { Animatable(initialValue = 0.92f) }
+      LaunchedEffect(Unit) {
+          scale.animateTo(targetValue = 1f, animationSpec = getAnimateTween())
+      }
+
+      Surface(
+          modifier = modifier
+              .graphicsLayer(scaleY = scale.value, scaleX = scale.value),
+          color = color,
+          contentColor = contentColor,
+          shape = MaterialTheme.shapes.large,
+          onClick = {
+              if (selected) return@Surface
+              callbacks.onSelected()
+          }
+      ) {
+          Column(
+              modifier = Modifier
+                  .fillMaxSize()
+                  .padding(horizontal = 12.dp, vertical = 10.dp),
+              verticalArrangement = Arrangement.spacedBy(5.dp)
+          ) {
+              // ── Header: icon + selection indicator ───────────────────────────
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                  VersionIconImage(version = version, modifier = Modifier.size(44.dp))
+                  Spacer(modifier = Modifier.weight(1f))
+                  RadioButton(
+                      selected = selected,
+                      onClick = { if (!selected) callbacks.onSelected() }
+                  )
+              }
+
+              // ── Version name ─────────────────────────────────────────────────
+              Text(
+                  modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
+                  text = version.getVersionName(),
+                  style = MaterialTheme.typography.labelLarge,
+                  maxLines = 1
+              )
+
+              // ── MC version + loader info ──────────────────────────────────────
+              val versionInfo = remember(version) { version.getVersionInfo() }
+              if (versionInfo != null) {
+                  FlowRow(
+                      modifier = Modifier.alpha(0.68f),
+                      horizontalArrangement = Arrangement.spacedBy(6.dp)
+                  ) {
+                      Text(text = versionInfo.minecraftVersion, style = MaterialTheme.typography.labelSmall)
+                      versionInfo.loaderInfo?.let { loaderInfo ->
+                          Text(text = "•", style = MaterialTheme.typography.labelSmall)
+                          Text(text = loaderInfo.loader.displayName, style = MaterialTheme.typography.labelSmall)
+                          Text(text = loaderInfo.version, style = MaterialTheme.typography.labelSmall)
+                      }
+                  }
+              }
+
+              // ── Last played / play time ───────────────────────────────────────
+              PlayTimeInfoRow(versionName = remember(version) { version.getVersionName() })
+
+              Spacer(modifier = Modifier.weight(1f))
+
+              // ── Actions row: pin, settings, overflow ─────────────────────────
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                  val saveFailedText = stringResource(R.string.versions_config_failed_to_save)
+                  IconButton(
+                      onClick = {
+                          val cur = version.pinnedState
+                          runCatching { version.setPinnedAndSave(!cur) }
+                              .onFailure { e ->
+                                  Logger.error(TAG, "Failed to save version config!", e)
+                                  callbacks.submitError(ErrorViewModel.ThrowableMessage(title = saveFailedText, message = e.getMessageOrToString()))
+                              }
+                              .onSuccess { callbacks.onPinned() }
+                      },
+                      enabled = version.isValid()
+                  ) {
+                      Crossfade(targetState = version.pinnedState) { pinned ->
+                          Icon(
+                              modifier = Modifier.size(20.dp).rotate(45.0f),
+                              painter = if (pinned) painterResource(R.drawable.ic_pinned_filled)
+                                        else painterResource(R.drawable.ic_pinned_outlined),
+                              contentDescription = stringResource(R.string.versions_manage_pin)
+                          )
+                      }
+                  }
+
+                  IconButton(onClick = callbacks.onSettingsClick, enabled = version.isValid()) {
+                      Icon(
+                          modifier = Modifier.size(20.dp),
+                          painter = painterResource(R.drawable.ic_settings_filled),
+                          contentDescription = stringResource(R.string.versions_manage_settings)
+                      )
+                  }
+
+                  Spacer(modifier = Modifier.weight(1f))
+
+                  var gridMenuExpanded by remember { mutableStateOf(false) }
+                  Box {
+                      IconButton(onClick = { gridMenuExpanded = !gridMenuExpanded }) {
+                          Icon(
+                              modifier = Modifier.size(20.dp),
+                              painter = painterResource(R.drawable.ic_more_horiz),
+                              contentDescription = stringResource(R.string.generic_more)
+                          )
+                      }
+                      DropdownMenu(
+                          expanded = gridMenuExpanded,
+                          shape = MaterialTheme.shapes.large,
+                          shadowElevation = 3.dp,
+                          onDismissRequest = { gridMenuExpanded = false }
+                      ) {
+                          DropdownMenuItem(text = { Text(stringResource(R.string.generic_rename)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_edit_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onRenameClick(); gridMenuExpanded = false })
+                          DropdownMenuItem(text = { Text(stringResource(R.string.generic_copy)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_file_copy_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onCopyClick(); gridMenuExpanded = false })
+                          DropdownMenuItem(text = { Text(stringResource(R.string.versions_export)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_folder_zip_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onExportClick(); gridMenuExpanded = false })
+                          DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_add_shortcut)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_add_box_outlined), null, Modifier.size(20.dp)) }, onClick = { callbacks.onAddShortcutClick(); gridMenuExpanded = false })
+                          DropdownMenuItem(text = { Text(stringResource(R.string.generic_delete)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_delete_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onDeleteClick(); gridMenuExpanded = false })
+                      }
+                  }
+              }
+
+              // ── Polished primary launch button ───────────────────────────────
+              Button(
+                  onClick = callbacks.onLaunchClick,
+                  enabled = version.isValid(),
+                  modifier = Modifier.fillMaxWidth().height(40.dp),
+                  shape = MaterialTheme.shapes.extraLarge,
+                  elevation = androidx.compose.material3.ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                  contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+              ) {
+                  Icon(
+                      modifier = Modifier.size(16.dp),
+                      painter = painterResource(R.drawable.ic_play_arrow_filled),
+                      contentDescription = null
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  MarqueeText(text = stringResource(R.string.versions_manage_launch))
+              }
+          }
+      }
+  }
+
+  @Composable
+  fun VersionCompactItemLayout(
+      version: Version,
+      selected: Boolean,
+      callbacks: VersionItemCallbacks,
+      modifier: Modifier = Modifier,
+      color: Color = itemColor(),
+      contentColor: Color = onItemColor()
+  ) {
+      val scale = remember { Animatable(initialValue = 0.97f) }
+      LaunchedEffect(Unit) {
+          scale.animateTo(targetValue = 1f, animationSpec = getAnimateTween())
+      }
+
+      Surface(
+          modifier = modifier.graphicsLayer(scaleY = scale.value, scaleX = scale.value),
+          color = color,
+          contentColor = contentColor,
+          shape = MaterialTheme.shapes.medium,
+          onClick = {
+              if (selected) return@Surface
+              callbacks.onSelected()
+          }
+      ) {
+          Row(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 10.dp, vertical = 5.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+              VersionIconImage(version = version, modifier = Modifier.size(24.dp))
+
+              Column(modifier = Modifier.weight(1f)) {
+                  Text(
+                      modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
+                      text = version.getVersionName(),
+                      style = MaterialTheme.typography.labelMedium,
+                      maxLines = 1
+                  )
+                  if (version.isValid() && version.isSummaryValid()) {
+                      Text(
+                          modifier = Modifier
+                              .basicMarquee(iterations = Int.MAX_VALUE)
+                              .alpha(0.65f),
+                          text = remember(version) { version.getVersionSummary() },
+                          style = MaterialTheme.typography.labelSmall,
+                          maxLines = 1
+                      )
+                  }
+              }
+
+              IconButton(onClick = callbacks.onLaunchClick, enabled = version.isValid()) {
+                  Icon(
+                      modifier = Modifier.size(20.dp),
+                      painter = painterResource(R.drawable.ic_play_arrow_filled),
+                      contentDescription = stringResource(R.string.versions_manage_launch),
+                      tint = MaterialTheme.colorScheme.primary
+                  )
+              }
+
+              var compactMenuExpanded by remember { mutableStateOf(false) }
+              Box {
+                  IconButton(onClick = { compactMenuExpanded = !compactMenuExpanded }) {
+                      Icon(modifier = Modifier.size(18.dp), painter = painterResource(R.drawable.ic_more_horiz), contentDescription = stringResource(R.string.generic_more))
+                  }
+                  DropdownMenu(expanded = compactMenuExpanded, shape = MaterialTheme.shapes.large, shadowElevation = 3.dp, onDismissRequest = { compactMenuExpanded = false }) {
+                      DropdownMenuItem(text = { Text(stringResource(R.string.generic_rename)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_edit_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onRenameClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(text = { Text(stringResource(R.string.generic_copy)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_file_copy_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onCopyClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(text = { Text(stringResource(R.string.versions_export)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_folder_zip_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onExportClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_settings)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_settings_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onSettingsClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_add_shortcut)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_add_box_outlined), null, Modifier.size(20.dp)) }, onClick = { callbacks.onAddShortcutClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(text = { Text(stringResource(R.string.generic_delete)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_delete_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onDeleteClick(); compactMenuExpanded = false })
+                  }
+              }
+          }
+      }
+  }
+  
