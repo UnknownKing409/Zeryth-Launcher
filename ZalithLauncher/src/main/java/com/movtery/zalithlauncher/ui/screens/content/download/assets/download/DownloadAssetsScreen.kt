@@ -421,7 +421,7 @@ private fun Versions(
                     )
 
                     val installedVersions = remember {
-                        VersionsManager.versions.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct().sorted()
+                        VersionsManager.versions.value.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct().sorted()
                     }
                     val scrollState = rememberScrollState()
                     Row(
