@@ -30,12 +30,12 @@ Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section l
 Zeryth Launcher is based on the work of the following open-source projects:
 
 ### Primary Upstream
-    - Zalith Launcher 2
+- Zalith Launcher 2
 
-    Repository:
-    https://github.com/ZalithLauncher/ZalithLauncher2
+Repository:
+https://github.com/ZalithLauncher/ZalithLauncher2
 
-    **License:** GPL-3.0
+**License:** GPL-3.0
 
 If you're looking for the original experience, please consider supporting the upstream project.
 
