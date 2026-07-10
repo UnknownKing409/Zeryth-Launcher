@@ -401,8 +401,9 @@ private fun ContentMenu(
         )
     }
     DisposableEffect(Unit) {
-        val listener: suspend (List<com.movtery.zalithlauncher.game.version.installed.Version>) -> Unit = { vList ->
-            dashboardVersions = vList.sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
+        val listener: suspend () -> Unit = {
+            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions.value
+                .sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
         }
         com.movtery.zalithlauncher.game.version.installed.VersionsManager.registerListener(listener)
         onDispose { com.movtery.zalithlauncher.game.version.installed.VersionsManager.unregisterListener(listener) }
