@@ -49,6 +49,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,6 +68,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.movtery.zalithlauncher.ui.components.SimpleListItem
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.rememberSettingsCardShape
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
@@ -116,6 +119,7 @@ fun RendererSettingsScreen(
     ) { isVisible ->
         val context = LocalContext.current
         var showMobileGluesSettings by remember { mutableStateOf(false) }
+        var showBenchmark by remember { mutableStateOf(false) }
         var driverToDelete by remember { mutableStateOf<Driver?>(null) }
 
         // Tab state: 0 = Built-in Renderers, 1 = App Renderers (external plugins)
@@ -135,6 +139,18 @@ fun RendererSettingsScreen(
 
         if (showMobileGluesSettings) {
             MobileGluesSettingsDialog(onDismissRequest = { showMobileGluesSettings = false })
+        }
+
+        if (showBenchmark) {
+            Dialog(
+                onDismissRequest = { showBenchmark = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                RendererBenchmarkOverlay(
+                    availableRenderers = Renderers.getCompatibleRenderers(context).second,
+                    onDismiss = { showBenchmark = false }
+                )
+            }
         }
 
         driverToDelete?.let { driver ->
@@ -239,6 +255,13 @@ fun RendererSettingsScreen(
                             }
                         }
                     )
+
+                    OutlinedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { showBenchmark = true }
+                    ) {
+                        Text(stringResource(R.string.benchmark_run))
+                    }
 
                     SettingsCard(
                         modifier = Modifier.fillMaxWidth(),
