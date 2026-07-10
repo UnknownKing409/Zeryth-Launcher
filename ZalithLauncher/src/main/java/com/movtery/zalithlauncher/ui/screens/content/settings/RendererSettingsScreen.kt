@@ -28,6 +28,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -49,8 +50,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,6 +64,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -184,6 +187,13 @@ fun RendererSettingsScreen(
                         .fillMaxWidth()
                         .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
                 ) {
+                    RunBenchmarkPill(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        onClick = { showBenchmark = true }
+                    )
+
                     // Renderer selection card — fully self-contained, custom-built (does NOT
                     // reuse ListSettingsCard/topContent) so the collapse/expand + tab placement
                     // is 100% explicit and verifiable in one place:
@@ -255,13 +265,6 @@ fun RendererSettingsScreen(
                             }
                         }
                     )
-
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { showBenchmark = true }
-                    ) {
-                        Text(stringResource(R.string.benchmark_run))
-                    }
 
                     SettingsCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -564,6 +567,48 @@ private fun RendererTabRow(
  * Collapsing/expanding animates the tab row and the list together, as one unit, since
  * they live inside the same AnimatedVisibility block.
  */
+@Composable
+private fun RunBenchmarkPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val gradient = remember(colorScheme) {
+        Brush.horizontalGradient(
+            listOf(colorScheme.primary, colorScheme.tertiary)
+        )
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color.Transparent,
+        shadowElevation = 3.dp,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .background(brush = gradient, shape = CircleShape)
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_rocket_launch_filled),
+                contentDescription = null,
+                tint = colorScheme.onPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                modifier = Modifier.padding(start = 10.dp),
+                text = stringResource(R.string.benchmark_run),
+                style = MaterialTheme.typography.titleSmall,
+                color = colorScheme.onPrimary
+            )
+        }
+    }
+}
+
 @Composable
 private fun GlobalRendererCard(
     selectedTab: Int,

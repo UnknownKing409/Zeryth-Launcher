@@ -61,6 +61,7 @@ jobs:
         with:
           name: release apk (${{ matrix.arch }})
           path: ZalithLauncher/build/outputs/apk/release/*.apk
+          compression-level: 0
       - name: Upload Debug APK for ${{ matrix.arch }}
         if: inputs.variant == 'Debug'
         continue-on-error: true
@@ -68,3 +69,4 @@ jobs:
         with:
           name: debug apk (${{ matrix.arch }})
           path: ZalithLauncher/build/outputs/apk/debug/*.apk
+          compression-level: 0
