@@ -188,7 +188,9 @@ fun RendererSettingsScreen(
                         .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
                 ) {
                     RunBenchmarkPill(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
                         onClick = { showBenchmark = true }
                     )
 
