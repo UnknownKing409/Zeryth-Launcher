@@ -396,13 +396,14 @@ private fun ContentMenu(
     val currentVersion by com.movtery.zalithlauncher.game.version.installed.VersionsManager.currentVersion.collectAsStateWithLifecycle()
     var dashboardVersions by remember {
         mutableStateOf(
-            com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions
+            com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions.value
                 .sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
         )
     }
     DisposableEffect(Unit) {
-        val listener: suspend (List<com.movtery.zalithlauncher.game.version.installed.Version>) -> Unit = { vList ->
-            dashboardVersions = vList.sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
+        val listener: suspend () -> Unit = {
+            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions.value
+                .sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
         }
         com.movtery.zalithlauncher.game.version.installed.VersionsManager.registerListener(listener)
         onDispose { com.movtery.zalithlauncher.game.version.installed.VersionsManager.unregisterListener(listener) }
@@ -490,7 +491,7 @@ private fun ContentMenu(
                                         onExportClick = {},
                                         onDeleteClick = {},
                                         onPinned = {
-                                            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions
+                                            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions.value
                                                 .sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
                                         },
                                         onAddShortcutClick = {},
@@ -530,7 +531,7 @@ private fun ContentMenu(
                                         onExportClick = {},
                                         onDeleteClick = {},
                                         onPinned = {
-                                            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions
+                                            dashboardVersions = com.movtery.zalithlauncher.game.version.installed.VersionsManager.versions.value
                                                 .sortedWith(com.movtery.zalithlauncher.game.version.installed.VersionComparator)
                                         },
                                         onAddShortcutClick = {},
@@ -1094,7 +1095,7 @@ private val DAY_NAMES = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 @Composable
 private fun PlayTimeGraphCard(modifier: Modifier = Modifier) {
-    val versions = remember { VersionsManager.versions.map { it.getVersionName() } }
+    val versions = remember { VersionsManager.versions.value.map { it.getVersionName() } }
     // oldest ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ newest, 7 days ending today
     val days = remember { PlayTimeRepository.lastNDays(7).reversed() }
     val barData = remember(versions, days) {
@@ -1174,7 +1175,7 @@ private fun PlayTimeGraphCard(modifier: Modifier = Modifier) {
 @Composable
 private fun DailyPlayTimeCard(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val versions = remember { VersionsManager.versions.map { it.getVersionName() } }
+    val versions = remember { VersionsManager.versions.value.map { it.getVersionName() } }
     val today = remember { PlayTimeRepository.today() }
     val todayMs = remember(today, versions) {
         PlayTimeRepository.getDailyTotalPlayTime(today, versions)
@@ -1220,7 +1221,7 @@ private fun VersionPlayRateCard(
     onNavigateToStats: () -> Unit
 ) {
     val context = LocalContext.current
-    val versions = remember { VersionsManager.versions }
+    val versions = remember { VersionsManager.versions.value }
     data class VersionStat(val name: String, val version: Version, val totalMs: Long)
     val stats = remember(versions) {
         versions
