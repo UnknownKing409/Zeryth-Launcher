@@ -30,18 +30,14 @@ Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section l
 Zeryth Launcher is based on the work of the following open-source projects:
 
 ### Primary Upstream
-- Zalith Launcher 2
+    - Zalith Launcher 2
 
-Repository:
+    Repository:
+    https://github.com/ZalithLauncher/ZalithLauncher2
 
-- Zalith Launcher 2
+    **License:** GPL-3.0
 
-Repository:
-https://github.com/ZalithLauncher/ZalithLauncher2
-
-**License:** GPL-3.0
-
-If you're looking for the original experience, please consider supporting the upstream projects.
+If you're looking for the original experience, please consider supporting the upstream project.
 
 ---
 
@@ -166,8 +162,6 @@ Thank you for making Minecraft Java Edition on Android possible.
 https://github.com/ZerythLauncher/Zeryth-Launcher
 
 **Primary Upstream (Zalith Launcher 2)**
-
-**Original Project (Zalith Launcher 2)**
 https://github.com/ZalithLauncher/ZalithLauncher2
 
 ---
