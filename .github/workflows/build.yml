@@ -54,19 +54,41 @@ jobs:
           chmod +x gradlew
           ./gradlew ZalithLauncher:assemble${{ inputs.variant }} -Darch=${{ matrix.arch }}
 
-      - name: Upload Release APK for ${{ matrix.arch }}
-        if: inputs.variant == 'Release'
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
+      - name: Locate generated APK
+        id: find_apk
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          variant_lower=$(echo "${{ inputs.variant }}" | tr '[:upper:]' '[:lower:]')
+          output_dir="ZalithLauncher/build/outputs/apk/${variant_lower}"
+
+          if [ ! -d "$output_dir" ]; then
+            echo "Expected output directory not found: $output_dir" >&2
+            exit 1
+          fi
+
+          mapfile -t apk_files < <(find "$output_dir" -maxdepth 1 -name "*.apk" -type f | sort)
+
+          if [ "${#apk_files[@]}" -eq 0 ]; then
+            echo "No APK files found in $output_dir" >&2
+            exit 1
+          fi
+
+          if [ "${#apk_files[@]}" -gt 1 ]; then
+            echo "Expected exactly one APK per matrix job (arch=${{ matrix.arch }}), found ${#apk_files[@]}:" >&2
+            printf '  %s\n' "${apk_files[@]}" >&2
+            exit 1
+          fi
+
+          apk_path="${apk_files[0]}"
+          echo "apk_path=$apk_path" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$(basename "$apk_path")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK as its own artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: release apk (${{ matrix.arch }})
-          path: ZalithLauncher/build/outputs/apk/release/*.apk
+          name: ${{ steps.find_apk.outputs.apk_name }}
+          path: ${{ steps.find_apk.outputs.apk_path }}
           compression-level: 0
-      - name: Upload Debug APK for ${{ matrix.arch }}
-        if: inputs.variant == 'Debug'
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: debug apk (${{ matrix.arch }})
-          path: ZalithLauncher/build/outputs/apk/debug/*.apk
-          compression-level: 0
+          if-no-files-found: error
