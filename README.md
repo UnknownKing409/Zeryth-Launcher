@@ -37,6 +37,14 @@ https://github.com/ZalithLauncher/ZalithLauncher2
 
 **License:** GPL-3.0
 
+### Additional Credit
+Zeryth Launcher was also previously based on **Zalith Launcher 2+**, a fork by **Star1xr**.
+
+Repository:
+https://github.com/Star1xr/ZalithLauncher2Plus
+
+Many thanks to Star1xr for their work, which shaped earlier versions of this project.
+
 If you're looking for the original experience, please consider supporting the upstream project.
 
 ---
@@ -142,6 +150,7 @@ Zeryth Launcher would not exist without the incredible work of the open-source c
 Special thanks to:
 
 - Zalith Launcher 2 Developers
+- Star1xr, author of Zalith Launcher 2+
 - Zalith Launcher Team
 - PojavLauncher Developers
 - HMCL Developers
