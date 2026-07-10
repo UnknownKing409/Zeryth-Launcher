@@ -163,7 +163,7 @@ Thank you for making Minecraft Java Edition on Android possible.
 # 🔗 Contact & Links
 
 **Zeryth Launcher**
-https://github.com/johnrenonasuncion-Ramil/Zeryth-Launcher
+https://github.com/ZerythLauncher/Zeryth-Launcher
 
 **Primary Upstream (Zalith Launcher 2)**
 
