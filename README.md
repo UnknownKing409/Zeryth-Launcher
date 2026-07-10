@@ -2,15 +2,15 @@
 
 > ⚠️ **UNOFFICIAL MODIFIED VERSION**
 
-Zeryth Launcher is an unofficial fork of **Zalith Launcher 2+**, which is itself based on **Zalith Launcher 2**. This project is **not affiliated with or endorsed by** the Zalith Launcher developers, Mojang Studios, or Microsoft.
+Zeryth Launcher is an unofficial fork of **Zalith Launcher 2**. This project is **not affiliated with or endorsed by** the Zalith Launcher developers, Mojang Studios, or Microsoft.
 
-Built upon the solid foundation of Zalith Launcher 2+, Zeryth Launcher aims to provide a refined Minecraft: Java Edition launcher for Android with new features, improved customization, performance enhancements, and a modern user experience.
+Built upon the solid foundation of Zalith Launcher 2, Zeryth Launcher aims to provide a refined Minecraft: Java Edition launcher for Android with new features, improved customization, performance enhancements, and a modern user experience.
 
 ---
 
 # 📋 What's New In This Fork?
 
-Zeryth Launcher inherits all features from **Zalith Launcher 2+**. This section lists **only the features, improvements, and changes made specifically for Zeryth Launcher.**
+Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section lists **only the features, improvements, and changes made specifically for Zeryth Launcher.**
 
 ## 🚧 Planned Features
 
@@ -49,7 +49,7 @@ If you're looking for the original experience, please consider supporting the up
 
 # 🌐 Language & Translation Support
 
-Zeryth Launcher currently inherits translations from Zalith Launcher 2+.
+Zeryth Launcher currently inherits translations from Zalith Launcher 2.
 
 Translation improvements are welcome through pull requests.
 
@@ -68,7 +68,7 @@ Translation improvements are welcome through pull requests.
 ## Build Steps
 
 ```bash
-git clone https://github.com/johnrenonasuncion-Ramil/Zeryth-Launcher.git
+git clone https://github.com/ZerythLauncher/Zeryth-Launcher.git
 ```
 
 Open the project in Android Studio and build normally.
@@ -128,7 +128,7 @@ Before contributing:
 - Official support should be requested from the upstream Zalith Launcher projects.
 - Please report bugs through this repository's issue tracker.
 - Use this software at your own risk.
-- Zeryth Launcher is **not affiliated with Mojang Studios, Microsoft, Zalith Launcher 2+, or Zalith Launcher 2.**
+- Zeryth Launcher is **not affiliated with Mojang Studios, Microsoft, or Zalith Launcher 2.**
 
 Minecraft is a trademark of Mojang Studios.
 
