@@ -35,6 +35,7 @@ import com.movtery.zalithlauncher.setting.enums.ChromaMode
 import com.movtery.zalithlauncher.setting.enums.DarkMode
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
 import com.movtery.zalithlauncher.setting.enums.HomePageType
+import com.movtery.zalithlauncher.setting.enums.MainScreenMode
 import com.movtery.zalithlauncher.setting.enums.MirrorSourceType
 import com.movtery.zalithlauncher.setting.enums.MouseControlMode
 import com.movtery.zalithlauncher.ui.control.HotbarRule
@@ -419,6 +420,11 @@ object AllSettings : SettingsRegistry() {
      * 版本列表视图模式：0=列表(LIST), 1=网格(GRID)
      */
     val versionViewMode = intSetting("versionViewMode", 0, 0..2)
+
+    /**
+     * 启动器主屏幕布局模式：Default（简洁）/ Advanced（完整）
+     */
+    val mainScreenMode = enumSetting("mainScreenMode", MainScreenMode.Advanced)
     /**
      * 启动器上次检查更新时，用户选择忽略的版本号
      */

@@ -1112,6 +1112,10 @@
     <string name="settings_launcher_color_theme_summary">Customize launcher colors</string>
     <string name="settings_launcher_color_theme_style">Palette Style</string>
     <string name="settings_launcher_dark_mode_title">Dark Mode</string>
+    <string name="settings_launcher_main_screen_mode_title">Main Screen Mode</string>
+    <string name="settings_launcher_main_screen_mode_summary">Choose how much is shown on the launcher\'s main screen</string>
+    <string name="settings_launcher_main_screen_mode_default">Default</string>
+    <string name="settings_launcher_main_screen_mode_advanced">Advanced</string>
     <string name="settings_launcher_language">Language</string>
     <string name="settings_launcher_full_screen_title">Fullscreen Mode</string>
     <string name="settings_launcher_full_screen_summary">Make the launcher pages fullscreen, ignoring safe areas like notches and punch-holes</string>
