@@ -422,9 +422,9 @@ object AllSettings : SettingsRegistry() {
     val versionViewMode = intSetting("versionViewMode", 0, 0..2)
 
     /**
-     * 启动器主屏幕布局模式：Default（简洁）/ Advanced（完整）
+     * 启动器主屏幕布局模式：Default（简洁，默认）/ Advanced（完整）
      */
-    val mainScreenMode = enumSetting("mainScreenMode", MainScreenMode.Advanced)
+    val mainScreenMode = enumSetting("mainScreenMode", MainScreenMode.Default)
     /**
      * 启动器上次检查更新时，用户选择忽略的版本号
      */
