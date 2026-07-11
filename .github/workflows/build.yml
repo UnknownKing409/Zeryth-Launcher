@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -45,7 +45,7 @@ jobs:
           java-version: "17"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           add-job-summary: "on-failure"
 
@@ -86,7 +86,7 @@ jobs:
           echo "apk_name=$(basename "$apk_path")" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK as its own artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.find_apk.outputs.apk_name }}
           path: ${{ steps.find_apk.outputs.apk_path }}
