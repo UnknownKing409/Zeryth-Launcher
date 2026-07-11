@@ -35,16 +35,30 @@ import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.network.isInterruptedIOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.Collections
 
 private const val TAG = "PlatformSearch"
+
+/**
+ * Per-attempt timeout used when a fallback source is still available.
+ *
+ * The shared HTTP client's own timeout is 30s, which is appropriate as a last-resort
+ * ceiling, but is far too long to wait on a source that turns out to be unreachable or
+ * heavily throttled on the user's network before falling back to the mirror — that made
+ * every search/browse action feel "stuck" for up to 30 seconds. Bounding non-final
+ * attempts to this much shorter window lets the fallback kick in quickly while still
+ * giving a normally-responding source plenty of headroom.
+ */
+private const val FALLBACK_ATTEMPT_TIMEOUT_MS = 10_000L
 
 private val modrinthSearcher = ModrinthSearcher()
 private val mirrorModrinthSearcher = ModrinthSearcher(
@@ -85,14 +99,34 @@ suspend fun <E: AbstractPlatformSearcher, T> mirroredPlatformSearcher(
     val errors = mutableListOf<Exception>()
     var lastException: Exception? = null
 
-    for (searcher in searchers) {
+    for ((index, searcher) in searchers.withIndex()) {
+        // Only the last searcher in the list has no fallback to fall through to — give it
+        // the full client timeout. Every earlier attempt is capped much shorter, so a
+        // source that is unreachable/throttled on the user's network fails over quickly
+        // instead of stalling the whole search for up to 30 seconds.
+        val hasFallback = index < searchers.lastIndex
         try {
             if (printLog) {
                 Logger.debug(TAG, "Starting to attempt to perform the operation on source: {${searcher.source}}")
             }
-            return block(searcher)
+            return if (hasFallback) {
+                withTimeout(FALLBACK_ATTEMPT_TIMEOUT_MS) { block(searcher) }
+            } else {
+                block(searcher)
+            }
         } catch (e: Exception) {
             Log.w("PlatformSearcher", "Failed to perform the operation on source: {${searcher.source}}", e)
+
+            // A per-attempt timeout just means "this source is too slow, try the fallback" —
+            // it is not a genuine cancellation of the caller's coroutine, so it must not be
+            // rethrown like a real CancellationException would be.
+            if (e is TimeoutCancellationException) {
+                val timeoutError = IOException("Source {${searcher.source}} timed out after ${FALLBACK_ATTEMPT_TIMEOUT_MS}ms", e)
+                lastException = timeoutError
+                errors.add(timeoutError)
+                continue
+            }
+
             lastException = e
 
             if (e.isInterruptedIOException()) {
