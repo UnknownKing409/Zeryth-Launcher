@@ -120,25 +120,21 @@ suspend fun <E: AbstractPlatformSearcher, T> mirroredPlatformSearcher(
 }
 
 /**
- * 镜像源在中国地区使用，或未配置 CurseForge API 密钥时作为回退使用。
+ * 镜像源始终作为回退可用，中国大陆地区（或用户设置为镜像优先）时优先使用镜像源。
  *
- * When [BuildKeys.CURSEFORGE_API] is blank (no API key configured), the MCIM mirror is
- * always included regardless of region so that requests which would otherwise receive a
- * 403 Forbidden from the official API can fall back to the mirror automatically.
+ * The MCIM mirror is always kept in the searcher list as a fallback — regardless of
+ * region or whether [BuildKeys.CURSEFORGE_API] is configured — so that any failure of the
+ * official API (missing/invalid key, 403, rate limiting, an outage, transient network
+ * errors, etc.) transparently falls back to the mirror instead of surfacing a hard error
+ * to the user. Only the *ordering* (which source is tried first) depends on region/settings.
  */
-fun mirroredCurseForgeSource(
-    enabledMirror: Boolean = isChinaMainland()
-): List<CurseForgeSearcher> {
+fun mirroredCurseForgeSource(): List<CurseForgeSearcher> {
     val source = AllSettings.assetSearchSource.getValue()
-    // Include the mirror whenever the user is in China OR when no API key is configured,
-    // so the official searcher's 403 response is transparently handled by the fallback.
-    val hasApiKey = BuildKeys.CURSEFORGE_API.isNotBlank()
-    val mirrorSource = mirrorCurseForgeSearcher.takeIf { enabledMirror || !hasApiKey }
     return when (source) {
         MirrorSourceType.OFFICIAL_FIRST ->
-            listOfNotNull(curseForgeSearcher, mirrorSource)
+            listOf(curseForgeSearcher, mirrorCurseForgeSearcher)
         MirrorSourceType.MIRROR_FIRST ->
-            listOfNotNull(mirrorSource, curseForgeSearcher)
+            listOf(mirrorCurseForgeSearcher, curseForgeSearcher)
     }
 }
 
