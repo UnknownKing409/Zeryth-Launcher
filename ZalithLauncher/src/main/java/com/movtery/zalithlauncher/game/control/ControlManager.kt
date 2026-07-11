@@ -46,6 +46,9 @@ import java.io.InputStream
 
 private const val TAG = "ControlManager"
 
+/** Reserved filename for the launcher's bundled default Zalith 2 layout. */
+const val BUILTIN_CONTROL_FILENAME = "zeryth_builtin_default_layout.json"
+
 /**
  * 控制布局管理者
  */
@@ -76,14 +79,25 @@ object ControlManager {
      */
     fun checkDefaultAndRefresh(context: Context) {
         scope.launch(Dispatchers.IO) {
-            val files = (PathManager.DIR_CONTROL_LAYOUTS.listFiles() ?: emptyArray())
-                .filter { file ->
-                    file.isFile && file.exists() && file.extension.equals("json", true)
-                }
-            if (files.isEmpty()) {
-                unpackDefaultControl(context)
-            }
+            // Always ensure the bundled built-in layout exists at the reserved path.
+            seedBuiltInControlLayout(context)
             refresh()
+        }
+    }
+
+    /**
+     * Ensures the bundled default Zalith 2 layout exists at the reserved filename.
+     * Always overwrites so the title/content stays current; users cannot edit built-in layouts.
+     */
+    private fun seedBuiltInControlLayout(context: Context) {
+        try {
+            val dir = PathManager.DIR_CONTROL_LAYOUTS
+            if (!dir.exists()) dir.mkdirs()
+            val builtInFile = File(dir, BUILTIN_CONTROL_FILENAME)
+            context.copyAssetFile(fileName = "default_layout.json", output = builtInFile, overwrite = true)
+            Logger.info(TAG, "Seeded built-in default Zalith 2 layout.")
+        } catch (e: Exception) {
+            Logger.warning(TAG, "Failed to seed built-in Zalith 2 layout", e)
         }
     }
 
@@ -114,14 +128,15 @@ object ControlManager {
                 ControlData(
                     file = file,
                     controlLayout = ObservableControlLayout(layout),
-                    isSupport = isSupport
+                    isSupport = isSupport,
+                    isBuiltIn = file.name == BUILTIN_CONTROL_FILENAME
                 )
             }?.let { list ->
                 _dataList.update {
-                    list.sortedBy {
-                        if (it.isSupport) it.controlLayout.info.name.default
-                        else it.file.name
-                    }
+                    list.sortedWith(
+                        compareByDescending<ControlData> { it.isBuiltIn }
+                            .thenBy { if (it.isSupport) it.controlLayout.info.name.default else it.file.name }
+                    )
                 }
             }
             checkSettings()
@@ -148,20 +163,6 @@ object ControlManager {
     }
 
     /**
-     * 解压默认控制布局
-     */
-    private suspend fun unpackDefaultControl(
-        context: Context
-    ) = withContext(Dispatchers.IO) {
-        try {
-            val file = getNewRandomFile()
-            context.copyAssetFile(fileName = "default_layout.json", output = file, overwrite = false)
-        } catch (e: Exception) {
-            Logger.warning(TAG, "Failed to unpack default control layout", e)
-        }
-    }
-
-    /**
      * 选择控制布局
      */
     fun selectControl(data: ControlData) {
@@ -175,6 +176,10 @@ object ControlManager {
      * 在协程内删除控制布局
      */
     fun deleteControl(data: ControlData) {
+        if (data.isBuiltIn) {
+            Logger.warning(TAG, "Attempted to delete built-in layout — blocked.")
+            return
+        }
         scope.launch(Dispatchers.IO) {
             if (!data.file.exists()) return@launch
             FileUtils.deleteQuietly(data.file)
@@ -189,6 +194,10 @@ object ControlManager {
         data: ControlData,
         submitError: (Exception) -> Unit
     ) {
+        if (data.isBuiltIn) {
+            Logger.warning(TAG, "Attempted to save built-in layout — blocked.")
+            return
+        }
         scope.launch(Dispatchers.IO) {
             if (!data.file.exists()) {
                 refresh()

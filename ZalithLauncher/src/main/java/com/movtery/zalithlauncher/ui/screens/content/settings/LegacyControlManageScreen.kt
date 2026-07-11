@@ -505,11 +505,13 @@ private fun LegacyLayoutInfo(
                 ) {
                     MarqueeText(text = stringResource(R.string.generic_share))
                 }
-                ScalingActionButton(
-                    modifier = Modifier.weight(1f, fill = false),
-                    onClick = { onEditInfo(data) }
-                ) {
-                    MarqueeText(text = stringResource(R.string.legacy_control_manage_edit_info))
+                if (!data.isBuiltIn) {
+                    ScalingActionButton(
+                        modifier = Modifier.weight(1f, fill = false),
+                        onClick = { onEditInfo(data) }
+                    ) {
+                        MarqueeText(text = stringResource(R.string.legacy_control_manage_edit_info))
+                    }
                 }
             }
         }

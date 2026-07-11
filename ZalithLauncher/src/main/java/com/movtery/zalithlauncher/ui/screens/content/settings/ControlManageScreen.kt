@@ -856,6 +856,19 @@ private fun ControlLayoutItem(
                         text = if (data.isSupport) info.name.translate(locale) else data.file.name,
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    if (data.isBuiltIn) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                text = stringResource(R.string.legacy_control_manage_builtin_badge),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
                 }
 
                 if (data.isSupport) {
@@ -883,13 +896,15 @@ private fun ControlLayoutItem(
                 )
             }
             //删除
-            IconButton(
-                onClick = onDelete
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete_outlined),
-                    contentDescription = stringResource(R.string.generic_delete)
-                )
+            if (!data.isBuiltIn) {
+                IconButton(
+                    onClick = onDelete
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_delete_outlined),
+                        contentDescription = stringResource(R.string.generic_delete)
+                    )
+                }
             }
         }
     }
@@ -938,6 +953,14 @@ private fun ControlLayoutInfo(
             }
         } else {
             val info = data.controlLayout.info
+            // For built-in layouts, edit callbacks are no-ops so fields render as read-only.
+            val editText: (ControlData, ObservableTranslatableString, EditTextType) -> Unit =
+                if (data.isBuiltIn) { _, _, _ -> } else onEditText
+            val editDescription: (ControlData) -> Unit =
+                if (data.isBuiltIn) { _ -> } else onEditDescription
+            val editVersion: (ControlData) -> Unit =
+                if (data.isBuiltIn) { _ -> } else onEditVersion
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -950,7 +973,7 @@ private fun ControlLayoutInfo(
                         title = stringResource(R.string.control_manage_create_new_name),
                         value = if (name.isEmptyOrBlank()) stringResource(R.string.generic_unspecified) else name,
                         onEdit = {
-                            onEditText(data, info.name, EditTextType.NAME)
+                            editText(data, info.name, EditTextType.NAME)
                         }
                     )
                 }
@@ -962,7 +985,7 @@ private fun ControlLayoutInfo(
                         title = stringResource(R.string.control_manage_create_new_author),
                         value = if (author.isEmptyOrBlank()) stringResource(R.string.generic_unspecified) else author,
                         onEdit = {
-                            onEditText(data, info.author, EditTextType.AUTHOR)
+                            editText(data, info.author, EditTextType.AUTHOR)
                         }
                     )
                 }
@@ -974,7 +997,7 @@ private fun ControlLayoutInfo(
                         title = stringResource(R.string.control_manage_create_new_version_name),
                         value = if (versionName.isEmptyOrBlank()) stringResource(R.string.generic_unspecified) else versionName,
                         onEdit = {
-                            onEditVersion(data)
+                            editVersion(data)
                         }
                     )
                 }
@@ -987,7 +1010,7 @@ private fun ControlLayoutInfo(
                             title = stringResource(R.string.control_manage_info_description),
                             value = stringResource(R.string.control_manage_info_description_empty),
                             onEdit = {
-                                onEditDescription(data)
+                                editDescription(data)
                             }
                         )
                     }
@@ -997,7 +1020,7 @@ private fun ControlLayoutInfo(
                         ControlInfoItem(
                             modifier = Modifier.fillMaxWidth(),
                             onEdit = {
-                                onEditDescription(data)
+                                editDescription(data)
                             }
                         ) {
                             Column(
@@ -1038,14 +1061,16 @@ private fun ControlLayoutInfo(
                     )
                 }
 
-                ScalingActionButton(
-                    modifier = Modifier
-                        .weight(1f, fill = false),
-                    onClick = { onEditLayout(data) }
-                ) {
-                    MarqueeText(
-                        text = stringResource(R.string.control_manage_info_edit)
-                    )
+                if (!data.isBuiltIn) {
+                    ScalingActionButton(
+                        modifier = Modifier
+                            .weight(1f, fill = false),
+                        onClick = { onEditLayout(data) }
+                    ) {
+                        MarqueeText(
+                            text = stringResource(R.string.control_manage_info_edit)
+                        )
+                    }
                 }
             }
         }

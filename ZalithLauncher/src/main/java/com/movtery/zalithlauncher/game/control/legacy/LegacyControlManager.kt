@@ -54,11 +54,10 @@ object LegacyControlManager {
             val dir = PathManager.DIR_LEGACY_CONTROL_LAYOUTS
             if (!dir.exists()) dir.mkdirs()
             val builtInFile = File(dir, BUILTIN_LEGACY_FILENAME)
-            if (!builtInFile.exists()) {
-                val json = GlobalContext.readRawContent(R.raw.zeryth_default_legacy_layout)
-                builtInFile.writeText(json)
-                Logger.info(TAG, "Seeded built-in default legacy layout.")
-            }
+            // Always overwrite so title/content stays current; users cannot edit built-in layouts.
+            val json = GlobalContext.readRawContent(R.raw.zeryth_default_legacy_layout)
+            builtInFile.writeText(json)
+            Logger.info(TAG, "Seeded built-in default legacy layout.")
         } catch (e: Exception) {
             Logger.warning(TAG, "Failed to seed built-in legacy layout", e)
         }
