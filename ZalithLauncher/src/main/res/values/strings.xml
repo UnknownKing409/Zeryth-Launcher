@@ -506,6 +506,7 @@
     <string name="account_logging_xbox_underage">The birthdate on the account indicates the user is under 18. A guardian must add this account to a family group to continue using it.</string>
     <string name="account_logging_frequent">Login attempts are too frequent. Please try again later.</string>
     <string name="account_logging_blocked_ip">The current IP address has been blocked from logging in.</string>
+    <string name="account_logging_invalid_app_registration">Microsoft login is not configured correctly. The Azure app is missing the XboxLive.signin API permission. Please contact the launcher developer.</string>
     <string name="account_logging_profile_not_exists">Please create a Minecraft player profile first, then try logging in again!</string>
     <string name="account_logging_not_purchased_minecraft">Minecraft ownership not verified. Please purchase it from Minecraft\'s official website.</string>
     <string name="account_type_microsoft">Microsoft</string>

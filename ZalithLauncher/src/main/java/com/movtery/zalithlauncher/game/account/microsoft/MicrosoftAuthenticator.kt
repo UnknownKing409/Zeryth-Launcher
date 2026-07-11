@@ -25,6 +25,7 @@ import com.movtery.zalithlauncher.game.account.AccountType
 import com.movtery.zalithlauncher.game.account.AccountsManager
 import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.BLOCKED_IP
 import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.FREQUENT
+import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.INVALID_APP_REGISTRATION
 import com.movtery.zalithlauncher.game.account.microsoft.XboxLoginException.ExceptionStatus.BANNED
 import com.movtery.zalithlauncher.game.account.microsoft.XboxLoginException.ExceptionStatus.BLOCKED_REGION
 import com.movtery.zalithlauncher.game.account.microsoft.XboxLoginException.ExceptionStatus.NOT_ACCEPTED_SERVICE
@@ -384,7 +385,13 @@ private suspend fun authenticateMinecraft(
                     "(3) account not linked to Xbox Live, or (4) genuine IP/region block.")
                 when (status) {
                     429 -> throw MinecraftProfileException(FREQUENT)
-                    403 -> throw MinecraftProfileException(BLOCKED_IP)
+                    403 -> {
+                        if (errorBody.contains("Invalid app registration", ignoreCase = true)) {
+                            throw MinecraftProfileException(INVALID_APP_REGISTRATION)
+                        } else {
+                            throw MinecraftProfileException(BLOCKED_IP)
+                        }
+                    }
                 }
             }
         }.getOrThrow()

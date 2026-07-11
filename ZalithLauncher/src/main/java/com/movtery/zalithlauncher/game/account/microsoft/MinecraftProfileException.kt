@@ -22,6 +22,7 @@ import android.content.Context
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.BLOCKED_IP
 import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.FREQUENT
+import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.INVALID_APP_REGISTRATION
 import com.movtery.zalithlauncher.game.account.microsoft.MinecraftProfileException.ExceptionStatus.PROFILE_NOT_EXISTS
 
 /**
@@ -40,6 +41,11 @@ class MinecraftProfileException(val status: ExceptionStatus) : RuntimeException(
         BLOCKED_IP,
 
         /**
+         * Azure 应用注册无效 (缺少 XboxLive.signin API 权限)
+         */
+        INVALID_APP_REGISTRATION,
+
+        /**
          * 未创建配置
          */
         PROFILE_NOT_EXISTS
@@ -50,6 +56,7 @@ fun MinecraftProfileException.toLocal(context: Context): String {
     return when (status) {
         FREQUENT -> context.getString(R.string.account_logging_frequent)
         BLOCKED_IP -> context.getString(R.string.account_logging_blocked_ip)
+        INVALID_APP_REGISTRATION -> context.getString(R.string.account_logging_invalid_app_registration)
         PROFILE_NOT_EXISTS -> context.getString(R.string.account_logging_profile_not_exists)
     }
 }
