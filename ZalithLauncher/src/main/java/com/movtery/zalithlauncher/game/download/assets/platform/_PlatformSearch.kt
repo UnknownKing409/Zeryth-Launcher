@@ -96,6 +96,18 @@ suspend fun <E: AbstractPlatformSearcher, T> mirroredPlatformSearcher(
 ): T {
     require(searchers.isNotEmpty()) { "Searcher list must not be empty." }
 
+    // The common case is exactly two sources: a primary plus one mirror fallback. Racing
+    // them concurrently avoids a "wasted wait": trying sources strictly one at a time means
+    // a primary source that is merely *slow* (rather than erroring outright) forces the
+    // mirror to wait its full turn before it is even allowed to start, so the total delay
+    // becomes the *sum* of both sources' latencies instead of whichever finishes first.
+    // Measured against the real MCIM mirror, a single CurseForge text search can easily
+    // take 10+ seconds on its own — sequentially stacking that behind a timed-out primary
+    // attempt is exactly what reproduced the "ridiculously slow" search/browse symptom.
+    if (searchers.size == 2) {
+        return racedPlatformSearcher(searchers[0], searchers[1], printLog, block)
+    }
+
     val errors = mutableListOf<Exception>()
     var lastException: Exception? = null
 
@@ -151,6 +163,76 @@ suspend fun <E: AbstractPlatformSearcher, T> mirroredPlatformSearcher(
         )
     }
     throw lastException ?: IllegalStateException("Should not have executed to this stage.")
+}
+
+/**
+ * Runs [block] against [primary] and [secondary] concurrently and returns whichever
+ * succeeds first, falling back to whichever source is still in flight only if the first
+ * one to finish failed. This mirrors the sequential try-then-fallback semantics of
+ * [mirroredPlatformSearcher] (a genuine ambient cancellation still propagates immediately,
+ * a "not found" result is still treated as authoritative rather than trying the other
+ * source) — the only difference is that both sources start at the same time, so a slow
+ * primary no longer delays the mirror from even beginning its own attempt.
+ */
+private suspend fun <E: AbstractPlatformSearcher, T> racedPlatformSearcher(
+    primary: E,
+    secondary: E,
+    printLog: Boolean,
+    block: suspend (E) -> T
+): T = coroutineScope {
+    if (printLog) {
+        Logger.debug(TAG, "Starting to attempt to perform the operation on source: {${primary.source}}")
+        Logger.debug(TAG, "Starting to attempt to perform the operation on source: {${secondary.source}}")
+    }
+
+    val primaryDeferred = async { runCatching { block(primary) } }
+    val secondaryDeferred = async { runCatching { block(secondary) } }
+
+    val (winner, winnerResult) = select<Pair<E, Result<T>>> {
+        primaryDeferred.onAwait { primary to it }
+        secondaryDeferred.onAwait { secondary to it }
+    }
+    val loser = if (winner === primary) secondary else primary
+    val loserDeferred = if (winner === primary) secondaryDeferred else primaryDeferred
+
+    val winnerError = winnerResult.exceptionOrNull()
+    if (winnerError == null) {
+        // Winner succeeded outright — no need to wait on the other source at all.
+        loserDeferred.cancel()
+        return@coroutineScope winnerResult.getOrThrow()
+    }
+
+    Log.w("PlatformSearcher", "Failed to perform the operation on source: {${winner.source}}", winnerError)
+
+    // A real ambient cancellation must propagate immediately, not trigger a fallback.
+    if (winnerError is CancellationException || winnerError.isInterruptedIOException()) {
+        loserDeferred.cancel()
+        throw winnerError
+    }
+    // A definitive "not found" is treated as authoritative — same as the sequential
+    // implementation's `break`, it does not fall through to the other source.
+    if (winnerError is FileNotFoundException) {
+        loserDeferred.cancel()
+        throw winnerError
+    }
+
+    // Wait for whichever source is still in flight instead of giving up immediately.
+    val loserResult = loserDeferred.await()
+    val loserError = loserResult.exceptionOrNull()
+    if (loserError == null) {
+        return@coroutineScope loserResult.getOrThrow()
+    }
+
+    Log.w("PlatformSearcher", "Failed to perform the operation on source: {${loser.source}}", loserError)
+
+    if (printLog) {
+        val combined = IOException("All sources have failed to attempt", loserError).apply {
+            addSuppressed(Exception("Mirror error #1: ${winnerError.message}"))
+            addSuppressed(Exception("Mirror error #2: ${loserError.message}"))
+        }
+        Logger.warning(TAG, msg = "An error occurred during this search.", t = combined)
+    }
+    throw loserError
 }
 
 /**
