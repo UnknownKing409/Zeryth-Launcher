@@ -146,6 +146,7 @@ import com.movtery.zalithlauncher.utils.animation.getAnimateTween
 import com.movtery.zalithlauncher.utils.animation.swapAnimateDpAsState
 import com.movtery.zalithlauncher.utils.file.FolderFileCounter
 import com.movtery.zalithlauncher.utils.file.formatFileSize
+import com.movtery.zalithlauncher.utils.network.isNetworkAvailable
 import com.movtery.zalithlauncher.utils.string.isNotEmptyOrBlank
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
@@ -1422,6 +1423,9 @@ private fun ModIcon(
     iconSize: Dp,
     disableContainerSize: Dp = 28.dp
 ) {
+    val context = LocalContext.current
+    val isOnline = remember { isNetworkAvailable(context) }
+
     DisabledStateIcon(
         modifier = modifier,
         isDisabled = mod.localMod.file.isDisabled(),
@@ -1429,20 +1433,41 @@ private fun ModIcon(
     ) { colorFilter ->
         val projectInfo = mod.projectInfo
         val localIcon = mod.localMod.icon
-        if (localIcon != null) {
+
+        if (isOnline && projectInfo != null) {
+            // 联网时：优先展示网络图标（更新且加载更快），失败时回退至本地 JAR 图标
+            AssetsIcon(
+                iconUrl = projectInfo.iconUrl,
+                size = iconSize,
+                colorFilter = colorFilter,
+                fallbackContent = {
+                    if (localIcon != null) {
+                        ByteArrayIcon(
+                            modifier = Modifier.size(iconSize),
+                            triggerRefresh = mod,
+                            icon = localIcon,
+                            colorFilter = colorFilter,
+                        )
+                    } else {
+                        ModLoaderIcon(
+                            modifier = Modifier.size(iconSize),
+                            modloader = mod.localMod.loader,
+                            defaultIcon = R.drawable.ic_unknown_pack,
+                            colorFilter = colorFilter,
+                        )
+                    }
+                }
+            )
+        } else if (localIcon != null) {
+            // 离线或无远端信息时：从 JAR 文件中读取本地图标
             ByteArrayIcon(
                 modifier = Modifier.size(iconSize),
                 triggerRefresh = mod,
                 icon = localIcon,
                 colorFilter = colorFilter,
             )
-        } else if (projectInfo != null) {
-            AssetsIcon(
-                iconUrl = projectInfo.iconUrl,
-                size = iconSize,
-                colorFilter = colorFilter
-            )
         } else {
+            // 无本地图标时：展示模组加载器图标作为兜底
             ModLoaderIcon(
                 modifier = Modifier.size(iconSize),
                 modloader = mod.localMod.loader,
