@@ -185,6 +185,13 @@ private suspend fun <E: AbstractPlatformSearcher, T> racedPlatformSearcher(
         Logger.debug(TAG, "Starting to attempt to perform the operation on source: {${secondary.source}}")
     }
 
+    // Unconditional timing diagnostics (not gated by [printLog]): this is the only way to
+    // see, on a real device/network, which of the two sources actually wins the race and
+    // how long each one really takes. Curl-based testing from a dev machine cannot capture
+    // a user's real mobile-network route to api.curseforge.com, so this is left in place
+    // until the "still slow" reports are fully explained.
+    val raceStart = System.currentTimeMillis()
+
     val primaryDeferred = async { runCatching { block(primary) } }
     val secondaryDeferred = async { runCatching { block(secondary) } }
 
@@ -192,10 +199,16 @@ private suspend fun <E: AbstractPlatformSearcher, T> racedPlatformSearcher(
         primaryDeferred.onAwait { primary to it }
         secondaryDeferred.onAwait { secondary to it }
     }
+    val winnerElapsedMs = System.currentTimeMillis() - raceStart
     val loser = if (winner === primary) secondary else primary
     val loserDeferred = if (winner === primary) secondaryDeferred else primaryDeferred
 
     val winnerError = winnerResult.exceptionOrNull()
+    Logger.debug(
+        TAG,
+        "Race: source {${winner.source}} finished first after ${winnerElapsedMs}ms " +
+            "with result=${if (winnerError == null) "SUCCESS" else "FAILURE(${winnerError::class.simpleName}: ${winnerError.message})"}"
+    )
     if (winnerError == null) {
         // Winner succeeded outright — no need to wait on the other source at all.
         loserDeferred.cancel()
@@ -218,7 +231,13 @@ private suspend fun <E: AbstractPlatformSearcher, T> racedPlatformSearcher(
 
     // Wait for whichever source is still in flight instead of giving up immediately.
     val loserResult = loserDeferred.await()
+    val loserElapsedMs = System.currentTimeMillis() - raceStart
     val loserError = loserResult.exceptionOrNull()
+    Logger.debug(
+        TAG,
+        "Race: source {${loser.source}} finished after ${loserElapsedMs}ms " +
+            "with result=${if (loserError == null) "SUCCESS" else "FAILURE(${loserError::class.simpleName}: ${loserError.message})"}"
+    )
     if (loserError == null) {
         return@coroutineScope loserResult.getOrThrow()
     }
