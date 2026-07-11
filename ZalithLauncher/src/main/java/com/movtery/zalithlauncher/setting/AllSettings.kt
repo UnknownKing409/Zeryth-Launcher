@@ -27,6 +27,7 @@ import com.movtery.layer_controller.data.POSITION_RANGE
 import com.movtery.layer_controller.utils.snap.SnapMode
 import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
+import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSortField
 import com.movtery.zalithlauncher.game.path.GamePathManager
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
 import com.movtery.zalithlauncher.setting.enums.AppLanguage
@@ -705,6 +706,40 @@ object AllSettings : SettingsRegistry() {
      * 搜索光影的初始搜索平台
      */
     val searchShadersPlatform = enumSetting("searchShadersPlatform", Platform.MODRINTH)
+
+    // ------- 下载页过滤器持久化 (Issue #22) -------
+
+    /** 搜索模组：排序方式 */
+    val searchModSortField = enumSetting("searchModSortField", PlatformSortField.RELEVANCE)
+    /** 搜索模组：游戏版本（空字符串代表不筛选） */
+    val searchModGameVersion = stringSetting("searchModGameVersion", "")
+    /** 搜索模组：已选分类（序列化为字符串列表） */
+    val searchModCategories = stringListSetting("searchModCategories", emptyList())
+    /** 搜索模组：模组加载器（空字符串代表不筛选） */
+    val searchModModLoader = stringSetting("searchModModLoader", "")
+
+    /** 搜索整合包：排序方式 */
+    val searchModpackSortField = enumSetting("searchModpackSortField", PlatformSortField.RELEVANCE)
+    /** 搜索整合包：游戏版本（空字符串代表不筛选） */
+    val searchModpackGameVersion = stringSetting("searchModpackGameVersion", "")
+    /** 搜索整合包：已选分类（序列化为字符串列表） */
+    val searchModpackCategories = stringListSetting("searchModpackCategories", emptyList())
+    /** 搜索整合包：模组加载器（空字符串代表不筛选） */
+    val searchModpackModLoader = stringSetting("searchModpackModLoader", "")
+
+    /** 搜索资源包：排序方式 */
+    val searchResourcePackSortField = enumSetting("searchResourcePackSortField", PlatformSortField.RELEVANCE)
+    /** 搜索资源包：游戏版本（空字符串代表不筛选） */
+    val searchResourcePackGameVersion = stringSetting("searchResourcePackGameVersion", "")
+    /** 搜索资源包：已选分类（序列化为字符串列表） */
+    val searchResourcePackCategories = stringListSetting("searchResourcePackCategories", emptyList())
+
+    /** 搜索光影：排序方式 */
+    val searchShadersSortField = enumSetting("searchShadersSortField", PlatformSortField.RELEVANCE)
+    /** 搜索光影：游戏版本（空字符串代表不筛选） */
+    val searchShadersGameVersion = stringSetting("searchShadersGameVersion", "")
+    /** 搜索光影：已选分类（序列化为字符串列表） */
+    val searchShadersCategories = stringListSetting("searchShadersCategories", emptyList())
 
     /**
      * 启动 MC26.2+ 时，自动检查 Vulkan

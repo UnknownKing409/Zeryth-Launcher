@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
+import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSearchFilter
 import com.movtery.zalithlauncher.game.download.assets.platform.curseforge.models.CurseForgeResourcePackCategory
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthFeatures
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthResourcePackCategory
@@ -40,6 +41,27 @@ fun SearchResourcePackScreen(
     val initialPlatform = remember {
         AllSettings.searchResourcePackPlatform.getValue()
     }
+
+    // 从持久化存储中恢复上次的过滤器配置
+    val initialFilter = remember {
+        val platform = AllSettings.searchResourcePackPlatform.getValue()
+        val sortField = AllSettings.searchResourcePackSortField.getValue()
+        val gameVersion = AllSettings.searchResourcePackGameVersion.getValue().takeIf { it.isNotEmpty() }
+        val categoryStrings = AllSettings.searchResourcePackCategories.getValue()
+        val categories = categoryStrings.mapNotNull { str ->
+            when (platform) {
+                Platform.MODRINTH -> ModrinthResourcePackCategory.entries.find { it.facetValue() == str }
+                    ?: ModrinthFeatures.entries.find { it.facetValue() == str }
+                Platform.CURSEFORGE -> CurseForgeResourcePackCategory.entries.find { it.describe() == str }
+            }
+        }
+        PlatformSearchFilter(
+            sortField = sortField,
+            gameVersion = gameVersion,
+            categories = categories
+        )
+    }
+
     SearchAssetsScreen(
         mainScreenKey = mainScreenKey,
         parentScreenKey = downloadResourcePackScreenKey,
@@ -50,6 +72,22 @@ fun SearchResourcePackScreen(
         initialPlatform = initialPlatform,
         onPlatformChange = {
             AllSettings.searchResourcePackPlatform.save(it)
+        },
+        initialFilter = initialFilter,
+        onFilterChange = { platform, filter ->
+            AllSettings.searchResourcePackSortField.save(filter.sortField)
+            AllSettings.searchResourcePackGameVersion.save(filter.gameVersion ?: "")
+            AllSettings.searchResourcePackCategories.save(
+                when (platform) {
+                    Platform.MODRINTH -> filter.categories.mapNotNull { cat ->
+                        (cat as? ModrinthResourcePackCategory)?.facetValue()
+                            ?: (cat as? ModrinthFeatures)?.facetValue()
+                    }
+                    Platform.CURSEFORGE -> filter.categories.mapNotNull { cat ->
+                        (cat as? CurseForgeResourcePackCategory)?.describe()
+                    }
+                }
+            )
         },
         getCategories = { platform ->
             when (platform) {

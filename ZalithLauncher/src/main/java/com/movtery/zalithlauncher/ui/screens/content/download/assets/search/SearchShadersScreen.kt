@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
+import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSearchFilter
 import com.movtery.zalithlauncher.game.download.assets.platform.curseforge.models.CurseForgeShadersCategory
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthFeatures
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthShadersCategory
@@ -40,6 +41,27 @@ fun SearchShadersScreen(
     val initialPlatform = remember {
         AllSettings.searchShadersPlatform.getValue()
     }
+
+    // 从持久化存储中恢复上次的过滤器配置
+    val initialFilter = remember {
+        val platform = AllSettings.searchShadersPlatform.getValue()
+        val sortField = AllSettings.searchShadersSortField.getValue()
+        val gameVersion = AllSettings.searchShadersGameVersion.getValue().takeIf { it.isNotEmpty() }
+        val categoryStrings = AllSettings.searchShadersCategories.getValue()
+        val categories = categoryStrings.mapNotNull { str ->
+            when (platform) {
+                Platform.MODRINTH -> ModrinthShadersCategory.entries.find { it.facetValue() == str }
+                    ?: ModrinthFeatures.entries.find { it.facetValue() == str }
+                Platform.CURSEFORGE -> CurseForgeShadersCategory.entries.find { it.describe() == str }
+            }
+        }
+        PlatformSearchFilter(
+            sortField = sortField,
+            gameVersion = gameVersion,
+            categories = categories
+        )
+    }
+
     SearchAssetsScreen(
         mainScreenKey = mainScreenKey,
         parentScreenKey = downloadShadersScreenKey,
@@ -50,6 +72,22 @@ fun SearchShadersScreen(
         initialPlatform = initialPlatform,
         onPlatformChange = {
             AllSettings.searchShadersPlatform.save(it)
+        },
+        initialFilter = initialFilter,
+        onFilterChange = { platform, filter ->
+            AllSettings.searchShadersSortField.save(filter.sortField)
+            AllSettings.searchShadersGameVersion.save(filter.gameVersion ?: "")
+            AllSettings.searchShadersCategories.save(
+                when (platform) {
+                    Platform.MODRINTH -> filter.categories.mapNotNull { cat ->
+                        (cat as? ModrinthShadersCategory)?.facetValue()
+                            ?: (cat as? ModrinthFeatures)?.facetValue()
+                    }
+                    Platform.CURSEFORGE -> filter.categories.mapNotNull { cat ->
+                        (cat as? CurseForgeShadersCategory)?.describe()
+                    }
+                }
+            )
         },
         getCategories = { platform ->
             when (platform) {
