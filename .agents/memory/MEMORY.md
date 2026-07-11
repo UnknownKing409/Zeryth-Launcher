@@ -1,0 +1,1 @@
+- [Zeryth/Zalith Launcher CI builds](zeryth-launcher-ci.md) — no local Android SDK/JDK in this repl; Release APKs are only built via GitHub Actions push_ci → build.yml.
