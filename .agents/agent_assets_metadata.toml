@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "OqMPGw7D6z6plLEccuLpE"
+uri = "file://attached_assets/Zeryth_Launcher_fixed_manifest.json"
+type = "unspecified"
+title = "Zeryth_Launcher_fixed_manifest.json"
