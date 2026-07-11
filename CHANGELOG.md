@@ -31,4 +31,15 @@
   - Tapping Controls navigates to `NormalNavKey.Settings.Control` screen
   - `onControlsClick` lambda threaded through `ContentMenu` and `DashboardTabBar` signatures
   - Icon updated to `ic_videogame_asset_outlined`
+
+  #### Task 6 – Main Screen Mode setting (Default / Advanced)
+  - New `MainScreenMode` enum + `AllSettings.mainScreenMode` persisted setting
+  - New "Main Screen Mode" list setting added to Settings → Launcher
+  - **Default**: main screen shows only the Today's Statistics section (dashboard
+    tab switcher, bottom navigation bar, Quick Access Panel, and custom home page
+    are hidden)
+  - **Advanced**: unchanged, current full home screen (bottom nav, Quick Access
+    Panel, dashboard tabs, custom home page)
+  - Implemented as a single shared `ContentMenu` layout branch, no duplicate
+    home screens; switching applies immediately and persists across restarts
   
