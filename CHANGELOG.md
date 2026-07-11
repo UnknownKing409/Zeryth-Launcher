@@ -4,6 +4,14 @@
 
   ### Features & Fixes
 
+  #### CurseForge API key configured
+  - Added a valid `CURSEFORGE_API_KEY` GitHub Actions secret so Release builds
+    authenticate directly against the official CurseForge API instead of
+    silently failing every request with 403 and falling back to the slower
+    MCIM mirror. This was the main remaining cause of slow CurseForge
+    Modpack/Mod/Resource Pack/Shader Pack loading after the earlier
+    pagination and caching optimizations.
+
   #### Task 1 – Collapsible Default Control System section
   - `ControlSettingsScreen`: Replaced full-detail card with a compact FilterChip strip
   - Zalith2 / Legacy chips always visible for one-tap switching
