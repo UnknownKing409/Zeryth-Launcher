@@ -1195,7 +1195,7 @@ private fun getLoaderIconRes(
                           runCatching { version.setPinnedAndSave(!cur) }
                               .onFailure { e ->
                                   Logger.error(TAG, "Failed to save version config!", e)
-                                  callbacks.submitError(ErrorViewModel.ThrowableMessage(title = saveFailedText, message = e.getMessageOrToString()))
+                                  callbacks.submitError(ErrorViewModel.ThrowableMessage(title = androidText(saveFailedText), message = androidText(e.getMessageOrToString())))
                               }
                               .onSuccess { callbacks.onPinned() }
                       },

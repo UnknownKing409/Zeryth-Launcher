@@ -28,6 +28,7 @@ import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
+import com.movtery.zalithlauncher.ui.toAndroidString
 import com.movtery.zalithlauncher.utils.file.ensureParentDirectory
 import com.movtery.zalithlauncher.utils.file.formatFileSize
 import com.movtery.zalithlauncher.utils.logging.Logger
@@ -202,7 +203,7 @@ fun mapExceptionToMessage(e: Throwable): AndroidStringText {
    * @param onEachError called with (name, errorMessage) for pre-download failures
    */
   suspend fun downloadDependenciesBatch(
-      context: Context,
+      context: android.content.Context,
       deps: List<Pair<com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion.PlatformDependency, com.movtery.zalithlauncher.game.download.assets.platform.PlatformProject>>,
       gameVersions: List<Version>,
       folder: String,
@@ -239,7 +240,6 @@ fun mapExceptionToMessage(e: Throwable): AndroidStringText {
 
               // Submit the download task (runs in TaskSystem background)
               downloadSingleForVersions(
-                  context = context,
                   version = best,
                   versions = gameVersions,
                   folder = folder,
@@ -248,9 +248,7 @@ fun mapExceptionToMessage(e: Throwable): AndroidStringText {
           }.onFailure { e ->
               if (e !is kotlinx.coroutines.CancellationException) {
                   Logger.warning(TAG, "Failed to prepare batch download for dependency: $name", e)
-                  val msg = mapExceptionToMessage(e).let { (resId, args) ->
-                      if (args != null) context.getString(resId, *args) else context.getString(resId)
-                  }
+                  val msg = mapExceptionToMessage(e).toAndroidString(context)
                   onEachError(name, msg)
               }
           }

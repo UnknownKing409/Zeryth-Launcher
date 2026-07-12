@@ -32,7 +32,7 @@ class Task private constructor(
     val id: String,
     /** Human-readable label shown in the Task Menu. Null means no title row is displayed. */
     val title: String? = null,
-    /** Icon shown while the task is in [TaskState.RUNNING]. Defaults to a generic download icon. */
+    /** Icon shown while the task is in [TaskStage.RUNNING]. Defaults to a generic download icon. */
     @DrawableRes val runningIcon: Int? = null,
     val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     val task: suspend CoroutineScope.(Task) -> Unit,

@@ -36,6 +36,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.download.assets.downloadSingleForVersions
 import com.movtery.zalithlauncher.game.download.assets.downloadDependenciesBatch
+import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
@@ -104,8 +105,8 @@ fun DownloadModScreen(
                 if (failedDependencies.isNotEmpty()) {
                     submitError(
                         ErrorViewModel.ThrowableMessage(
-                            title = context.getString(R.string.download_assets_download_all_deps),
-                            message = failedDependencies.joinToString("\n")
+                            title = androidText(R.string.download_assets_download_all_deps),
+                            message = androidText(failedDependencies.joinToString("\n"))
                         )
                     )
                 }
@@ -114,7 +115,6 @@ fun DownloadModScreen(
         onInstallWithDependencies = { classes, version, gameVersions, requiredDeps ->
             //一键安装：先安装所选模组本体，再复用现有前置解析/下载/安装流水线安装所有必需前置项目
             downloadSingleForVersions(
-                context = context,
                 version = version,
                 versions = gameVersions,
                 folder = classes.versionFolder.folderName,
@@ -136,8 +136,8 @@ fun DownloadModScreen(
                     if (failedDependencies.isNotEmpty()) {
                         submitError(
                             ErrorViewModel.ThrowableMessage(
-                                title = context.getString(R.string.download_assets_install_with_deps),
-                                message = failedDependencies.joinToString("\n")
+                                title = androidText(R.string.download_assets_install_with_deps),
+                                message = androidText(failedDependencies.joinToString("\n"))
                             )
                         )
                     }
