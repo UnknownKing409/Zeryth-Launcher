@@ -184,13 +184,10 @@ fun SearchFilter(
                       Logger.warning("SearchFilter", "Failed to refresh Minecraft versions")
                   }
               }
-              // CurseForge only supports release versions — hide the Snapshots tab there
-              val showSnapshotsTab = searchPlatform != Platform.CURSEFORGE
               GameVersionFilterLayout(
                   modifier = Modifier.fillMaxWidth(),
                   allVersions = allVersions,
                   installedVersions = installedVersions,
-                  showSnapshotsTab = showSnapshotsTab,
                   selectedVersion = gameVersion,
                   onVersionChange = { new ->
                       if (new != gameVersion) onGameVersionChange(new)
@@ -513,9 +510,6 @@ fun <E> FilterListLayout(
  * - **Stable** (Release builds, shown by default)
  * - **Snapshots** (everything else: snapshots, pre-releases, old betas/alphas, April Fools)
  *
- * The Snapshots tab is hidden when [showSnapshotsTab] is false (e.g. CurseForge, which
- * only indexes Release versions).
- *
  * Installed versions always appear at the top of the Stable tab so the user can
  * quickly pin a filter to a version they already have.
  */
@@ -524,13 +518,13 @@ private fun GameVersionFilterLayout(
     modifier: Modifier = Modifier,
     allVersions: List<MinecraftVersion>,
     installedVersions: List<String>,
-    showSnapshotsTab: Boolean,
     selectedVersion: String?,
     onVersionChange: (String?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // Default to Stable; resets to Stable whenever the dropdown closes
-    var showSnapshots by remember(expanded) { mutableStateOf(false) }
+    // Default to Stable; reset to Stable every time the section is collapsed
+    var showSnapshots by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) { if (!expanded) showSnapshots = false }
 
     // Stable = Release; installed versions pinned to the top (de-duped)
     val stableVersions = remember(allVersions, installedVersions) {
@@ -549,7 +543,7 @@ private fun GameVersionFilterLayout(
             .map { it.version.id }
     }
 
-    val displayVersions = if (showSnapshots && showSnapshotsTab) snapshotVersions else stableVersions
+    val displayVersions = if (showSnapshots) snapshotVersions else stableVersions
 
     BaseFilterLayout(modifier = modifier) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -575,62 +569,67 @@ private fun GameVersionFilterLayout(
                 onClear = { onVersionChange(null) }
             )
 
+            // Stable / Snapshots segmented button — shown separately so it is NOT
+            // wrapped together with the LazyColumn inside AnimatedVisibility.
+            // Nesting a Column + LazyColumn inside AnimatedVisibility inside a
+            // LazyColumn item causes unbounded-height measurement problems; keeping
+            // each AnimatedVisibility content to a single direct child avoids this.
             AnimatedVisibility(
                 visible = expanded,
                 enter = expandVertically(animationSpec = getAnimateTween()),
                 exit = shrinkVertically(animationSpec = getAnimateTween()) + fadeOut()
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Stable / Snapshots tab switch — only shown when both tabs are useful
-                    if (showSnapshotsTab) {
-                        SingleChoiceSegmentedButtonRow(
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    SegmentedButton(
+                        selected = !showSnapshots,
+                        onClick = { showSnapshots = false },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        label = { Text(stringResource(R.string.download_assets_filter_game_version_stable)) }
+                    )
+                    SegmentedButton(
+                        selected = showSnapshots,
+                        onClick = { showSnapshots = true },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        label = { Text(stringResource(R.string.download_assets_filter_game_version_snapshots)) }
+                    )
+                }
+            }
+
+            // Version list — mirrors FilterListLayout's AnimatedVisibility → LazyColumn pattern exactly
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = getAnimateTween()),
+                exit = shrinkVertically(animationSpec = getAnimateTween()) + fadeOut()
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp)
+                        .padding(vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    items(displayVersions) { version ->
+                        val isSelected = selectedVersion == version
+                        FilterListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            SegmentedButton(
-                                selected = !showSnapshots,
-                                onClick = { showSnapshots = false },
-                                shape = SegmentedButtonDefaults.itemShape(0, 2)
-                            ) {
-                                Text(stringResource(R.string.download_assets_filter_game_version_stable))
+                                .padding(all = 4.dp),
+                            selected = isSelected,
+                            selectionMode = FilterSelectionMode.Single,
+                            onCheckedChange = { checked ->
+                                onVersionChange(if (checked) version else null)
+                            },
+                            itemLayout = {
+                                Text(
+                                    text = version,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
-                            SegmentedButton(
-                                selected = showSnapshots,
-                                onClick = { showSnapshots = true },
-                                shape = SegmentedButtonDefaults.itemShape(1, 2)
-                            ) {
-                                Text(stringResource(R.string.download_assets_filter_game_version_snapshots))
-                            }
-                        }
-                    }
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .padding(vertical = 4.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        items(displayVersions) { version ->
-                            val isSelected = selectedVersion == version
-                            FilterListItem(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(all = 4.dp),
-                                selected = isSelected,
-                                selectionMode = FilterSelectionMode.Single,
-                                onCheckedChange = { checked ->
-                                    onVersionChange(if (checked) version else null)
-                                },
-                                itemLayout = {
-                                    Text(
-                                        text = version,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
-                            )
-                        }
+                        )
                     }
                 }
             }
