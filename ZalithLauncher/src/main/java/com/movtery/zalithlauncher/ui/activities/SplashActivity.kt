@@ -30,15 +30,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
-import com.movtery.zalithlauncher.R
-import com.movtery.zalithlauncher.SplashException
-import com.movtery.zalithlauncher.components.Components
-import com.movtery.zalithlauncher.components.InstallableItem
-import com.movtery.zalithlauncher.components.UnpackComponentsTask
-import com.movtery.zalithlauncher.components.jre.Jre
-import com.movtery.zalithlauncher.components.jre.UnpackJnaTask
-import com.movtery.zalithlauncher.components.jre.UnpackJreTask
-import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.components.UnpackManager
+import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.ui.base.BaseAppCompatActivity
 import com.movtery.zalithlauncher.ui.screens.splash.SplashScreen
 import com.movtery.zalithlauncher.ui.theme.ZalithLauncherTheme
@@ -47,10 +40,7 @@ import com.movtery.zalithlauncher.ui.theme.onBackgroundColor
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.viewmodel.SplashBackStackViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicInteger
 
 private const val TAG = "SplashActivity"
 
@@ -66,8 +56,6 @@ const val IMPORT_TYPE_UNKNOWN = "unknown"
 @SuppressLint("CustomSplashScreen")
 @AndroidEntryPoint
 class SplashActivity : BaseAppCompatActivity(refreshData = false) {
-    private val unpackItems: MutableList<InstallableItem> = ArrayList()
-    private val finishedTaskCount = AtomicInteger(0)
 
     private val backStackViewModel: SplashBackStackViewModel by viewModels()
 
@@ -75,11 +63,33 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        initUnpackItems()
-        checkAllTask()
+        // Build item list (no-op if already initialized in this process)
+        UnpackManager.initItems(this)
+
+        // Log available runtime assets for debugging
+        listAssetsPath("runtimes").forEach { filePath ->
+            Logger.info(TAG, "The launcher contains the runtime environment: $filePath")
+        }
+
+        // Check filesystem state (skipped automatically if installation is running)
+        UnpackManager.checkAll()
 
         if (checkTasksToMain()) {
             return
+        }
+
+        // If reconnecting to a background installation already in progress,
+        // monitor TaskSystem so we navigate to MainActivity when it completes.
+        if (UnpackManager.isInstalling) {
+            lifecycleScope.launch {
+                TaskSystem.tasksFlow.collect { tasks ->
+                    if (!tasks.any { it.id == UnpackManager.INSTALL_TASK_ID }
+                        && UnpackManager.areAllFinished()
+                    ) {
+                        swapToMain()
+                    }
+                }
+            }
         }
 
         setContent {
@@ -91,7 +101,7 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
                 ) {
                     SplashScreen(
                         startAllTask = { startAllTask() },
-                        unpackItems = unpackItems,
+                        unpackItems = UnpackManager.items,
                         screenViewModel = backStackViewModel
                     )
                 }
@@ -104,7 +114,7 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
         setIntent(intent)
 
         //若依赖未完成，忽略所有外部导入
-        if (!areAllTasksFinished()) {
+        if (!UnpackManager.areAllFinished()) {
             Logger.info(TAG, "Import intent received but dependencies are not ready, ignoring.")
             return
         }
@@ -123,59 +133,6 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
             }
             startActivity(forward)
             finish()
-        }
-    }
-
-    private fun initUnpackItems() {
-        Components.entries.forEach { component ->
-            val task = UnpackComponentsTask(this@SplashActivity, component)
-            if (!task.isCheckFailed()) {
-                unpackItems.add(
-                    InstallableItem(
-                        component.displayName,
-                        getString(component.summary),
-                        task
-                    )
-                )
-            }
-        }
-        Jre.entries.forEach { jre ->
-            val task = UnpackJreTask(this@SplashActivity, jre)
-            if (!task.isCheckFailed()) {
-                unpackItems.add(
-                    InstallableItem(
-                        jre.jreName,
-                        getString(jre.summary),
-                        task
-                    )
-                )
-            }
-        }
-        val jnaTask = UnpackJnaTask(this@SplashActivity)
-        if (!jnaTask.isCheckFailed()) {
-            unpackItems.add(
-                InstallableItem(
-                    "JNA",
-                    getString(R.string.unpack_screen_jna),
-                    jnaTask
-                )
-            )
-        }
-        unpackItems.sort()
-    }
-
-    private fun checkAllTask() {
-        //检查应用 assets 目录
-        listAssetsPath("runtimes").forEach { filePath ->
-            Logger.info(TAG, "The launcher contains the runtime environment: $filePath")
-        }
-
-        unpackItems.forEach { item ->
-            val state = item.task.checkState()
-            item.updateState(state)
-            if (state == InstallableItem.State.FINISHED) {
-                finishedTaskCount.incrementAndGet()
-            }
         }
     }
 
@@ -204,37 +161,15 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
     }
 
     private fun startAllTask() {
-        lifecycleScope.launch {
-            val jobs = unpackItems
-                .filter {
-                    val state = it.state.value
-                    state == InstallableItem.State.NOT_STARTED ||
-                    state == InstallableItem.State.PENDING
-                }
-                .map { item ->
-                    launch(Dispatchers.IO) {
-                        item.updateState(InstallableItem.State.RUNNING)
-                        runCatching {
-                            item.task.run()
-                        }.onFailure {
-                            throw SplashException(it)
-                        }
-                        finishedTaskCount.incrementAndGet()
-                        item.updateState(InstallableItem.State.FINISHED)
-                    }
-                }
-            jobs.joinAll()
-        }.invokeOnCompletion {
-            AllSettings.javaRuntime.apply {
-                //检查并设置默认的Java环境
-                if (getValue().isEmpty()) save(Jre.JRE_8.jreName)
-            }
-            swapToMain()
-        }
+        // Submit the installation to TaskSystem (app-scoped background scope).
+        // Navigates to MainActivity immediately so the user is free to use the launcher
+        // while extraction and installation continue in the background.
+        UnpackManager.startAll()
+        swapToMain()
     }
 
     private fun checkTasksToMain(): Boolean {
-        if (!areAllTasksFinished()) return false
+        if (!UnpackManager.areAllFinished()) return false
 
         Logger.info(TAG, "All content that needs to be extracted is already the latest version!")
 
@@ -325,7 +260,4 @@ class SplashActivity : BaseAppCompatActivity(refreshData = false) {
         return info.metaData?.getString("import_type") != null
     }
 
-    private fun areAllTasksFinished(): Boolean {
-        return finishedTaskCount.get() >= unpackItems.size
-    }
 }
