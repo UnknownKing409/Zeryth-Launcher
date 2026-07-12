@@ -173,14 +173,29 @@ val mobileGluesLibs by tasks.registering {
     val abis = setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
     doLast {
         val jniLibsDir = file("src/main/jniLibs")
-        val allExist = abis.all { file("$jniLibsDir/$it/libMobileGlues.so").exists() }
-        if (allExist) return@doLast
+        val versionFile = file("src/main/jniLibs/.mobileglues_version")
 
+        // Fetch the latest release metadata first so we can version-check.
         val apiUrl = URL("https://api.github.com/repos/MobileGL-Dev/MobileGlues-release/releases/latest")
         val conn = apiUrl.openConnection() as java.net.HttpURLConnection
         conn.setRequestProperty("Accept", "application/json")
         val releaseJson = conn.inputStream.readAllBytes().decodeToString()
         conn.disconnect()
+
+        val latestTag = Regex("\"tag_name\":\"([^\"]+)\"").find(releaseJson)?.groupValues?.get(1)
+            ?: throw GradleException("Could not parse tag_name from MobileGlues release JSON")
+
+        // Skip the download only when ALL expected libraries are present AND the
+        // bundled version already matches the latest tag.
+        val expectedLibs = listOf("libMobileGlues.so", "libmobileglues_info_getter.so")
+        val allExist = abis.all { abi -> expectedLibs.all { lib -> file("$jniLibsDir/$abi/$lib").exists() } }
+        val bundledVersion = if (versionFile.exists()) versionFile.readText().trim() else ""
+        if (allExist && bundledVersion == latestTag) {
+            logger.lifecycle("MobileGlues $latestTag is already up-to-date — skipping download")
+            return@doLast
+        }
+
+        logger.lifecycle("Updating MobileGlues: bundled=$bundledVersion latest=$latestTag")
 
         val assetUrl = Regex("\"browser_download_url\":\"([^\"]+\\.apk)\"").find(releaseJson)?.groupValues?.get(1)
             ?: throw GradleException("No APK asset found in latest MobileGlues release")
@@ -204,26 +219,40 @@ val mobileGluesLibs by tasks.registering {
         // "library libMobileGlues.so not found" crash at launch. Resolve
         // the entry case-insensitively and always write the extracted file
         // out using the exact case the runtime expects.
+        //
+        // libmobileglues_info_getter.so is kept all-lowercase (matching the APK
+        // entry name) because nothing in the launcher looks it up by name at
+        // runtime — Android's PackageManager loads it automatically via the
+        // normal jniLibs merge during packaging.
         ZipFile(apkFile).use { zip ->
             abis.forEach { abi ->
-                val expectedSuffix = "lib/$abi/libmobileglues.so"
-                val entry = zip.entries().asSequence()
-                    .firstOrNull { it.name.equals(expectedSuffix, ignoreCase = true) }
-                if (entry != null) {
-                    val outDir = file("$jniLibsDir/$abi")
-                    outDir.mkdirs()
-                    zip.getInputStream(entry).use { input ->
-                        File(outDir, "libMobileGlues.so").outputStream().use { output ->
-                            input.copyTo(output)
+                val outDir = file("$jniLibsDir/$abi")
+                outDir.mkdirs()
+
+                listOf(
+                    "libmobileglues.so" to "libMobileGlues.so",
+                    "libmobileglues_info_getter.so" to "libmobileglues_info_getter.so",
+                ).forEach { (apkName, outName) ->
+                    val entry = zip.entries().asSequence()
+                        .firstOrNull { it.name.equals("lib/$abi/$apkName", ignoreCase = true) }
+                    if (entry != null) {
+                        zip.getInputStream(entry).use { input ->
+                            File(outDir, outName).outputStream().use { output ->
+                                input.copyTo(output)
+                            }
                         }
+                        logger.lifecycle("Extracted lib/$abi/$apkName -> $abi/$outName")
+                    } else {
+                        logger.warn("lib/$abi/$apkName not found in MobileGlues release APK")
                     }
-                    logger.lifecycle("Extracted ${entry.name} -> $abi/libMobileGlues.so")
-                } else {
-                    logger.warn("lib/$abi/libmobileglues.so not found in MobileGlues release APK")
                 }
             }
         }
         apkFile.delete()
+
+        // Record the version we just bundled so future builds can skip the download.
+        versionFile.writeText(latestTag)
+        logger.lifecycle("MobileGlues $latestTag bundled successfully")
     }
 }
 
