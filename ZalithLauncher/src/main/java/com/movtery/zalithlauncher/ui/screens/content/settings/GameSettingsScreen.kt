@@ -19,6 +19,7 @@
 package com.movtery.zalithlauncher.ui.screens.content.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,7 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,10 +50,13 @@ import com.movtery.zalithlauncher.game.plugin.natives.NativePluginManager
 import com.movtery.zalithlauncher.path.URL_CLOUD_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.path.URL_GITHUB_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.findBestRAMAllocation
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.setting.unit.min
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.AnimatedColumn
+import com.movtery.zalithlauncher.ui.components.SimpleTextSlider
+import com.movtery.zalithlauncher.ui.components.SliderValueEditDialog
 import com.movtery.zalithlauncher.ui.components.verticalScrollWithBar
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
@@ -209,39 +216,71 @@ fun GameSettingsScreen(
                         )
                     }
 
-                    val autoRamEnabled = AllSettings.autoRamAllocation.state
+                    val context = LocalContext.current
+                    val autoRamValueRange = AllSettings.ramAllocation.floatRange.start..getMaxMemoryForSettings(context).toFloat()
 
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
                         position = CardPosition.Middle,
                         unit = AllSettings.autoRamAllocation,
-                        title = stringResource(R.string.settings_game_auto_ram_allocation_title),
-                        summary = stringResource(R.string.settings_game_auto_ram_allocation_summary)
-                    )
-
-                    IntSliderSettingsCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        position = CardPosition.Middle,
-                        unit = AllSettings.ramAllocation,
                         title = stringResource(R.string.settings_game_java_memory_title),
-                        summary = stringResource(R.string.settings_game_java_memory_summary),
-                        valueRange = AllSettings.ramAllocation.floatRange.start..getMaxMemoryForSettings(LocalContext.current).toFloat(),
-                        suffix = "MB",
-                        fineTuningControl = true,
-                        enabled = !autoRamEnabled,
-                        previewContent = {
-                            MemoryPreview(
+                        summary = stringResource(R.string.settings_game_auto_ram_allocation_summary),
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                AllSettings.ramAllocation.save(findBestRAMAllocation(context))
+                            }
+                        },
+                        columnLayout = {
+                            val autoRamEnabled = AllSettings.autoRamAllocation.state
+                            val ramValue = AllSettings.ramAllocation.state ?: AllSettings.ramAllocation.min
+                            var showValueEditDialog by remember { mutableStateOf(false) }
+
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 2.dp),
-                                preview = (AllSettings.ramAllocation.state ?: AllSettings.ramAllocation.min).toDouble(),
-                                usedText = { usedMemory, totalMemory ->
-                                    stringResource(R.string.settings_game_java_memory_used_text, usedMemory.toInt(), totalMemory.toInt())
-                                },
-                                previewText = { preview ->
-                                    stringResource(R.string.settings_game_java_memory_allocation_text, preview.toInt())
-                                }
-                            )
+                                    .padding(top = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                SimpleTextSlider(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = ramValue.toFloat(),
+                                    shorter = true,
+                                    enabled = !autoRamEnabled,
+                                    onValueChange = { AllSettings.ramAllocation.updateState(it.toInt()) },
+                                    onValueChangeFinished = { AllSettings.ramAllocation.save(AllSettings.ramAllocation.state) },
+                                    onTextClick = { if (!autoRamEnabled) showValueEditDialog = true },
+                                    toInt = true,
+                                    valueRange = autoRamValueRange,
+                                    suffix = "MB",
+                                    fineTuningControl = true,
+                                    fineTuningStep = 1f
+                                )
+
+                                MemoryPreview(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 2.dp),
+                                    preview = ramValue.toDouble(),
+                                    usedText = { usedMemory, totalMemory ->
+                                        stringResource(R.string.settings_game_java_memory_used_text, usedMemory.toInt(), totalMemory.toInt())
+                                    },
+                                    previewText = { preview ->
+                                        stringResource(R.string.settings_game_java_memory_allocation_text, preview.toInt())
+                                    }
+                                )
+                            }
+
+                            if (showValueEditDialog) {
+                                SliderValueEditDialog(
+                                    onDismissRequest = { showValueEditDialog = false },
+                                    title = stringResource(R.string.settings_game_java_memory_title),
+                                    valueRange = autoRamValueRange,
+                                    value = ramValue.toFloat(),
+                                    onValueChange = { AllSettings.ramAllocation.updateState(it.toInt()) },
+                                    onValueChangeFinished = { AllSettings.ramAllocation.save(AllSettings.ramAllocation.state) },
+                                    intCheck = true
+                                )
+                            }
                         }
                     )
 
