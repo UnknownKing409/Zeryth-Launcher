@@ -18,7 +18,6 @@
 
 package com.movtery.zalithlauncher.game.download.assets
 
-import android.content.Context
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
 import com.movtery.zalithlauncher.coroutine.Task
@@ -27,6 +26,8 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion
 import com.movtery.zalithlauncher.game.download.assets.platform.mcim.mapMCIMMirrorUrls
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.path.PathManager
+import com.movtery.zalithlauncher.ui.AndroidStringText
+import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.utils.file.ensureParentDirectory
 import com.movtery.zalithlauncher.utils.file.formatFileSize
 import com.movtery.zalithlauncher.utils.logging.Logger
@@ -54,7 +55,6 @@ private const val TAG = "DownloadSingle"
  * @param onFileCancelled 文件安装已取消 单独回调
  */
 fun downloadSingleForVersions(
-    context: Context,
     version: PlatformVersion,
     versions: List<Version>,
     folder: String,
@@ -68,7 +68,8 @@ fun downloadSingleForVersions(
         version = version,
         file = cacheFile,
         onDownloaded = { task ->
-            task.updateProgress(-1f, R.string.download_assets_install_progress_installing, version.platformFileName())
+            task.updateProgress(-1f)
+            task.updateMessage(androidText(R.string.download_assets_install_progress_installing, version.platformFileName()))
             versions.forEach { ver ->
                 val targetFolder = File(ver.getGameDir(), folder)
                 val targetFile = File(targetFolder, version.platformFileName())
@@ -79,18 +80,11 @@ fun downloadSingleForVersions(
         },
         onError = { e ->
             Logger.warning(TAG, "An error occurred while downloading the resource files.", e)
-            val message = mapExceptionToMessage(e).let { pair ->
-                val args = pair.second
-                if (args != null) {
-                    context.getString(pair.first, *args)
-                } else {
-                    context.getString(pair.first)
-                }
-            }
+
             submitError(
                 ErrorViewModel.ThrowableMessage(
-                    title = context.getString(R.string.download_assets_install_failed),
-                    message = message
+                    title = androidText(R.string.download_assets_install_failed),
+                    message = mapExceptionToMessage(e)
                 )
             )
         },
@@ -133,11 +127,15 @@ private fun downloadSingleFile(
                 //更新下载任务进度
                 fun updateProgress() {
                     task.updateProgress(
-                        (downloadedSize.toDouble() / totalFileSize.toDouble()).toFloat(),
-                        R.string.download_assets_install_progress_downloading,
-                        version.platformFileName(),
-                        formatFileSize(downloadedSize),
-                        formatFileSize(totalFileSize),
+                        (downloadedSize.toDouble() / totalFileSize.toDouble()).toFloat()
+                    )
+                    task.updateMessage(
+                        androidText(
+                            R.string.download_assets_install_progress_downloading,
+                            version.platformFileName(),
+                            formatFileSize(downloadedSize),
+                            formatFileSize(totalFileSize),
+                        )
                     )
                 }
                 updateProgress()
@@ -173,15 +171,14 @@ private fun downloadSingleFile(
     )
 }
 
-fun mapExceptionToMessage(e: Throwable): Pair<Int, Array<Any>?> {
+fun mapExceptionToMessage(e: Throwable): AndroidStringText {
     return when (e) {
-        is HttpRequestTimeoutException -> Pair(R.string.error_timeout, null)
-        is UnknownHostException, is UnresolvedAddressException -> Pair(R.string.error_network_unreachable, null)
-        is ConnectException -> Pair(R.string.error_connection_failed, null)
+        is HttpRequestTimeoutException -> androidText(R.string.error_timeout)
+        is UnknownHostException, is UnresolvedAddressException -> androidText(R.string.error_network_unreachable)
+        is ConnectException -> androidText(R.string.error_connection_failed)
         is ResponseException -> e.toLocal()
         else -> {
-            val errorMessage = e.localizedMessage ?: e::class.simpleName ?: "Unknown error"
-            Pair(R.string.empty_holder, arrayOf(errorMessage))
+            androidText(e.localizedMessage ?: e::class.simpleName ?: "Unknown error")
         }
     }
 }

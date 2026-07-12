@@ -78,7 +78,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
-import com.movtery.zalithlauncher.coroutine.TaskState
+import com.movtery.zalithlauncher.coroutine.TaskStage
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
 import com.movtery.zalithlauncher.coroutine.TitledTask
@@ -87,6 +87,8 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialo
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
+import com.movtery.zalithlauncher.ui.AndroidStringText
+import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.ui.base.applyFullscreen
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
@@ -112,6 +114,7 @@ import com.movtery.zalithlauncher.ui.screens.content.VersionExportScreen
 import com.movtery.zalithlauncher.ui.screens.content.VersionSettingsScreen
 import com.movtery.zalithlauncher.ui.screens.content.VersionsManageScreen
 import com.movtery.zalithlauncher.ui.screens.content.WebViewScreen
+import com.movtery.zalithlauncher.ui.screens.content.assetinfo.AssetInfoScreen
 import com.movtery.zalithlauncher.ui.screens.content.navigateToDownload
 import com.movtery.zalithlauncher.ui.screens.navigateTo
 import com.movtery.zalithlauncher.ui.screens.onBack
@@ -130,6 +133,7 @@ import com.movtery.zalithlauncher.viewmodel.LocalBackgroundViewModel
 import com.movtery.zalithlauncher.viewmodel.ModpackImportViewModel
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
 import com.movtery.zalithlauncher.viewmodel.sendKeepScreen
+import com.movtery.zalithlauncher.viewmodel.sendToast
 
 @Composable
 fun MainScreen(
@@ -400,11 +404,14 @@ private fun <E: TitledNavKey> TopBar(
                         }
                     }
                 } else {
-                    val parentText = stringResource(parent)
-                    val childText = child?.let { stringResource(it) }
+                    val titleText = if (child != null) {
+                        androidText(parent, androidText(" - "), child)
+                    } else {
+                        parent
+                    }
 
-                    Text(
-                        text = if (childText != null) "$parentText - $childText" else parentText,
+                    AndroidStringText(
+                        text = titleText,
                         style = style,
                         softWrap = softWarp,
                         maxLines = maxLines
@@ -625,6 +632,9 @@ private fun NavigationUI(
                         openLink = { url ->
                             eventViewModel.sendEvent(EventViewModel.Event.OpenLink(url))
                         },
+                        showToast = { text, duration ->
+                            eventViewModel.sendToast(text, duration)
+                        },
                         submitError = submitError
                     )
                 }
@@ -684,6 +694,15 @@ private fun NavigationUI(
                         eventViewModel = eventViewModel,
                         modpackImportViewModel = modpackImportViewModel,
                         submitError = submitError
+                    )
+                }
+                entry<NestedNavKey.AssetInfo> { key ->
+                    AssetInfoScreen(
+                        key = key,
+                        mainScreenKey = screenBackStackModel.mainScreen.currentKey,
+                        assetInfoScreenKey = key.currentKey,
+                        eventViewModel = eventViewModel,
+                        submitError = submitError,
                     )
                 }
                 entry<NormalNavKey.Multiplayer> {
@@ -854,10 +873,15 @@ private fun TaskItem(
     onTaskClick: (() -> Unit)? = null,
     onCancelClick: () -> Unit = {}
 ) {
-    val stateIcon = when (task.taskState) {
-        TaskState.PREPARING -> R.drawable.ic_schedule_outlined
-        TaskState.RUNNING   -> task.runningIcon ?: R.drawable.ic_download
-        TaskState.COMPLETED -> R.drawable.ic_check
+    val taskStage by task.stage.collectAsStateWithLifecycle()
+    val taskMessage by task.message.collectAsStateWithLifecycle()
+    val taskProgress by task.progress.collectAsStateWithLifecycle()
+    val rateBytesPerSec by task.rateBytesPerSec.collectAsStateWithLifecycle()
+
+    val stateIcon = when (taskStage) {
+        TaskStage.PREPARING -> R.drawable.ic_schedule_outlined
+        TaskStage.RUNNING   -> task.runningIcon ?: R.drawable.ic_download
+        TaskStage.COMPLETED -> R.drawable.ic_check
     }
 
     Surface(
@@ -924,17 +948,12 @@ private fun TaskItem(
                 }
 
                 // Status message
-                task.currentMessageRes?.let { messageRes ->
-                    val args = task.currentMessageArgs
-                    Text(
+                taskMessage?.let { message ->
+                    AndroidStringText(
                         modifier = Modifier
                             .padding(top = 2.dp)
                             .alpha(0.75f),
-                        text = if (args != null) {
-                            stringResource(messageRes, *args)
-                        } else {
-                            stringResource(messageRes)
-                        },
+                        text = message,
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -942,8 +961,7 @@ private fun TaskItem(
                 }
 
                 // Progress bar
-                val progress = task.currentProgress
-                if (progress < 0) {
+                if (taskProgress < 0) {
                     LinearProgressIndicator(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -951,7 +969,7 @@ private fun TaskItem(
                     )
                 } else {
                     LinearProgressIndicator(
-                        progress = { progress },
+                        progress = { taskProgress },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp)
@@ -964,13 +982,13 @@ private fun TaskItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    task.currentProgress.takeIf { it >= 0f }?.let {
+                    taskProgress.takeIf { it >= 0f }?.let {
                         Text(
                             text = "${(it * 100).toInt()}%",
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
-                    task.currentRateBytesPerSec.takeIf { it >= 0L }?.let { bytes ->
+                    rateBytesPerSec?.let { bytes ->
                         val text = remember(bytes) { "${formatFileSize(bytes)}/s" }
                         Text(
                             text = text,
