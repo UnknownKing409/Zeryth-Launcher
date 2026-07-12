@@ -87,6 +87,7 @@ import com.movtery.zalithlauncher.ui.screens.TitledNavKey
 import com.movtery.zalithlauncher.ui.screens.content.elements.CategoryIcon
 import com.movtery.zalithlauncher.ui.screens.content.elements.CategoryItem
 import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialog
+import com.movtery.zalithlauncher.ui.screens.content.assetinfo.AssetInfoScreen
 import com.movtery.zalithlauncher.ui.screens.content.versions.AddonDiffs
 import com.movtery.zalithlauncher.ui.screens.content.versions.ModsManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.versions.ResourcePackManageScreen
@@ -461,7 +462,7 @@ private fun NavigationUI(
                             )
                         },
                         onSwapMoreInfo = { projectId, platform ->
-                            backScreenViewModel.mainScreen.removeAndNavigateTo(
+                            key.backStack.removeAndNavigateTo(
                                 NestedNavKey.AssetInfo::class,
                                 NestedNavKey.AssetInfo(platform, projectId, PlatformClasses.MOD)
                             )
@@ -544,6 +545,15 @@ private fun NavigationUI(
                             )
                         },
                         backToMainScreen = backToMainScreen,
+                    )
+                }
+                entry<NestedNavKey.AssetInfo> { assetKey ->
+                    AssetInfoScreen(
+                        key = assetKey,
+                        mainScreenKey = assetKey,
+                        assetInfoScreenKey = assetKey.currentKey,
+                        eventViewModel = eventViewModel,
+                        submitError = submitError
                     )
                 }
             }
