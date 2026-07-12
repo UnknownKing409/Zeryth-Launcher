@@ -122,8 +122,6 @@ import com.movtery.zalithlauncher.ui.screens.game.elements.GameMenuSubscreen
 import com.movtery.zalithlauncher.ui.screens.game.elements.JoystickManageOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogBox
 import com.movtery.zalithlauncher.ui.screens.game.elements.LogState
-import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
-import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.ReplacementControlOperation
 import com.movtery.zalithlauncher.ui.screens.game.elements.ReplacementControlState
 import com.movtery.zalithlauncher.ui.screens.game.elements.SendKeycodeOperation
@@ -179,8 +177,6 @@ private class GameViewModel(
     var sendKeycodeState by mutableStateOf<SendKeycodeState>(SendKeycodeState.None)
     /** 更换控制布局操作状态 */
     var replacementControlState by mutableStateOf<ReplacementControlState>(ReplacementControlState.None)
-    /** 性能设置弹窗操作状态 */
-    var performanceSettingsState by mutableStateOf<PerformanceSettingsOperation>(PerformanceSettingsOperation.None)
     /** 被控制布局层标记为仅滑动的指针列表 */
     var moveOnlyPointers = mutableSetOf<PointerId>()
     /** 鼠标触摸指针处理层占用指针列表 */
@@ -592,11 +588,6 @@ fun GameScreen(
         replacementControl = { viewModel.replaceControlLayout(it) }
     )
 
-    PerformanceSettingsDialog(
-        operation = viewModel.performanceSettingsState,
-        onDismissRequest = { viewModel.performanceSettingsState = PerformanceSettingsOperation.None }
-    )
-
     TerracottaOperation(
         viewModel = terracottaViewModel,
         onShowToast = { text, duration ->
@@ -771,8 +762,6 @@ fun GameScreen(
             closeScreen = { viewModel.gameMenuState = MenuState.HIDE },
             onForceClose = { viewModel.forceCloseState = ForceCloseOperation.Show },
             onSwitchLog = { onLogStateChange(logState.next()) },
-            onOpenPerformanceFps = { viewModel.performanceSettingsState = PerformanceSettingsOperation.Fps },
-            onOpenPerformanceRam = { viewModel.performanceSettingsState = PerformanceSettingsOperation.Ram },
             enableTerracotta = AllSettings.enableTerracotta.state,
             onOpenTerracottaMenu = { terracottaViewModel.openMenu() },
             onRefreshWindowSize = { eventViewModel.sendEvent(EventViewModel.Event.Game.RefreshSize) },
