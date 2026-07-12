@@ -118,6 +118,7 @@
     <string name="unpack_screen_launcher">Başlatıcı ana bileşenleri</string>
     <string name="main_launch_game">Başlat</string>
     <string name="main_task_menu">Görev Menüsü</string>
+    <string name="unpack_install_task_title">Bağımlılıklar yükleniyor</string>
     <string name="download_category_game">Oyun</string>
     <string name="download_category_modpack">Mod Paketi</string>
     <string name="download_category_mod">Modlar</string>

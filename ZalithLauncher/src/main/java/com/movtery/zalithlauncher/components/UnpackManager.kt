@@ -61,6 +61,9 @@ object UnpackManager {
     /** Whether a flag has been seen indicating items have been built for this process. */
     private var initialized = false
 
+    /** Human-readable task title resolved from string resources during [initItems]. */
+    private var installTaskTitle: String? = null
+
     /**
      * Returns true if the installation is currently running as a background task
      * in [TaskSystem].
@@ -76,6 +79,7 @@ object UnpackManager {
     fun initItems(context: Context) {
         if (initialized) return
         initialized = true
+        installTaskTitle = context.getString(R.string.unpack_install_task_title)
 
         Components.entries.forEach { component ->
             val task = UnpackComponentsTask(context, component)
@@ -147,6 +151,8 @@ object UnpackManager {
 
         val installTask = Task.runTask(
             id = INSTALL_TASK_ID,
+            title = installTaskTitle,
+            runningIcon = R.drawable.ic_download_2_filled,
             dispatcher = Dispatchers.IO,
             task = { _ ->
                 // coroutineScope creates a child scope: all item launches run in

@@ -78,9 +78,11 @@ import androidx.navigation3.ui.NavDisplay
 import com.movtery.zalithlauncher.BuildKeys
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
+import com.movtery.zalithlauncher.coroutine.TaskState
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
 import com.movtery.zalithlauncher.coroutine.TitledTask
+import androidx.compose.ui.text.style.TextOverflow
 import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialog
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.setting.AllSettings
@@ -204,7 +206,7 @@ fun MainScreen(
                     .height(40.dp),
                 mainScreenKey = mainScreenKey,
                 inLauncherScreen = inLauncherScreen,
-                taskRunning = tasks.isEmpty(),
+                tasksCount = tasks.size,
                 isTasksExpanded = isTaskMenuExpanded,
                 contentColor = onBackgroundColor(),
                 onScreenBack = {
@@ -278,7 +280,7 @@ private fun <E: TitledNavKey> TopBar(
     mainScreenKey: E?,
     inLauncherScreen: Boolean,
     launcherRightPanelCollapsed: Boolean = false,
-    taskRunning: Boolean,
+    tasksCount: Int,
     isTasksExpanded: Boolean,
     modifier: Modifier = Modifier,
     contentColor: Color,
@@ -421,7 +423,7 @@ private fun <E: TitledNavKey> TopBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AnimatedVisibility(
-                    visible = !(isTasksExpanded || taskRunning),
+                    visible = !(isTasksExpanded || tasksCount == 0),
                     enter = slideInVertically(
                         initialOffsetY = { -50 }
                     ) + fadeIn(),
@@ -439,6 +441,12 @@ private fun <E: TitledNavKey> TopBar(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         LinearProgressIndicator(modifier = Modifier.weight(1f))
+                        if (tasksCount > 1) {
+                            Text(
+                                text = "$tasksCount",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                         Icon(
                             modifier = Modifier.size(22.dp),
                             painter = painterResource(R.drawable.ic_assignment_filled),
@@ -819,10 +827,7 @@ private fun TaskMenu(
                     ) { task ->
                         val canRestore = InstallerRestoreRegistry.hasEntry(task.id)
                         TaskItem(
-                            taskProgress = task.currentProgress,
-                            taskMessageRes = task.currentMessageRes,
-                            taskMessageArgs = task.currentMessageArgs,
-                            taskRateBytesPerSec = task.currentRateBytesPerSec,
+                            task = task,
                             onTaskClick = if (canRestore) {
                                 { restoredEntry = InstallerRestoreRegistry.getEntry(task.id) }
                             } else null,
@@ -841,10 +846,7 @@ private fun TaskMenu(
 
 @Composable
 private fun TaskItem(
-    taskProgress: Float,
-    taskMessageRes: Int?,
-    taskMessageArgs: Array<out Any>?,
-    taskRateBytesPerSec: Long,
+    task: Task,
     modifier: Modifier = Modifier,
     shape: Shape = MaterialTheme.shapes.large,
     color: Color = cardColor(false),
@@ -852,6 +854,12 @@ private fun TaskItem(
     onTaskClick: (() -> Unit)? = null,
     onCancelClick: () -> Unit = {}
 ) {
+    val stateIcon = when (task.taskState) {
+        TaskState.PREPARING -> R.drawable.ic_schedule_outlined
+        TaskState.RUNNING   -> task.runningIcon ?: R.drawable.ic_download
+        TaskState.COMPLETED -> R.drawable.ic_check
+    }
+
     Surface(
         modifier = modifier,
         shape = shape,
@@ -859,80 +867,114 @@ private fun TaskItem(
         contentColor = contentColor,
     ) {
         Row(
-            modifier = Modifier.padding(all = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            IconButton(
+            // Task-state icon
+            Icon(
                 modifier = Modifier
-                    .size(24.dp)
-                    .align(Alignment.CenterVertically),
-                onClick = onCancelClick
-            ) {
-                Icon(
-                    modifier = Modifier.size(20.dp),
-                    painter = painterResource(R.drawable.ic_close),
-                    contentDescription = stringResource(R.string.generic_cancel)
-                )
-            }
+                    .padding(top = 2.dp)
+                    .size(18.dp),
+                painter = painterResource(stateIcon),
+                contentDescription = null
+            )
 
-            if (onTaskClick != null) {
-                IconButton(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .align(Alignment.CenterVertically),
-                    onClick = onTaskClick
+            // Main content
+            Column(modifier = Modifier.weight(1f)) {
+
+                // Title row with action buttons
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Icon(
-                        modifier = Modifier.size(20.dp),
-                        painter = painterResource(R.drawable.ic_arrow_drop_up_rounded),
-                        contentDescription = stringResource(R.string.generic_expand)
-                    )
-                }
-            }
+                    task.title?.let { title ->
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = title,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } ?: Spacer(modifier = Modifier.weight(1f))
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.CenterVertically)
-            ) {
-                taskMessageRes?.let { messageRes ->
+                    if (onTaskClick != null) {
+                        IconButton(
+                            modifier = Modifier.size(22.dp),
+                            onClick = onTaskClick
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(R.drawable.ic_arrow_drop_up_rounded),
+                                contentDescription = stringResource(R.string.generic_expand)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        modifier = Modifier.size(22.dp),
+                        onClick = onCancelClick
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            painter = painterResource(R.drawable.ic_close),
+                            contentDescription = stringResource(R.string.generic_cancel)
+                        )
+                    }
+                }
+
+                // Status message
+                task.currentMessageRes?.let { messageRes ->
+                    val args = task.currentMessageArgs
                     Text(
-                        text = if (taskMessageArgs != null) {
-                            stringResource(messageRes, *taskMessageArgs)
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .alpha(0.75f),
+                        text = if (args != null) {
+                            stringResource(messageRes, *args)
                         } else {
                             stringResource(messageRes)
                         },
-                        style = MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                if (taskProgress < 0) {
+                // Progress bar
+                val progress = task.currentProgress
+                if (progress < 0) {
                     LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
                     )
                 } else {
                     LinearProgressIndicator(
-                        progress = { taskProgress },
-                        modifier = Modifier.fillMaxWidth()
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
                     )
                 }
 
+                // Percentage + download speed
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    taskProgress.takeIf { it >= 0f }?.let { progress ->
+                    task.currentProgress.takeIf { it >= 0f }?.let {
                         Text(
-                            text = "${(progress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelMedium
+                            text = "${(it * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
-                    taskRateBytesPerSec.takeIf { it >= 0L }?.let { bytes ->
+                    task.currentRateBytesPerSec.takeIf { it >= 0L }?.let { bytes ->
                         val text = remember(bytes) { "${formatFileSize(bytes)}/s" }
                         Text(
                             text = text,
-                            style = MaterialTheme.typography.labelMedium
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }

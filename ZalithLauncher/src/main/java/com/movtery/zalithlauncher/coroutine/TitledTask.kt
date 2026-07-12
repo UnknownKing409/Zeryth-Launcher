@@ -42,7 +42,14 @@ fun MutableList<TitledTask>.addTask(
         TitledTask(
             title = title,
             runningIcon = icon,
-            task = Task.runTask(id = id, dispatcher = dispatcher, task = action)
+            // Propagate title and icon into Task so the Task Menu can display them
+            task = Task.runTask(
+                id = id,
+                title = title,
+                runningIcon = icon,
+                dispatcher = dispatcher,
+                task = action
+            )
         )
     )
 }
