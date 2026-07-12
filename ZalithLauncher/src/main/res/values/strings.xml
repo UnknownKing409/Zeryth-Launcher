@@ -216,6 +216,7 @@
     <string name="download_game_type_old_alpha">Alpha</string>
     <string name="download_game_type_old_beta">Beta</string>
     <string name="download_game_version_name">Version Name</string>
+    <string name="download_game_version_download_size">Download Size: %s</string>
     <string name="download_game_version_overwrite">Will overwrite existing version: %s</string>
     <string name="download_game_version_overwrite_select">Version to overwrite</string>
     <string name="download_game_version_overwrite_select_subtitle">Select the version to overwrite. You can use this feature to upgrade/downgrade the target version</string>

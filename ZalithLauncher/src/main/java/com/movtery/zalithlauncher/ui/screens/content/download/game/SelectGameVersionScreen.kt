@@ -98,6 +98,7 @@ import com.movtery.zalithlauncher.utils.classes.Quadruple
 import com.movtery.zalithlauncher.utils.formatDate
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.network.toLocal
+import com.movtery.zalithlauncher.utils.file.formatFileSize
 import com.movtery.zalithlauncher.utils.string.isEmptyOrBlank
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -463,6 +464,12 @@ private fun VersionItemLayout(
         scale.animateTo(targetValue = 1f, animationSpec = getAnimateTween())
     }
 
+    var downloadSizeText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(version.version.id) {
+        val bytes = MinecraftVersions.getVersionDownloadSize(version.version.id, version.version.url)
+        bytes?.let { downloadSizeText = formatFileSize(it) }
+    }
+
     val (icon, versionType, wikiUrl, summary) = getVersionComponents(version)
 
     Surface(
@@ -510,6 +517,14 @@ private fun VersionItemLayout(
                     Text(
                         modifier = Modifier.alpha(0.7f),
                         text = text,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+
+                downloadSizeText?.let { sizeStr ->
+                    Text(
+                        modifier = Modifier.alpha(0.7f),
+                        text = stringResource(R.string.download_game_version_download_size, sizeStr),
                         style = MaterialTheme.typography.labelMedium
                     )
                 }

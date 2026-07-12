@@ -20,6 +20,7 @@ package com.movtery.zalithlauncher.game.versioninfo
 
 import com.google.gson.reflect.TypeToken
 import com.movtery.zalithlauncher.game.addons.mirror.mapBMCLMirrorUrls
+import com.movtery.zalithlauncher.game.versioninfo.models.GameManifest
 import com.movtery.zalithlauncher.game.versioninfo.models.VersionManifest
 import com.movtery.zalithlauncher.game.versioninfo.models.mapVersion
 import com.movtery.zalithlauncher.path.PathManager
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.apache.commons.io.FileUtils
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "MinecraftVersions"
@@ -44,6 +46,32 @@ object MinecraftVersions {
 
     private val _allVersions = MutableStateFlow<List<MinecraftVersion>>(emptyList())
     val allVersions = _allVersions.asStateFlow()
+
+    /** In-memory session cache: versionId → estimated download size in bytes */
+    private val sizeCache = ConcurrentHashMap<String, Long>()
+
+    /**
+     * Returns the estimated download size (client JAR + all game assets) for a version.
+     * Results are cached in memory for the session so repeated calls are instant.
+     * Returns null if the size cannot be determined.
+     */
+    suspend fun getVersionDownloadSize(versionId: String, versionUrl: String): Long? {
+        sizeCache[versionId]?.let { return it }
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val json = fetchStringFromUrls(versionUrl.mapBMCLMirrorUrls())
+                val gameManifest = GSON.fromJson(json, GameManifest::class.java)
+                val clientSize = gameManifest.downloads?.client?.size ?: 0L
+                val assetTotalSize = gameManifest.rawAssetIndex?.totalSize ?: 0L
+                val total = clientSize + assetTotalSize
+                if (total > 0L) sizeCache[versionId] = total
+                total.takeIf { it > 0L }
+            }.getOrElse { e ->
+                Logger.warning(TAG, "Failed to fetch download size for $versionId", e)
+                null
+            }
+        }
+    }
 
     /**
      * 刷新Minecraft版本的版本号列表
