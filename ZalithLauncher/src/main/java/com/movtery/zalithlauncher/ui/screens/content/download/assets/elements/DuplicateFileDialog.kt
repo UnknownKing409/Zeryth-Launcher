@@ -21,11 +21,11 @@ package com.movtery.zalithlauncher.ui.screens.content.download.assets.elements
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -117,6 +117,7 @@ fun DuplicateFileConflictDialog(
             Surface(
                 modifier = Modifier
                     .padding(all = 6.dp)
+                    .widthIn(min = 320.dp)
                     .heightIn(max = maxHeight - 12.dp)
                     .wrapContentHeight(),
                 shape = MaterialTheme.shapes.extraLarge,
@@ -125,9 +126,9 @@ fun DuplicateFileConflictDialog(
                 shadowElevation = 6.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.download_assets_duplicate_file_title),
@@ -140,6 +141,7 @@ fun DuplicateFileConflictDialog(
                         onValueChange = { fileName = it },
                         isError = isError,
                         singleLine = true,
+                        maxLines = 1,
                         supportingText = {
                             when {
                                 isEmpty -> Text(stringResource(R.string.generic_cannot_empty))
@@ -149,26 +151,14 @@ fun DuplicateFileConflictDialog(
                         }
                     )
 
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        FilledTonalButton(
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.large,
-                            onClick = onCancel
-                        ) {
-                            MarqueeText(text = stringResource(R.string.generic_cancel))
-                        }
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            shape = MaterialTheme.shapes.large,
-                            onClick = onOverwrite
-                        ) {
-                            MarqueeText(text = stringResource(R.string.download_assets_duplicate_file_overwrite))
-                        }
                         Button(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
                             shape = MaterialTheme.shapes.large,
                             enabled = confirmEnabled,
                             onClick = {
@@ -176,6 +166,24 @@ fun DuplicateFileConflictDialog(
                             }
                         ) {
                             MarqueeText(text = stringResource(R.string.generic_confirm))
+                        }
+                        OutlinedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.large,
+                            onClick = onOverwrite
+                        ) {
+                            MarqueeText(text = stringResource(R.string.download_assets_duplicate_file_overwrite))
+                        }
+                        FilledTonalButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.large,
+                            onClick = onCancel
+                        ) {
+                            MarqueeText(text = stringResource(R.string.generic_cancel))
                         }
                     }
                 }
