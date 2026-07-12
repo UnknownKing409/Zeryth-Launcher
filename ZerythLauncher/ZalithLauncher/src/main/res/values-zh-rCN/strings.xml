@@ -228,6 +228,8 @@
     <string name="download_assets_filter_search_name">搜索名称</string>
     <string name="download_assets_filter_search_platform">目标平台</string>
     <string name="download_assets_filter_game_version">游戏版本</string>
+    <string name="download_assets_filter_game_version_stable">正式版</string>
+    <string name="download_assets_filter_game_version_snapshots">快照版</string>
     <string name="download_assets_filter_category">类别</string>
     <string name="download_assets_filter_modloader">模组加载器</string>
     <string name="download_assets_filter_none">未选择</string>
