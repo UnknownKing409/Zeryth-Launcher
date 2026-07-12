@@ -91,6 +91,7 @@ import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.Do
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.DownloadAssetsVersionLoading
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ProjectUrlsContent
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ScreenshotItemLayout
+import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ShowScreenshotsButton
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.VersionInfoMap
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.initAll
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.mapWithVersions
@@ -578,6 +579,8 @@ private fun ProjectInfo(
                 val summary = remember { project.platformSummary() }
                 val urls = remember { project.platformUrls(defaultClasses) }
                 val screenshots = remember { project.platformScreenshots() }
+                //截图默认不自动加载，需要用户手动点击按钮才开始加载，避免消耗不必要的移动流量
+                var showScreenshots by remember { mutableStateOf(false) }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -642,12 +645,23 @@ private fun ProjectInfo(
                         }
                     }
 
-                    //屏幕截图
-                    items(screenshots) { screenshot ->
-                        ScreenshotItemLayout(
-                            modifier = Modifier.fillMaxWidth(),
-                            screenshot = screenshot
-                        )
+                    //屏幕截图：默认不自动加载，点击按钮后才开始加载
+                    if (screenshots.isNotEmpty()) {
+                        if (!showScreenshots) {
+                            item {
+                                ShowScreenshotsButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { showScreenshots = true }
+                                )
+                            }
+                        } else {
+                            items(screenshots) { screenshot ->
+                                ScreenshotItemLayout(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    screenshot = screenshot
+                                )
+                            }
+                        }
                     }
                 }
             }

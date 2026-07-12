@@ -352,6 +352,7 @@
     <string name="download_assets_category_configuration_medium">中等配置</string>
     <string name="download_assets_category_configuration_high">高等配置</string>
     <string name="download_assets_category_screenshot">截图</string>
+    <string name="download_assets_show_screenshots">显示截图</string>
     <!--  资源功能  -->
     <string name="download_assets_features_audio">音频</string>
     <string name="download_assets_features_blocks">方块</string>

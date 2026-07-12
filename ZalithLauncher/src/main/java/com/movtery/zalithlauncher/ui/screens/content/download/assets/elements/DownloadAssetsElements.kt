@@ -513,6 +513,22 @@ fun ProjectUrlsContent(
 }
 
 /**
+ * "显示截图"按钮，点击后才开始加载截图，避免自动消耗移动数据流量
+ */
+@Composable
+fun ShowScreenshotsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    IconTextButton(
+        modifier = modifier,
+        onClick = onClick,
+        painter = painterResource(R.drawable.ic_photo_library_outlined),
+        text = stringResource(R.string.download_assets_show_screenshots)
+    )
+}
+
+/**
  * 屏幕截图与描述UI
  */
 @Composable
