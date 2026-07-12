@@ -70,6 +70,7 @@ import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.fadeEdge
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
 import com.movtery.zalithlauncher.utils.file.shareFile
+import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.utils.string.getMessageOrToString
 import com.movtery.zalithlauncher.utils.string.isEmptyOrBlank
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
@@ -116,16 +117,16 @@ fun LegacyControlManageContent(
                         onNotLegacy = {
                             submitError(
                                 ErrorViewModel.ThrowableMessage(
-                                    title = context.getString(R.string.generic_warning),
-                                    message = context.getString(R.string.legacy_control_manage_not_legacy)
+                                    title = androidText(R.string.generic_warning),
+                                    message = androidText(R.string.legacy_control_manage_not_legacy)
                                 )
                             )
                         },
                         onError = { e ->
                             submitError(
                                 ErrorViewModel.ThrowableMessage(
-                                    title = context.getString(R.string.generic_error),
-                                    message = context.getString(
+                                    title = androidText(R.string.generic_error),
+                                    message = androidText(
                                         R.string.legacy_control_manage_import_failed,
                                         e.getMessageOrToString()
                                     )

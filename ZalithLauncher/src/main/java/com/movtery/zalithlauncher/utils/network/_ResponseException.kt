@@ -18,12 +18,13 @@
 
 package com.movtery.zalithlauncher.utils.network
 
-import android.content.Context
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.ui.AndroidStringText
+import com.movtery.zalithlauncher.ui.androidText
 import io.ktor.client.plugins.ResponseException
 import io.ktor.http.HttpStatusCode
 
-fun ResponseException.toLocal(): Pair<Int, Array<Any>> {
+fun ResponseException.toLocal(): AndroidStringText {
     val statusCode = response.status
     val codeString = statusCode.value.toString()
     val textRes = when (statusCode) {
@@ -40,12 +41,9 @@ fun ResponseException.toLocal(): Pair<Int, Array<Any>> {
         HttpStatusCode.BadGateway -> R.string.error_bad_gateway
         HttpStatusCode.ServiceUnavailable -> R.string.error_service_unavailable
         HttpStatusCode.GatewayTimeout -> R.string.error_gateway_timeout
-        else -> return Pair(R.string.empty_holder, arrayOf("($codeString) ${statusCode.description}"))
+        else -> return androidText(
+            "($codeString) ${statusCode.description}"
+        )
     }
-    return Pair(textRes, arrayOf(codeString))
-}
-
-fun ResponseException.toLocal(context: Context): String {
-    val localRes = toLocal()
-    return context.getString(localRes.first, *localRes.second)
+    return androidText(textRes, codeString)
 }
