@@ -290,6 +290,9 @@
     <string name="download_assets_release_type_beta">Beta</string>
     <string name="download_assets_release_type_alpha">Alpha</string>
     <string name="download_assets_no_installed_versions">No available game version is currently installed, so the target download location for the asset cannot be determined. Please install a game version first!</string>
+    <string name="download_assets_duplicate_file_title">Custom File Name</string>
+    <string name="download_assets_duplicate_file_warning">File name conflicts with an existing file.</string>
+    <string name="download_assets_duplicate_file_overwrite">Overwrite</string>
     <string name="download_assets_install_assets_for_versions">Install for which game versions?</string>
     <string name="download_assets_install_progress_downloading">Downloading and installing assets\n%1$s\n (%2$s / %3$s)</string>
     <string name="download_assets_install_progress_installing">Installing assets\n%s</string>

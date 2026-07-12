@@ -59,11 +59,14 @@ fun downloadSingleForVersions(
     version: PlatformVersion,
     versions: List<Version>,
     folder: String,
+    /** 自定义安装后的文件名，用于解决重复文件命名冲突；为空则使用原始文件名（并覆盖同名文件） */
+    customFileName: String? = null,
     onFileCopied: suspend (zip: File, folder: File) -> Unit = { _, _ -> },
     onFileCancelled: (zip: File, folder: File) -> Unit = { _, _ -> },
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     val cacheFile = File(File(PathManager.DIR_CACHE, "assets"), version.platformSha1() ?: version.platformFileName())
+    val targetFileName = customFileName ?: version.platformFileName()
 
     downloadSingleFile(
         version = version,
@@ -73,7 +76,7 @@ fun downloadSingleForVersions(
             task.updateMessage(androidText(R.string.download_assets_install_progress_installing, version.platformFileName()))
             versions.forEach { ver ->
                 val targetFolder = File(ver.getGameDir(), folder)
-                val targetFile = File(targetFolder, version.platformFileName())
+                val targetFile = File(targetFolder, targetFileName)
                 if (targetFile.exists() && !targetFile.delete()) throw IOException("Failed to properly delete the existing target file.")
                 cacheFile.copyTo(targetFile)
                 onFileCopied(targetFile, targetFolder) //文件已复制回调
@@ -93,7 +96,7 @@ fun downloadSingleForVersions(
             FileUtils.deleteQuietly(cacheFile)
             versions.forEach { ver ->
                 val targetFolder = File(ver.getGameDir(), folder)
-                val targetFile = File(targetFolder, version.platformFileName())
+                val targetFile = File(targetFolder, targetFileName)
                 if (targetFile.exists()) FileUtils.deleteQuietly(targetFile)
                 onFileCancelled(targetFile, targetFolder) //文件已取消回调
             }

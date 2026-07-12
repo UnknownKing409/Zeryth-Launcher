@@ -76,11 +76,12 @@ fun DownloadShadersScreen(
     DownloadSingleOperation(
         operation = operation,
         changeOperation = { operation = it },
-        doInstall = { classes, version, versions ->
+        doInstall = { classes, version, versions, customFileName ->
             downloadSingleForVersions(
                 version = version,
                 versions = versions,
                 folder = classes.versionFolder.folderName,
+                customFileName = customFileName,
                 submitError = submitError
             )
         },

@@ -79,6 +79,7 @@ import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.itemColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.ui.theme.onItemColor
+import java.io.File
 
 /**
  * 操作状态：下载单个资源文件
@@ -97,11 +98,20 @@ sealed interface DownloadSingleOperation {
         val version: PlatformVersion,
         val dependencyProjects: List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>
     ) : DownloadSingleOperation
+    /** 检测到重复文件，等待用户选择重命名/覆盖/取消 */
+    data class DuplicateConflict(
+        val classes: PlatformClasses,
+        val version: PlatformVersion,
+        val versions: List<Version>,
+        val fileName: String,
+        val targetFolders: List<File>
+    ) : DownloadSingleOperation
     /** 安装 */
     data class Install(
         val classes: PlatformClasses,
         val version: PlatformVersion,
-        val versions: List<Version>
+        val versions: List<Version>,
+        val customFileName: String? = null
     ) : DownloadSingleOperation
 }
 
@@ -109,7 +119,7 @@ sealed interface DownloadSingleOperation {
 fun DownloadSingleOperation(
     operation: DownloadSingleOperation,
     changeOperation: (DownloadSingleOperation) -> Unit,
-    doInstall: (PlatformClasses, PlatformVersion, List<Version>) -> Unit,
+    doInstall: (PlatformClasses, PlatformVersion, List<Version>, String?) -> Unit,
     onDependencyClicked: (PlatformVersion.PlatformDependency, PlatformClasses) -> Unit = { _, _ -> },
     onDownloadAllDependencies: ((List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>, List<Version>, PlatformClasses) -> Unit)? = null,
     /** 一键安装所选模组，并自动解析、下载、安装其所有必需前置项目 */
@@ -148,7 +158,24 @@ fun DownloadSingleOperation(
                     changeOperation(DownloadSingleOperation.None)
                 },
                 onInstall = { versions ->
-                    changeOperation(DownloadSingleOperation.Install(classes, operation.version, versions))
+                    val fileName = operation.version.platformFileName()
+                    val targetFolders = versions.map { File(it.getGameDir(), classes.versionFolder.folderName) }
+                    val conflict = classes.supportsDuplicateFileCheck() &&
+                        findConflictingFile(fileName, targetFolders) != null
+
+                    if (conflict) {
+                        changeOperation(
+                            DownloadSingleOperation.DuplicateConflict(
+                                classes = classes,
+                                version = operation.version,
+                                versions = versions,
+                                fileName = fileName,
+                                targetFolders = targetFolders
+                            )
+                        )
+                    } else {
+                        changeOperation(DownloadSingleOperation.Install(classes, operation.version, versions))
+                    }
                 },
                 onDependencyClicked = { dependency, classes ->
                     changeOperation(DownloadSingleOperation.None)
@@ -168,8 +195,29 @@ fun DownloadSingleOperation(
                 }
             )
         }
+        is DownloadSingleOperation.DuplicateConflict -> {
+            DuplicateFileConflictDialog(
+                originalFileName = operation.fileName,
+                targetFolders = operation.targetFolders,
+                onCancel = {
+                    changeOperation(DownloadSingleOperation.None)
+                },
+                onOverwrite = {
+                    //覆盖：直接使用原始文件名继续安装，安装流程本身已支持覆盖已存在的目标文件
+                    changeOperation(
+                        DownloadSingleOperation.Install(operation.classes, operation.version, operation.versions)
+                    )
+                },
+                onConfirm = { newFileName ->
+                    //使用用户重命名后、且已确认不冲突的文件名继续安装
+                    changeOperation(
+                        DownloadSingleOperation.Install(operation.classes, operation.version, operation.versions, newFileName)
+                    )
+                }
+            )
+        }
         is DownloadSingleOperation.Install -> {
-            doInstall(operation.classes, operation.version, operation.versions)
+            doInstall(operation.classes, operation.version, operation.versions, operation.customFileName)
             changeOperation(DownloadSingleOperation.None)
         }
     }
