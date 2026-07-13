@@ -52,7 +52,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -567,8 +566,10 @@ private fun GameVersionFilterLayout(
                 onClear = { onVersionChange(null) }
             )
 
-            // Stable / Snapshots tab row — plain conditional (no AnimatedVisibility)
-            // so there is zero risk of animation-pass height measurement problems.
+            // Stable / Snapshots tab row.
+            // Uses plain Surface + Text (both already imported, no SubcomposeLayout)
+            // so there is zero risk of measurement or rendering issues inside a
+            // LazyColumn item context.
             if (expanded) {
                 Row(
                     modifier = Modifier
@@ -576,18 +577,46 @@ private fun GameVersionFilterLayout(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    FilterChip(
+                    Surface(
                         modifier = Modifier.weight(1f),
-                        selected = !showSnapshots,
                         onClick = { showSnapshots = false },
-                        label = { Text(stringResource(R.string.download_assets_filter_game_version_stable)) }
-                    )
-                    FilterChip(
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (!showSnapshots)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = stringResource(R.string.download_assets_filter_game_version_stable),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (!showSnapshots)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(
                         modifier = Modifier.weight(1f),
-                        selected = showSnapshots,
                         onClick = { showSnapshots = true },
-                        label = { Text(stringResource(R.string.download_assets_filter_game_version_snapshots)) }
-                    )
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (showSnapshots)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = stringResource(R.string.download_assets_filter_game_version_snapshots),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (showSnapshots)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
