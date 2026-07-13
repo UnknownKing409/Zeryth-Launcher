@@ -1,2 +1,3 @@
 - [Zeryth/Zalith Launcher CI builds](zeryth-launcher-ci.md) — no local Android SDK/JDK in this repl; Release APKs are only built via GitHub Actions push_ci → build.yml.
 - [MobileGlues bundled library update](mobileglues-update.md) — V1.3.5 added libmobileglues_info_getter.so; Gradle task now version-tracks via .mobileglues_version marker.
+- [RendererPlugin interface refactor](renderer-plugin-refactor.md) — upstream syncs can auto-merge cleanly yet still break unrelated call sites when a class's API shape changes; grep repo-wide, don't trust "no conflict markers".
