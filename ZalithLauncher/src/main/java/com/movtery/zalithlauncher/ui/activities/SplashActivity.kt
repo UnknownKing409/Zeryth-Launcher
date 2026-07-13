@@ -55,7 +55,7 @@ const val IMPORT_TYPE_UNKNOWN = "unknown"
 
 @SuppressLint("CustomSplashScreen")
 @AndroidEntryPoint
-class SplashActivity : BaseAppCompatActivity(refreshData = false) {
+class SplashActivity : BaseAppCompatActivity() {
 
     private val backStackViewModel: SplashBackStackViewModel by viewModels()
 

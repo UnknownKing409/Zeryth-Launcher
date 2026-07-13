@@ -81,6 +81,8 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.plugin.driver.Driver
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.plugin.renderer.RendererPluginManager
+import com.movtery.zalithlauncher.game.plugin.renderer_v2.RendererV2Data
+import com.movtery.zalithlauncher.game.plugin.renderer_v2.data.EnvSettingUnit
 import com.movtery.zalithlauncher.game.renderer.RendererInterface
 import com.movtery.zalithlauncher.game.renderer.Renderers
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
@@ -103,7 +105,9 @@ import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.ListSettin
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SettingsCard
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SettingsCardColumn
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SwitchSettingsCard
+import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.TextInputSettingsCard
 import com.movtery.zalithlauncher.ui.screens.navigateTo
+import com.movtery.zalithlauncher.utils.device.checkVulkanSupport
 import com.movtery.zalithlauncher.utils.fsr.FSRUtils
 import com.movtery.zalithlauncher.utils.isAdrenoGPU
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
@@ -220,6 +224,56 @@ fun RendererSettingsScreen(
                             )
                         }
                     )
+
+                    val currentRendererId = AllSettings.renderer.state
+                    val v2PluginEnvUnits = remember(currentRendererId) {
+                        Renderers.getCompatibleRenderers(context).second
+                            .filterIsInstance<RendererV2Data>()
+                            .find { it.getUniqueIdentifier() == currentRendererId }
+                            ?.env?.getConfigurableUnits()?.takeIf { it.isNotEmpty() }
+                    }
+                    if (v2PluginEnvUnits != null) {
+                        for (unit in v2PluginEnvUnits) {
+                            when (unit) {
+                                is EnvSettingUnit.Selectable -> {
+                                    ListSettingsCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        position = CardPosition.Middle,
+                                        items = unit.values,
+                                        currentId = unit.state,
+                                        defaultId = unit.defaultValue,
+                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
+                                        summary = unit.summary,
+                                        getItemText = { it },
+                                        getItemId = { it },
+                                        onValueChange = { unit.save(it) }
+                                    )
+                                }
+                                is EnvSettingUnit.Customizable -> {
+                                    TextInputSettingsCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        value = unit.state,
+                                        position = CardPosition.Middle,
+                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
+                                        summary = unit.summary,
+                                        onValueChange = { unit.save(it) }
+                                    )
+                                }
+                                is EnvSettingUnit.Toggleable -> {
+                                    SwitchSettingsCard(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        checked = unit.isEnabled,
+                                        onCheckedChange = { checked ->
+                                            unit.save(if (checked) unit.envValue else "")
+                                        },
+                                        position = CardPosition.Middle,
+                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
+                                        summary = unit.summary
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     ListSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
