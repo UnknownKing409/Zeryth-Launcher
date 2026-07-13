@@ -135,7 +135,7 @@ fun RendererSettingsScreen(
         // Split all compatible renderers into built-in vs external plugin categories
         val allCompatibleRenderers = Renderers.getCompatibleRenderers(context).second
         val externalIdentifiers = RendererPluginManager.getRendererList()
-            .map { it.uniqueIdentifier }
+            .map { it.getUniqueIdentifier() }
             .toSet()
         val builtInRenderers = remember(allCompatibleRenderers, externalIdentifiers) {
             allCompatibleRenderers.filter { it.getUniqueIdentifier() !in externalIdentifiers }
