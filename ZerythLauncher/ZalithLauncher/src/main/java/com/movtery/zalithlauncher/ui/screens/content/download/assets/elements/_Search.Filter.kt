@@ -567,15 +567,9 @@ private fun GameVersionFilterLayout(
                 onClear = { onVersionChange(null) }
             )
 
-            // Stable / Snapshots tab row — uses FilterChip instead of
-            // SingleChoiceSegmentedButtonRow because SegmentedButtonRow relies on
-            // SubcomposeLayout internally and silently produces zero height when
-            // placed inside a LazyColumn item.
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(animationSpec = getAnimateTween()),
-                exit = shrinkVertically(animationSpec = getAnimateTween()) + fadeOut()
-            ) {
+            // Stable / Snapshots tab row — plain conditional (no AnimatedVisibility)
+            // so there is zero risk of animation-pass height measurement problems.
+            if (expanded) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
