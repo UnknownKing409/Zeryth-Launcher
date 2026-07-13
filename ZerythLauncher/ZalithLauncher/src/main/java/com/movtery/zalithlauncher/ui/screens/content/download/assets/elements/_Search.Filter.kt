@@ -566,61 +566,11 @@ private fun GameVersionFilterLayout(
                 onClear = { onVersionChange(null) }
             )
 
-            // Stable / Snapshots tab row.
-            // Uses plain Surface + Text (both already imported, no SubcomposeLayout)
-            // so there is zero risk of measurement or rendering issues inside a
-            // LazyColumn item context.
-            if (expanded) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        onClick = { showSnapshots = false },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (!showSnapshots)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = stringResource(R.string.download_assets_filter_game_version_stable),
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (!showSnapshots)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        onClick = { showSnapshots = true },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (showSnapshots)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = stringResource(R.string.download_assets_filter_game_version_snapshots),
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (showSnapshots)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // Version list — mirrors FilterListLayout's AnimatedVisibility → LazyColumn pattern exactly
+            // Version list + tab row together inside the AnimatedVisibility → LazyColumn.
+            // The tab tiles are placed as the first sticky item inside the inner
+            // LazyColumn — the same rendering context that provably works for the
+            // version rows. This avoids all sibling-Column height-measurement
+            // ambiguity that has prevented the tabs from appearing in previous attempts.
             AnimatedVisibility(
                 visible = expanded,
                 enter = expandVertically(animationSpec = getAnimateTween()),
@@ -629,10 +579,60 @@ private fun GameVersionFilterLayout(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 200.dp)
+                        .heightIn(max = 248.dp)   // 48dp tab row + 200dp list
                         .padding(vertical = 4.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
+                    // ── Tab row (Stable / Snapshots) ──────────────────────────
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                onClick = { showSnapshots = false },
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (!showSnapshots)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.download_assets_filter_game_version_stable),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (!showSnapshots)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                onClick = { showSnapshots = true },
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (showSnapshots)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.download_assets_filter_game_version_snapshots),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (showSnapshots)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Version list ──────────────────────────────────────────
                     items(displayVersions) { version ->
                         val isSelected = selectedVersion == version
                         FilterListItem(
