@@ -52,9 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -569,31 +567,31 @@ private fun GameVersionFilterLayout(
                 onClear = { onVersionChange(null) }
             )
 
-            // Stable / Snapshots segmented button — shown separately so it is NOT
-            // wrapped together with the LazyColumn inside AnimatedVisibility.
-            // Nesting a Column + LazyColumn inside AnimatedVisibility inside a
-            // LazyColumn item causes unbounded-height measurement problems; keeping
-            // each AnimatedVisibility content to a single direct child avoids this.
+            // Stable / Snapshots tab row — uses FilterChip instead of
+            // SingleChoiceSegmentedButtonRow because SegmentedButtonRow relies on
+            // SubcomposeLayout internally and silently produces zero height when
+            // placed inside a LazyColumn item.
             AnimatedVisibility(
                 visible = expanded,
                 enter = expandVertically(animationSpec = getAnimateTween()),
                 exit = shrinkVertically(animationSpec = getAnimateTween()) + fadeOut()
             ) {
-                SingleChoiceSegmentedButtonRow(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    SegmentedButton(
+                    FilterChip(
+                        modifier = Modifier.weight(1f),
                         selected = !showSnapshots,
                         onClick = { showSnapshots = false },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         label = { Text(stringResource(R.string.download_assets_filter_game_version_stable)) }
                     )
-                    SegmentedButton(
+                    FilterChip(
+                        modifier = Modifier.weight(1f),
                         selected = showSnapshots,
                         onClick = { showSnapshots = true },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         label = { Text(stringResource(R.string.download_assets_filter_game_version_snapshots)) }
                     )
                 }
