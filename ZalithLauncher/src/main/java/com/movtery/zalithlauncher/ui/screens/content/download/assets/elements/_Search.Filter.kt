@@ -181,29 +181,15 @@ fun SearchFilter(
                       Logger.warning("SearchFilter", "Failed to refresh Minecraft versions")
                   }
               }
-              // Release versions only for CurseForge; all versions for Modrinth
-              val releaseVersions = remember(allVersions, searchPlatform) {
-                  val all = allVersions.filter {
-                      searchPlatform != Platform.CURSEFORGE || it.type == MinecraftVersion.Type.Release
-                  }.map { it.version.id }
-                  if (all.isEmpty()) popularVersions else all
-              }
-              // Issue #9: installed versions appear at the top, no duplicates
-              val displayVersions = remember(releaseVersions, installedVersions) {
-                  val installedSet = installedVersions.toSet()
-                  installedVersions + releaseVersions.filter { it !in installedSet }
-              }
-              FilterListLayout(
+              GameVersionFilterLayout(
                   modifier = Modifier.fillMaxWidth(),
-                  items = displayVersions,
-                  selectionMode = FilterSelectionMode.Single,
-                  selectedItems = listOfNotNull(gameVersion),
-                  onSelectionChange = { new ->
-                      val value = new.firstOrNull()
-                      if (value != gameVersion) onGameVersionChange(value)
-                  },
-                  getItemLabel = { it },
-                  title = stringResource(R.string.download_assets_filter_game_version)
+                  searchPlatform = searchPlatform,
+                  allVersions = allVersions,
+                  installedVersions = installedVersions,
+                  selectedVersion = gameVersion,
+                  onVersionChange = { new ->
+                      if (new != gameVersion) onGameVersionChange(new)
+                  }
               )
           }
 
@@ -508,6 +494,175 @@ fun <E> FilterListLayout(
                             },
                             itemLayout = {
                                 itemLayout(item)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Specialized Game Version filter that splits versions into two tabs:
+ * - **Stable** (Release builds, shown by default)
+ * - **Snapshots** (everything else: snapshots, pre-releases, old betas/alphas, April Fools)
+ *
+ * Installed versions always appear at the top of the Stable tab so the user can
+ * quickly pin a filter to a version they already have.
+ *
+ * CurseForge's search API only accepts stable/release game versions, so the Snapshots
+ * tab is hidden entirely when [searchPlatform] is [Platform.CURSEFORGE] (matching the
+ * platform's existing release-only behavior); Modrinth exposes both tabs.
+ */
+@Composable
+private fun GameVersionFilterLayout(
+    modifier: Modifier = Modifier,
+    searchPlatform: Platform,
+    allVersions: List<MinecraftVersion>,
+    installedVersions: List<String>,
+    selectedVersion: String?,
+    onVersionChange: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val allowSnapshots = searchPlatform != Platform.CURSEFORGE
+
+    // Default to Stable; reset to Stable every time the section is collapsed
+    // or when the platform no longer supports the Snapshots tab.
+    var showSnapshots by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) { if (!expanded) showSnapshots = false }
+    LaunchedEffect(allowSnapshots) { if (!allowSnapshots) showSnapshots = false }
+
+    // Stable = Release; installed versions pinned to the top (de-duped)
+    val stableVersions = remember(allVersions, installedVersions) {
+        val releases = allVersions
+            .filter { it.type == MinecraftVersion.Type.Release }
+            .map { it.version.id }
+        val base = if (releases.isEmpty()) popularVersions else releases
+        val installedSet = installedVersions.toSet()
+        installedVersions + base.filter { it !in installedSet }
+    }
+
+    // Snapshots = everything that is not a Release (only offered when the platform supports it)
+    val snapshotVersions = remember(allVersions, allowSnapshots) {
+        if (!allowSnapshots) {
+            emptyList()
+        } else {
+            allVersions
+                .filter { it.type != MinecraftVersion.Type.Release }
+                .map { it.version.id }
+        }
+    }
+
+    val displayVersions = if (showSnapshots) snapshotVersions else stableVersions
+
+    BaseFilterLayout(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            FilterHeader(
+                title = stringResource(R.string.download_assets_filter_game_version),
+                expanded = expanded,
+                selected = selectedVersion != null,
+                selectedLabels = {
+                    if (selectedVersion == null) {
+                        LittleTextLabel(
+                            text = stringResource(R.string.download_assets_filter_none),
+                            shape = MaterialTheme.shapes.small
+                        )
+                    } else {
+                        LittleTextLabel(
+                            text = selectedVersion,
+                            shape = MaterialTheme.shapes.small
+                        )
+                    }
+                },
+                cancelable = true,
+                onExpandToggle = { expanded = !expanded },
+                onClear = { onVersionChange(null) }
+            )
+
+            // Version list + tab row together inside the same AnimatedVisibility → LazyColumn.
+            // The tab tiles are placed as the first item inside the inner LazyColumn — the
+            // same rendering context already used for the version rows below it.
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = getAnimateTween()),
+                exit = shrinkVertically(animationSpec = getAnimateTween()) + fadeOut()
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = if (allowSnapshots) 248.dp else 200.dp)
+                        .padding(vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    // ── Tab row (Stable / Snapshots) ──────────────────────────
+                    if (allowSnapshots) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showSnapshots = false },
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = if (!showSnapshots)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.download_assets_filter_game_version_stable),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (!showSnapshots)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showSnapshots = true },
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = if (showSnapshots)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.download_assets_filter_game_version_snapshots),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (showSnapshots)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Version list ──────────────────────────────────────────
+                    items(displayVersions) { version ->
+                        val isSelected = selectedVersion == version
+                        FilterListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(all = 4.dp),
+                            selected = isSelected,
+                            selectionMode = FilterSelectionMode.Single,
+                            onCheckedChange = { checked ->
+                                onVersionChange(if (checked) version else null)
+                            },
+                            itemLayout = {
+                                Text(
+                                    text = version,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
                         )
                     }
