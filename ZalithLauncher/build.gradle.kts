@@ -65,7 +65,7 @@ android {
     defaultConfig {
         applicationId = zalithApplicationId
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = launcherVersionCode
         versionName = launcherVersionName
         manifestPlaceholders["launcher_name"] = launcherAPPName

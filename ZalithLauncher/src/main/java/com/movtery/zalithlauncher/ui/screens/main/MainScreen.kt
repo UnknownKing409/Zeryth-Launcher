@@ -89,7 +89,6 @@ import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
-import com.movtery.zalithlauncher.ui.base.applyFullscreen
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
@@ -205,7 +204,7 @@ fun MainScreen(
     ) {
         Column(
             modifier = Modifier
-                .applyFullscreen(AllSettings.launcherFullScreen.state)
+                .fillMaxSize()
         ) {
             TopBar(
                 modifier = Modifier
