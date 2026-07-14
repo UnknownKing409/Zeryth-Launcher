@@ -85,8 +85,8 @@ import com.movtery.zalithlauncher.coroutine.TitledTask
 import androidx.compose.ui.text.style.TextOverflow
 import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialog
 import com.movtery.zalithlauncher.game.version.installed.Version
-import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
+import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.ui.components.BackgroundCard

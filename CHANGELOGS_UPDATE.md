@@ -29,15 +29,7 @@
 - Minimize button when downloading game-modpack
 - File Manager UI Redesign from Zeryth Launcher
 - Move Isolated Versions Between Game Folders
-- Set Default Game Folder Dialog
 - Fixed Sidebar Toggle Button Alignment
 - Info Button Added to Shader Pack Items (redirects to project page if downloaded from launcher)
 - Resource Pack Info Button Now Redirects to Project Page When Available
-- Default Folder Warning Dialog: Isolated Versions Are Moved When Changing Default Path
-- Default Folder Star Icon and Badge on Folder Items
-
-# Coming Soon
-
-- In-Launcher Screen Recorder
-- In-Launcher Speedrun Timer
-- PojavLauncher or also known as ZL1 controls and editor
+- Switched Freedreno and Panfrost renderers from OSMesa to Mesa 26.2 EGL with Kopper support (real hardware presentation)
