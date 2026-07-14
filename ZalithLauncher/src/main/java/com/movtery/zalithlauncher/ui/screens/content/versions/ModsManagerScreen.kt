@@ -777,23 +777,7 @@ fun ModsManagerScreen(
                             },
                             swapToDownload = swapToDownload,
                             refresh = { viewModel.refresh(context) },
-                            submitError = submitError,
-                            canUpdateAll = viewModel.canUpdateAll,
-                            onEnableAll = {
-                                viewModel.enableSelectedMods()
-                            },
-                            onDisableAll = {
-                                viewModel.disableSelectedMods()
-                            },
-                            onUpdateAllMods = {
-                                if (
-                                    updaterViewModel.modsUpdateOperation == ModsUpdateOperation.None &&
-                                    viewModel.deleteAllOperation == DeleteAllOperation.None
-                                ) {
-                                    val allUpdatableMods = viewModel.allMods.filter { it.localMod.checkRemote }
-                                    updaterViewModel.modsUpdateOperation = ModsUpdateOperation.Warning(allUpdatableMods)
-                                }
-                            }
+                            submitError = submitError
                         )
 
                         ModsList(

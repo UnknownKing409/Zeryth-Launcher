@@ -117,6 +117,7 @@ fun DownloadModScreen(
         onInstallWithDependencies = { classes, version, gameVersions, requiredDeps ->
             //一键安装：先安装所选模组本体，再复用现有前置解析/下载/安装流水线安装所有必需前置项目
             downloadSingleForVersions(
+                context = context,
                 version = version,
                 versions = gameVersions,
                 folder = classes.versionFolder.folderName,

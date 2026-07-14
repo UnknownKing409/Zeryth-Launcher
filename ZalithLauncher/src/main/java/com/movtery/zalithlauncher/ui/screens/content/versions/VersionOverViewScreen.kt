@@ -90,6 +90,7 @@ fun VersionOverViewScreen(
     backToMainScreen: () -> Unit,
     onExport: () -> Unit,
     navigateToFileManager: (File) -> Unit,
+    onOpenFolder: (String) -> Unit = {},
     eventViewModel: EventViewModel,
     version: Version,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit

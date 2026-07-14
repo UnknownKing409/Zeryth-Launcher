@@ -67,7 +67,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.sp
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.ui.theme.cardColor
+import com.movtery.zalithlauncher.ui.theme.onCardColor
 
 private val CollapsedWidth = 56.dp
 private val ExpandedWidth = 110.dp
@@ -172,7 +178,7 @@ fun SideBar(
                         StaggeredItem(delay = 60) {
                             SideBarShortcut(
                                 icon = painterResource(R.drawable.ic_folder_outlined),
-                                contentDescription = "File Manager",
+                                label = "File Manager",
                                 onClick = onFileManagerClick
                             )
                         }
@@ -269,7 +275,6 @@ private fun SideBarToggle(
                 indication = null,
                 onClick = onClick
             ),
-        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),

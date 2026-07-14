@@ -233,11 +233,11 @@ fun DownloadSingleOperation(
             SimpleTaskDialog(
                 title = stringResource(R.string.download_assets_install_with_deps),
                 task = {
-                    onInstallWithDependencies(
+                    onInstallWithDependencies?.invoke(
+                        operation.classes,
                         operation.version,
-                        operation.dependencies,
                         operation.versions,
-                        operation.classes
+                        emptyList()
                     )
                 },
                 onDismiss = {
@@ -463,10 +463,9 @@ private fun DownloadDialog(
                                 FilledTonalButton(
                                     onClick = {
                                         if (selectedVersions.isNotEmpty()) {
-                                            onInstallWithDependencies(
-                                                dependencies.map { it.first },
+                                            onInstallWithDependencies?.invoke(
                                                 selectedVersions.toList(),
-                                                classes
+                                                dependencies
                                             )
                                         }
                                     }
