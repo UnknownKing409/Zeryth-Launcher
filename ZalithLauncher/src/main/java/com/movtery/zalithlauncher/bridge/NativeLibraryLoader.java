@@ -60,6 +60,34 @@ public class NativeLibraryLoader {
         }
     }
 
+    /**
+     * Android 14+ moved native_handle_create from libcutils.so into libnativewindow.so.
+     * The primary fix lives in java_exec_hooks.c, which adds libnativewindow.so to the
+     * FFmpeg subprocess's LD_PRELOAD so the symbol resolves as soon as the subprocess
+     * starts. This dlopen(RTLD_GLOBAL) pass is an additional safety net for any in-process
+     * FFmpeg usage; RTLD_LOCAL is not used as a fallback since a lib loaded RTLD_LOCAL
+     * cannot later be upgraded to RTLD_GLOBAL.
+     */
+    public static void reloadFFmpegSystemDependenciesGlobally() {
+        dlopenSystemLibGlobally("libcutils.so");
+        dlopenSystemLibGlobally("libandroid.so");
+        dlopenSystemLibGlobally("libmediandk.so");
+        dlopenSystemLibGlobally("libnativewindow.so");
+    }
+
+    private static void dlopenSystemLibGlobally(String libName) {
+        try {
+            boolean ok = ZLBridge.dlopen(libName);
+            if (ok) {
+                Log.i(TAG, "Globally loaded: " + libName);
+                return;
+            }
+            Log.w(TAG, "ZLBridge.dlopen failed for " + libName + " (no RTLD_LOCAL fallback)");
+        } catch (Exception e) {
+            Log.w(TAG, "Error globally loading " + libName + " via ZLBridge", e);
+        }
+    }
+
     public static void loadPojavLib() {
         System.loadLibrary("pojavexec");
     }

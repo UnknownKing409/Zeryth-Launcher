@@ -44,6 +44,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -54,10 +61,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +78,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -78,6 +89,9 @@ import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.rememberSe
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
 import com.movtery.zalithlauncher.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.movtery.zalithlauncher.game.plugin.driver.Driver
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.plugin.renderer.RendererPluginManager
@@ -85,14 +99,17 @@ import com.movtery.zalithlauncher.game.plugin.renderer_v2.RendererV2Data
 import com.movtery.zalithlauncher.game.plugin.renderer_v2.data.EnvSettingUnit
 import com.movtery.zalithlauncher.game.renderer.RendererInterface
 import com.movtery.zalithlauncher.game.renderer.Renderers
+import com.movtery.zalithlauncher.game.renderer.renderers.KopperZinkRenderer
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
 import com.movtery.zalithlauncher.path.URL_CLOUD_DRIVE_DRIVER_PLUGINS
 import com.movtery.zalithlauncher.path.URL_CLOUD_RENDERER_PLUGINS
 import com.movtery.zalithlauncher.path.URL_GITHUB_DRIVER_PLUGINS
+import com.movtery.zalithlauncher.utils.driver.TurnipDownloader
 import com.movtery.zalithlauncher.path.URL_GITHUB_RENDERER_PLUGINS
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.ui.base.BaseScreen
+import com.movtery.zalithlauncher.utils.settings.MobileGluesConfig
 import com.movtery.zalithlauncher.ui.components.AnimatedColumn
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.verticalScrollWithBar
@@ -159,6 +176,7 @@ fun RendererSettingsScreen(
                 )
             }
         }
+
 
         driverToDelete?.let { driver ->
             SimpleAlertDialog(
@@ -332,7 +350,7 @@ fun RendererSettingsScreen(
                             Row {
                                 IconButton(
                                     onClick = {
-                                        eventViewModel.sendEvent(EventViewModel.Event.OpenWeb("https://github.com/K11MCH1/AdrenoToolsDrivers/releases"))
+                                        eventViewModel.sendEvent(EventViewModel.Event.OpenWeb(TurnipDownloader.getRepoReleasesUrl()))
                                     }
                                 ) {
                                     Icon(
@@ -364,64 +382,6 @@ fun RendererSettingsScreen(
                             }
                         }
                     )
-
-                    SwitchSettingsCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        position = CardPosition.Middle,
-                        unit = AllSettings.fsrEnabled,
-                        title = stringResource(R.string.settings_renderer_fsr_title),
-                        summary = stringResource(R.string.settings_renderer_fsr_summary),
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
-                                val ratio = FSRUtils.qualityToResolutionRatio(AllSettings.fsrQuality.getValue())
-                                AllSettings.resolutionRatio.updateState(ratio)
-                                AllSettings.resolutionRatio.save()
-                            } else {
-                                AllSettings.resolutionRatio.updateState(100)
-                                AllSettings.resolutionRatio.save()
-                            }
-                        }
-                    )
-
-                    if (AllSettings.fsrEnabled.state) {
-                        SettingsCardColumn(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            val fsrQualityLabels = listOf(
-                                1 to stringResource(R.string.settings_renderer_fsr_quality_ultra),
-                                2 to stringResource(R.string.settings_renderer_fsr_quality_quality),
-                                3 to stringResource(R.string.settings_renderer_fsr_quality_balanced),
-                                4 to stringResource(R.string.settings_renderer_fsr_quality_performance)
-                            )
-
-                            ListSettingsCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                position = CardPosition.Middle,
-                                items = fsrQualityLabels,
-                                currentId = AllSettings.fsrQuality.state.toString(),
-                                defaultId = AllSettings.fsrQuality.defaultValue.toString(),
-                                title = stringResource(R.string.settings_renderer_fsr_quality_title),
-                                summary = stringResource(R.string.settings_renderer_fsr_quality_summary),
-                                getItemText = { it.second },
-                                getItemId = { it.first.toString() },
-                                getItemSummary = {
-                                    when (it.first) {
-                                        1 -> "1.33x (1080p → 1440p)"
-                                        2 -> "1.5x (720p → 1080p)"
-                                        3 -> "1.7x (632p → 1080p)"
-                                        4 -> "2.0x (540p → 1080p)"
-                                        else -> ""
-                                    }
-                                },
-                                onValueChange = { item ->
-                                    AllSettings.fsrQuality.save(item.first)
-                                    if (AllSettings.fsrEnabled.getValue()) {
-                                        FSRUtils.updateQuality(item.first)
-                                    }
-                                }
-                            )
-                        }
-                    }
 
                     IntSliderSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -502,13 +462,54 @@ fun RendererSettingsScreen(
                         summary = stringResource(R.string.settings_renderer_force_big_core_summary)
                     )
 
+                    val isKopperZinkSelected = AllSettings.renderer.state == KopperZinkRenderer.getUniqueIdentifier()
+                    var surfaceViewAutoDisabledAlert by remember { mutableStateOf(false) }
+
+                    //切换到 Kopper Zink 时，如果 SurfaceView 原本是开启的，仅提示用户已被关闭；
+                    //注意：这里不修改实际保存的偏好值，所以切换回其他渲染器时会自动恢复原来的开启状态
+                    LaunchedEffect(isKopperZinkSelected) {
+                        if (isKopperZinkSelected && AllSettings.useSurfaceView.state && !AllSettings.surfaceViewKopperWarningDontShow.state) {
+                            surfaceViewAutoDisabledAlert = true
+                        }
+                    }
+
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
                         position = CardPosition.Middle,
-                        unit = AllSettings.useSurfaceView,
+                        //Kopper Zink 选中时，无论保存的偏好值是什么，都在界面上显示为关闭+禁用状态
+                        checked = AllSettings.useSurfaceView.state && !isKopperZinkSelected,
+                        enabled = !isKopperZinkSelected,
+                        onCheckedChange = { checked ->
+                            AllSettings.useSurfaceView.save(checked)
+                        },
                         title = stringResource(R.string.settings_renderer_surface_title),
-                        summary = stringResource(R.string.settings_renderer_surface_summary)
+                        summary = if (isKopperZinkSelected) {
+                            stringResource(R.string.settings_renderer_surface_summary_kopper_disabled)
+                        } else {
+                            stringResource(R.string.settings_renderer_surface_summary)
+                        }
                     )
+
+                    if (surfaceViewAutoDisabledAlert) {
+                        AlertDialog(
+                            onDismissRequest = { surfaceViewAutoDisabledAlert = false },
+                            title = { Text(stringResource(R.string.generic_warning)) },
+                            text = { Text(stringResource(R.string.settings_renderer_surface_kopper_warning)) },
+                            confirmButton = {
+                                Button(onClick = {
+                                    AllSettings.surfaceViewKopperWarningDontShow.save(true)
+                                    surfaceViewAutoDisabledAlert = false
+                                }) {
+                                    Text(stringResource(R.string.settings_renderer_surface_kopper_warning_dont_show))
+                                }
+                            },
+                            dismissButton = {
+                                OutlinedButton(onClick = { surfaceViewAutoDisabledAlert = false }) {
+                                    Text(stringResource(R.string.generic_confirm))
+                                }
+                            }
+                        )
+                    }
 
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),

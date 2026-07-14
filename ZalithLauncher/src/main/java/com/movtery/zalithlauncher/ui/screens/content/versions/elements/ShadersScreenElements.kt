@@ -23,15 +23,11 @@ import java.io.File
 
 sealed interface ShaderOperation {
     data object None : ShaderOperation
-    /** 执行任务中 */
     data object Progress : ShaderOperation
     /** 删除光影包对话框 */
     data class Delete(val info: ShaderPackInfo) : ShaderOperation
 }
 
-/**
- * 光影包信息
- */
 data class ShaderPackInfo(
     val file: File,
     val fileSize: Long,

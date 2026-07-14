@@ -42,6 +42,11 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformDisplayL
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformFilterCode
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSearchFilter
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSearchResult
+import com.movtery.zalithlauncher.game.download.assets.platform.loadRawPersistedData
+import com.movtery.zalithlauncher.game.download.assets.platform.loadSearchFilter
+import com.movtery.zalithlauncher.game.download.assets.platform.resolvePersistedCategories
+import com.movtery.zalithlauncher.game.download.assets.platform.resolvePersistedModloader
+import com.movtery.zalithlauncher.game.download.assets.platform.saveSearchFilter
 import com.movtery.zalithlauncher.game.download.assets.platform.navigatePage
 import com.movtery.zalithlauncher.game.download.assets.platform.nextPage
 import com.movtery.zalithlauncher.game.download.assets.platform.previousPage
@@ -73,18 +78,22 @@ private const val TAG = "SearchAssetsScreen"
  * 资源搜索屏幕的 view model
  * @param initialPlatform 初始设定的平台
  * @param platformClasses 资源搜索的类型
- * @param initialFilter 初始过滤器，从持久化存储中恢复
+ * @param filterPersistenceKey MMKV中保存过滤器状态的键，为空则不持久化
+ * @param getCategories 根据平台获取可用的资源类别过滤器（用于恢复持久化的类别选择）
+ * @param getModloaders 根据平台获取可用的模组加载器过滤器（用于恢复持久化的模组加载器）
  */
 private class SearchScreenViewModel(
     initialPlatform: Platform,
     private val platformClasses: PlatformClasses,
-    private val initialFilter: PlatformSearchFilter = PlatformSearchFilter()
+    private val filterPersistenceKey: String? = null,
+    private val getCategories: ((Platform) -> List<PlatformFilterCode>)? = null,
+    private val getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null
 ): ViewModel() {
     var searchResult by mutableStateOf<SearchAssetsState>(SearchAssetsState.Searching)
     val pages = mutableStateListOf<AssetsPage?>()
 
     var searchPlatform by mutableStateOf(initialPlatform)
-    var searchFilter by mutableStateOf(initialFilter)
+    var searchFilter by mutableStateOf(PlatformSearchFilter())
 
     /** 过滤器变更时的回调，由外部设置以持久化保存过滤器 */
     var onFilterChange: (PlatformSearchFilter) -> Unit = {}
@@ -133,8 +142,17 @@ private class SearchScreenViewModel(
     fun researchWithFilter(filter: PlatformSearchFilter) {
         pages.clear()
         searchFilter = filter.copy(index = 0) //重置索引到起始处
-        onFilterChange(searchFilter) //持久化保存过滤器
+        persistFilter()
         search()
+    }
+
+    /**
+     * 将当前过滤器状态持久化到 MMKV
+     */
+    private fun persistFilter() {
+        if (filterPersistenceKey != null) {
+            saveSearchFilter(filterPersistenceKey, searchFilter)
+        }
     }
 
     private fun putResult(result: PlatformSearchResult) {
@@ -176,11 +194,44 @@ private class SearchScreenViewModel(
     }
 
     init {
-        //初始化后，执行一次搜索
+        //从 MMKV 恢复持久化的过滤器状态
+        if (filterPersistenceKey != null) {
+            val filter = loadSearchFilter(filterPersistenceKey)
+            if (filter != null) {
+                searchFilter = searchFilter.copy(
+                    gameVersion = filter.gameVersion,
+                    sortField = filter.sortField
+                )
+            }
+
+            //恢复类别和模组加载器
+            val raw = loadRawPersistedData(filterPersistenceKey)
+            if (raw != null) {
+                if (getCategories != null) {
+                    val resolvedCategories = resolvePersistedCategories(
+                        names = raw.categories,
+                        getCategories = getCategories,
+                        platform = searchPlatform
+                    )
+                    searchFilter = searchFilter.copy(categories = resolvedCategories)
+                }
+                if (getModloaders != null) {
+                    val resolvedModloader = resolvePersistedModloader(
+                        name = raw.modloader,
+                        getModloaders = getModloaders,
+                        platform = searchPlatform
+                    )
+                    searchFilter = searchFilter.copy(modloader = resolvedModloader)
+                }
+            }
+        }
+
         // Issue #9: 如果只有一个已安装版本，且用户未保存过版本偏好，则自动预选该版本
-        if (initialFilter.gameVersion == null && installedVersionIds.size == 1) {
+        if (searchFilter.gameVersion == null && installedVersionIds.size == 1) {
             searchFilter = searchFilter.copy(gameVersion = installedVersionIds.first())
         }
+
+        //初始化后，执行一次搜索
         search()
     }
 
@@ -195,13 +246,15 @@ private fun rememberSearchAssetsViewModel(
     navKey: TitledNavKey,
     initialPlatform: Platform,
     platformClasses: PlatformClasses,
-    initialFilter: PlatformSearchFilter = PlatformSearchFilter()
+    filterPersistenceKey: String? = null,
+    getCategories: ((Platform) -> List<PlatformFilterCode>)? = null,
+    getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null
 ): SearchScreenViewModel {
     val screenKey = navKey.toString()
     return viewModel(
         key = "${screenKey}_search"
     ) {
-        SearchScreenViewModel(initialPlatform, platformClasses, initialFilter)
+        SearchScreenViewModel(initialPlatform, platformClasses, filterPersistenceKey, getCategories, getModloaders)
     }
 }
 
@@ -220,6 +273,7 @@ private fun rememberSearchAssetsViewModel(
  * @param enableModLoader 是否允许更改模组加载器
  * @param getModloaders 根据平台获取可用的模组加载器过滤器
  * @param mapCategories 通过平台获取类别本地化信息
+ * @param filterPersistenceKey 持久化过滤器状态的 MMKV 键，为空则不保存
  * @param swapToDownload 跳转到下载详情页
  * @param extraFilter 额外的过滤器UI
  */
@@ -240,6 +294,7 @@ fun SearchAssetsScreen(
     enableModLoader: Boolean = false,
     getModloaders: (Platform) -> List<PlatformDisplayLabel> = { emptyList() },
     mapCategories: (Platform, String) -> PlatformFilterCode?,
+    filterPersistenceKey: String? = null,
     swapToDownload: (Platform, projectId: String, iconUrl: String?) -> Unit = { _, _, _ -> },
     extraFilter: (LazyListScope.() -> Unit)? = null
 ) {
@@ -247,7 +302,9 @@ fun SearchAssetsScreen(
         navKey = screenKey,
         initialPlatform = initialPlatform,
         platformClasses = platformClasses,
-        initialFilter = initialFilter
+        filterPersistenceKey = filterPersistenceKey,
+        getCategories = getCategories,
+        getModloaders = getModloaders
     )
 
     // 每次重组时更新 ViewModel 的过滤器变更回调

@@ -49,6 +49,7 @@ import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.renderer.Renderers
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.ui.activities.EXTRA_LAUNCH_VERSION
+import com.movtery.zalithlauncher.ui.activities.EXTRA_OPEN_LOG
 import com.movtery.zalithlauncher.notification.NotificationManager
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.path.URL_SUPPORT
@@ -279,12 +280,10 @@ class MainActivity : BaseAppCompatActivity() {
                     is EventViewModel.Event.VulkanCheck -> {
                         checkVulkan()
                     }
-                    is EventViewModel.Event.ShowToast -> {
-                        Toast.makeText(
-                            this@MainActivity,
-                            event.text.toAndroidString(this@MainActivity),
-                            event.duration
-                        ).show()
+                    is EventViewModel.Event.OpenLog -> {
+                        screenBackStackModel.mainScreen.backStack.navigateToLogView(
+                            logPath = event.path
+                        )
                     }
                     else -> {
                         //忽略
@@ -745,6 +744,13 @@ class MainActivity : BaseAppCompatActivity() {
     private fun handleImportIfNeeded(intent: Intent?): Boolean {
         if (intent == null) return false
 
+        val logPath = intent.getStringExtra(EXTRA_OPEN_LOG)
+        if (logPath != null) {
+            intent.removeExtra(EXTRA_OPEN_LOG)
+            eventViewModel.sendEvent(EventViewModel.Event.OpenLog(logPath))
+            return true
+        }
+
         val versionName = intent.getStringExtra(EXTRA_LAUNCH_VERSION)
         if (versionName != null) {
             intent.removeExtra(EXTRA_LAUNCH_VERSION)
@@ -816,6 +822,13 @@ class MainActivity : BaseAppCompatActivity() {
     override fun onResume() {
         super.onResume()
         ControlManager.checkDefaultAndRefresh(this@MainActivity)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
     }
 
     @SuppressLint("RestrictedApi")

@@ -23,20 +23,26 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.ui.unit.dp
+import androidx.activity.viewModels
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.context.COPY_LABEL_LINK
-import com.movtery.zalithlauncher.crashlogs.CrashLogAnalyzer
+import com.movtery.zalithlauncher.game.crash_analysis.CrashAnalyzer
+import com.movtery.zalithlauncher.game.crash_analysis.CrashContext
+import com.movtery.zalithlauncher.game.crash_analysis.CrashTip
+import com.movtery.zalithlauncher.game.crash_analysis.ModScanner
+import com.movtery.zalithlauncher.game.crash_analysis.Severity
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.base.BaseAppCompatActivity
 import com.movtery.zalithlauncher.ui.screens.main.ErrorScreen
@@ -52,9 +58,6 @@ import com.movtery.zalithlauncher.utils.network.openLink
 import com.movtery.zalithlauncher.utils.string.throwableToString
 import com.movtery.zalithlauncher.viewmodel.LogsUploadViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import java.io.File
 
@@ -69,13 +72,17 @@ fun showExitMessage(
     context: Context,
     code: Int,
     isSignal: Boolean,
-    logPath: String
+    logPath: String,
+    gameHome: String = "",
+    allocatedRamMb: Int = 0,
+    renderer: String = "",
+    javaVersion: String = System.getProperty("java.version") ?: ""
 ) {
     val intent = Intent(context, ErrorActivity::class.java).apply {
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         putExtra(BUNDLE_EXIT_TYPE, EXIT_JVM)
-        putExtra(BUNDLE_JVM_CRASH, JvmCrash(code, isSignal, logPath))
+        putExtra(BUNDLE_JVM_CRASH, JvmCrash(code, isSignal, logPath, gameHome, allocatedRamMb, renderer, javaVersion))
     }
     context.startActivity(intent)
 }
@@ -84,7 +91,11 @@ fun showExitMessage(
 private data class JvmCrash(
     val code: Int,
     val isSignal: Boolean,
-    val logPath: String
+    val logPath: String,
+    val gameHome: String = "",
+    val allocatedRamMb: Int = 0,
+    val renderer: String = "",
+    val javaVersion: String = ""
 ): Parcelable
 
 @AndroidEntryPoint
@@ -103,11 +114,15 @@ class ErrorActivity : BaseAppCompatActivity() {
 
         val exitType = extras.getString(BUNDLE_EXIT_TYPE, EXIT_LAUNCHER)
 
+        val jvmCrash: JvmCrash? = if (exitType == EXIT_JVM) {
+            extras.getParcelableSafely(BUNDLE_JVM_CRASH, JvmCrash::class.java)
+        } else null
+
         val errorMessage = when (exitType) {
             EXIT_JVM -> {
-                val jvmCrash = extras.getParcelableSafely(BUNDLE_JVM_CRASH, JvmCrash::class.java) ?: return runFinish()
-                val messageResId = if (jvmCrash.isSignal) R.string.crash_singnal_message else R.string.crash_exit_message
-                val message = getString(messageResId, jvmCrash.code)
+                val crash = jvmCrash ?: return runFinish()
+                val messageResId = if (crash.isSignal) R.string.crash_singnal_message else R.string.crash_exit_message
+                val message = getString(messageResId, crash.code)
                 val messageBody = getString(R.string.crash_exit_note)
                 val logFile = File(jvmCrash.logPath).also { file ->
                     //检查日志文件是否适合上传
@@ -139,25 +154,26 @@ class ErrorActivity : BaseAppCompatActivity() {
         val canRestart: Boolean = extras.getBoolean(BUNDLE_CAN_RESTART, true)
         val logExists = logFile.exists() && logFile.isFile
 
-        //尝试分析崩溃日志，识别是否为"缺失模组依赖"导致的类加载失败
-        //游戏运行在独立的 JVM 进程中，启动器无法拦截游戏内部异常，
-        //只能在崩溃后通过分析日志给出更有针对性的提示
-        //日志文件可能较大，分析放在 IO 线程进行，避免阻塞主线程
-        var hintMessage by mutableStateOf<String?>(null)
-        if (errorMessage.crashType == CrashType.GAME_CRASH) {
-            lifecycleScope.launch {
-                val hintText = withContext(Dispatchers.IO) {
-                    val causeHint = runCatching { CrashLogAnalyzer.analyze(logFile) }.getOrNull()
-                    causeHint?.let { hint ->
-                        if (hint.dependencyName != null) {
-                            getString(R.string.crash_missing_dependency_hint, hint.dependencyName, hint.missingClass)
-                        } else {
-                            getString(R.string.crash_missing_dependency_hint_generic, hint.missingClass)
-                        }
-                    }
-                }
-                hintMessage = hintText
+        val crashTips = if (jvmCrash != null && logExists) {
+            try {
+                val logContent = logFile.readText()
+                val mods = ModScanner.scanMods(jvmCrash.gameHome)
+                val crashCtx = CrashContext(
+                    exitCode = jvmCrash.code,
+                    isSignal = jvmCrash.isSignal,
+                    allocatedRamMb = jvmCrash.allocatedRamMb,
+                    renderer = jvmCrash.renderer,
+                    javaVersion = jvmCrash.javaVersion,
+                    gameHome = jvmCrash.gameHome,
+                    logContent = logContent,
+                    mods = mods
+                )
+                CrashAnalyzer.analyze(crashCtx)
+            } catch (_: Exception) {
+                emptyList()
             }
+        } else {
+            emptyList()
         }
 
         setContent {
@@ -184,6 +200,16 @@ class ErrorActivity : BaseAppCompatActivity() {
                         shareLogs = logExists,
                         canUpload = viewModel.canUpload,
                         canRestart = canRestart,
+                        onShowLogsClick = {
+                            if (logExists) {
+                                startActivity(
+                                    Intent(this@ErrorActivity, MainActivity::class.java).apply {
+                                        putExtra(EXTRA_OPEN_LOG, logFile.absolutePath)
+                                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    }
+                                )
+                            }
+                        },
                         onShareLogsClick = {
                             if (logExists) {
                                 shareFile(this@ErrorActivity, logFile)
@@ -214,6 +240,10 @@ class ErrorActivity : BaseAppCompatActivity() {
                             text = errorMessage.messageBody,
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        if (crashTips.isNotEmpty()) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            CrashTipsSection(tips = crashTips)
+                        }
                     }
                 }
             }
@@ -227,6 +257,59 @@ class ErrorActivity : BaseAppCompatActivity() {
         val crashType: CrashType,
         val logFile: File
     )
+
+    @Composable
+    private fun ColumnScope.CrashTipsSection(tips: List<CrashTip>) {
+        val mainCrash = tips.filter { it.severity == Severity.ERROR }
+        val foundErrors = tips.filter { it.severity != Severity.ERROR }
+
+        if (mainCrash.isNotEmpty()) {
+            Text(
+                text = getString(R.string.crash_analysis_main_crash, mainCrash.size),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            mainCrash.forEach { tip ->
+                CrashTipItem(tip)
+            }
+        }
+
+        if (foundErrors.isNotEmpty()) {
+            if (mainCrash.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            }
+            Text(
+                text = getString(R.string.crash_analysis_found_errors, foundErrors.size),
+                style = MaterialTheme.typography.titleSmall
+            )
+            foundErrors.forEach { tip ->
+                CrashTipItem(tip)
+            }
+        }
+    }
+
+    @Composable
+    private fun ColumnScope.CrashTipItem(tip: CrashTip) {
+        val severityColor = when (tip.severity) {
+            Severity.ERROR -> MaterialTheme.colorScheme.error
+            Severity.WARNING -> MaterialTheme.colorScheme.tertiary
+            Severity.INFO -> MaterialTheme.colorScheme.primary
+        }
+        Text(
+            text = tip.title,
+            style = MaterialTheme.typography.labelLarge,
+            color = severityColor
+        )
+        Text(
+            text = tip.description,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = "→ ${tip.solution}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
 }
 
 /**

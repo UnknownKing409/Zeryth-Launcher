@@ -500,7 +500,7 @@ fun FileNameInputDialog(
 }
 
 /**
- * 通用的“已禁用”图标覆盖层
+ * 通用的"已禁用"图标覆盖层
  * 当 [isDisabled] 为 true 时：图标以灰度（去饱和）方式展示，并在中心叠加一个禁用图标
  * 该样式在模组管理器中最先实现，此处抽取为通用组件，供资源包、光影包管理器复用，保持视觉效果完全一致
  * @param content 实际图标内容，接收一个应传递给图标绘制的 [ColorFilter]（禁用时为灰度，启用时为正常颜色）
@@ -541,6 +541,7 @@ fun DisabledStateIcon(
         }
     }
 }
+
 
 @Composable
 fun ByteArrayIcon(

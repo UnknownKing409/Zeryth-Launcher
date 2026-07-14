@@ -65,6 +65,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.ui.components.SimpleTaskDialog
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformDependencyType
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformProject
@@ -112,6 +113,14 @@ sealed interface DownloadSingleOperation {
         val version: PlatformVersion,
         val versions: List<Version>,
         val customFileName: String? = null
+    ) : DownloadSingleOperation
+
+    /** 带依赖安装 */
+    data class InstallWithDependencies(
+        val classes: PlatformClasses,
+        val version: PlatformVersion,
+        val versions: List<Version>,
+        val dependencies: List<PlatformVersion.PlatformDependency>
     ) : DownloadSingleOperation
 }
 
@@ -219,6 +228,22 @@ fun DownloadSingleOperation(
         is DownloadSingleOperation.Install -> {
             doInstall(operation.classes, operation.version, operation.versions, operation.customFileName)
             changeOperation(DownloadSingleOperation.None)
+        }
+        is DownloadSingleOperation.InstallWithDependencies -> {
+            SimpleTaskDialog(
+                title = stringResource(R.string.download_assets_install_with_deps),
+                task = {
+                    onInstallWithDependencies(
+                        operation.version,
+                        operation.dependencies,
+                        operation.versions,
+                        operation.classes
+                    )
+                },
+                onDismiss = {
+                    changeOperation(DownloadSingleOperation.None)
+                }
+            )
         }
     }
 }
@@ -433,6 +458,21 @@ private fun DownloadDialog(
                                 onClick = onDismiss
                             ) {
                                 MarqueeText(text = stringResource(R.string.generic_cancel))
+                            }
+                            if (dependencies.isNotEmpty()) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        if (selectedVersions.isNotEmpty()) {
+                                            onInstallWithDependencies(
+                                                dependencies.map { it.first },
+                                                selectedVersions.toList(),
+                                                classes
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    MarqueeText(text = stringResource(R.string.download_assets_install_with_deps))
+                                }
                             }
                             Button(
                                 modifier = Modifier

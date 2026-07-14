@@ -91,5 +91,11 @@ public final class ZLBridge {
         NativeLibraryLoader.loadExitHookLib();
         NativeLibraryLoader.loadPojavLib();
         NativeLibraryLoader.loadPojavAWTLib();
+
+        //Android 14'te native_handle_create libnativewindow.so'ya taşındı.
+        //Ana çözüm: java_exec_hooks.c ile FFmpeg subprocess'inin LD_PRELOAD'ına
+        //libnativewindow.so eklendi. Ayrıca burada RTLD_GLOBAL ile in-process
+        //yüklemelere karşı ek güvence sağlıyoruz. RTLD_LOCAL kullanılmaz.
+        NativeLibraryLoader.reloadFFmpegSystemDependenciesGlobally();
     }
 }

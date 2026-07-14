@@ -145,7 +145,7 @@ fun microsoftLogin(
                 updateMessage = task::updateMessage,
             )
             task.updateMessage(androidText(R.string.account_logging_in_saving))
-            account.downloadYggdrasil()
+            runCatching { account.downloadYggdrasil() }
             AccountsManager.saveAccount(account)
         },
         onError = { th ->

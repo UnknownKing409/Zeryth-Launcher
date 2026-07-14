@@ -67,6 +67,18 @@ sealed interface NormalNavKey : TitledNavKey {
     @Serializable data object Multiplayer: NormalNavKey {
         @Contextual override val title: AndroidStringText = androidText(R.string.terracotta_terracotta)
     }
+    /** 内置文件管理器屏幕 */
+    @Serializable data class BuiltInFileManager(
+        val startPath: String? = null
+    ) : NormalNavKey {
+        @Contextual override val title: AndroidStringText = androidText(R.string.page_title_file_manager)
+    }
+    /** 文件编辑器屏幕 */
+    @Serializable data class FileEditor(
+        val filePath: String
+    ) : NormalNavKey {
+        @Contextual override val title: AndroidStringText = androidText(R.string.page_title_file_editor)
+    }
 
     /** 查看日志屏幕 */
     @Serializable data class LogView(
@@ -199,6 +211,11 @@ sealed interface NormalNavKey : TitledNavKey {
     /** 游戏统计屏幕 */
     @Serializable data object GameStats : NormalNavKey {
         @Contextual override val title: AndroidStringText = androidText(R.string.stats_game_stats)
+    }
+
+    /** 游戏时间统计屏幕 */
+    @Serializable data object PlayTimeStats : NormalNavKey {
+        @Contextual override val title: AndroidStringText = androidText(R.string.stats_play_time_title)
     }
 
     /** 文件管理屏幕 */

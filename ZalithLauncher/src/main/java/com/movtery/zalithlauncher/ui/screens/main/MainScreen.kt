@@ -99,14 +99,17 @@ import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.TitledNavKey
 import com.movtery.zalithlauncher.ui.screens.content.AccountManageScreen
+import com.movtery.zalithlauncher.ui.screens.content.BuiltInFileManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.DownloadScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileManagerScreen
+import com.movtery.zalithlauncher.ui.screens.content.FileEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileSelectorScreen
 import com.movtery.zalithlauncher.ui.screens.content.HomePageEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.LauncherScreen
 import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.LicenseScreen
 import com.movtery.zalithlauncher.ui.screens.content.GameStatsScreen
+import com.movtery.zalithlauncher.ui.screens.content.PlayTimeStatsScreen
 import com.movtery.zalithlauncher.ui.screens.content.LogViewScreen
 import com.movtery.zalithlauncher.ui.screens.content.MultiplayerScreen
 import com.movtery.zalithlauncher.ui.screens.content.SettingsScreen
@@ -602,6 +605,9 @@ private fun NavigationUI(
                         onNavigateToStats = {
                             backStack.navigateTo(NormalNavKey.GameStats)
                         },
+                        onNavigateToPlayTimeStats = {
+                            backStack.navigateTo(NormalNavKey.PlayTimeStats)
+                        },
                         onNavigateToLog = { logPath ->
                             backStack.navigateTo(NormalNavKey.LogView(logPath))
                         }
@@ -711,6 +717,23 @@ private fun NavigationUI(
                         eventViewModel = eventViewModel
                     )
                 }
+                entry<NormalNavKey.BuiltInFileManager> { key ->
+                    BuiltInFileManagerScreen(
+                        key = key,
+                        backStackViewModel = screenBackStackModel,
+                        submitError = submitError,
+                        navigateToEditor = { path ->
+                            backStack.navigateTo(NormalNavKey.FileEditor(filePath = path))
+                        }
+                    )
+                }
+                entry<NormalNavKey.FileEditor> { key ->
+                    FileEditorScreen(
+                        key = key,
+                        backStackViewModel = screenBackStackModel,
+                        submitError = submitError
+                    )
+                }
                 entry<NormalNavKey.HomePageEditor> {
                     HomePageEditorScreen(
                         backStackViewModel = screenBackStackModel,
@@ -729,6 +752,11 @@ private fun NavigationUI(
                 }
                 entry<NormalNavKey.FileManager> { key ->
                     FileManagerScreen(initialPath = key.initialPath)
+                }
+                entry<NormalNavKey.PlayTimeStats> {
+                    PlayTimeStatsScreen(
+                        backStackViewModel = screenBackStackModel,
+                    )
                 }
             }
         }

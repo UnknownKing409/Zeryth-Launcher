@@ -19,11 +19,13 @@
 package com.movtery.zalithlauncher.ui.screens.content.download.assets.download
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -409,7 +411,10 @@ private fun Versions(
         }
         is DownloadAssetsState.Success -> {
             Column(modifier = modifier) {
-                //简单过滤条件
+                //简单过滤条件：选择游戏版本
+                val installedVersions = remember {
+                    VersionsManager.versions.value.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct().sorted()
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -427,9 +432,6 @@ private fun Versions(
                         }
                     )
 
-                    val installedVersions = remember {
-                        VersionsManager.versions.value.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct().sorted()
-                    }
                     val scrollState = rememberScrollState()
                     Row(
                         modifier = Modifier

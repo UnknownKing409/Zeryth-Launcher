@@ -113,7 +113,7 @@ void load_vulkan() {
     }
 
     printf("OSMDroid: Loading Vulkan regularly...\n");
-    void* vulkanPtr = dlopen("libvulkan.so", RTLD_LAZY | RTLD_LOCAL);
+    void* vulkanPtr = dlopen("libvulkan.so", RTLD_LAZY | RTLD_GLOBAL);
     printf("OSMDroid: Loaded Vulkan, ptr=%p\n", vulkanPtr);
     set_vulkan_ptr(vulkanPtr);
 }

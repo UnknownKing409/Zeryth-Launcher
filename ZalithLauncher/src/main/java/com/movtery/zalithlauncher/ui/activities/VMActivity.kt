@@ -21,6 +21,7 @@ package com.movtery.zalithlauncher.ui.activities
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.SurfaceTexture
 import android.os.Bundle
@@ -56,6 +57,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CompletableDeferred
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.jakewharton.processphoenix.ProcessPhoenix
@@ -80,6 +82,7 @@ import com.movtery.zalithlauncher.game.launch.handler.AbstractHandler
 import com.movtery.zalithlauncher.game.launch.handler.GameHandler
 import com.movtery.zalithlauncher.game.launch.handler.HandlerType
 import com.movtery.zalithlauncher.game.launch.handler.JVMHandler
+import com.movtery.zalithlauncher.game.path.getGameHome
 import com.movtery.zalithlauncher.game.multirt.RuntimesManager
 import com.movtery.zalithlauncher.game.plugin.PluginLoader
 import com.movtery.zalithlauncher.game.renderer.Renderers
@@ -102,6 +105,7 @@ import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import com.movtery.zalithlauncher.viewmodel.GamepadViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -354,6 +358,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         super.onCreate(savedInstanceState)
         //加载渲染器
         Renderers.init()
@@ -381,7 +386,15 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                     val logPath = withLauncher {
                         getLogFile().absolutePath
                     }
-                    showExitMessage(this@VMActivity, exitCode, isSignal, logPath)
+                    showExitMessage(
+                        this@VMActivity,
+                        exitCode,
+                        isSignal,
+                        logPath,
+                        gameHome = getGameHome(),
+                        allocatedRamMb = AllSettings.ramAllocation.getValue() ?: 0,
+                        renderer = AllSettings.renderer.getValue()
+                    )
                 } else {
                     //重启启动器
                     ProcessPhoenix.triggerRebirth(this@VMActivity)
@@ -648,7 +661,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         withHandler { mIsSurfaceDestroyed = false }
         lifecycleScope.launch(Dispatchers.Default) {
             val screenSize = vmViewModel.screenSizeBridge.awaitData()
-            val currentSize = refreshWindowSize(screenSize = screenSize)
+            val currentSize = withContext(Dispatchers.Main) {
+                refreshWindowSize(screenSize = screenSize)
+            }
             withHandler {
                 execute(
                     surface = Surface(surface),
@@ -670,13 +685,17 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
     }
 
+    private var surfaceGeneration = 0L
+    private var pendingNewSurface: CompletableDeferred<Surface>? = null
+
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        val surface = holder.surface
+        surfaceGeneration++
+        pendingNewSurface?.complete(holder.surface)
         if (vmViewModel.isRunning) {
-            ZLBridge.setupBridgeWindow(surface)
+            ZLBridge.setupBridgeWindow(holder.surface)
             return
         }
         vmViewModel.isRunning = true
@@ -684,10 +703,27 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         withHandler { mIsSurfaceDestroyed = false }
         lifecycleScope.launch(Dispatchers.Default) {
             val screenSize = vmViewModel.screenSizeBridge.awaitData()
-            val currentSize = refreshWindowSize(screenSize = screenSize)
+            val (currentSize, genBefore) = withContext(Dispatchers.Main) {
+                pendingNewSurface = CompletableDeferred()
+                val gen = surfaceGeneration
+                val size = refreshWindowSize(screenSize = screenSize)
+                size to gen
+            }
+            val finalSurface = withContext(Dispatchers.Main) {
+                if (surfaceGeneration > genBefore) {
+                    pendingNewSurface = null
+                    holder.surface
+                } else {
+                    val newSurface = withTimeoutOrNull(100L) {
+                        pendingNewSurface!!.await()
+                    }
+                    pendingNewSurface = null
+                    newSurface ?: holder.surface
+                }
+            }
             withHandler {
                 execute(
-                    surface = surface,
+                    surface = finalSurface,
                     screenSize = currentSize,
                     scope = lifecycleScope
                 )
@@ -735,7 +771,6 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                     },
                 factory = { context ->
                     if (AllSettings.useSurfaceView.getValue()) {
-                        //使用 SurfaceView 渲染
                         SurfaceView(context).apply {
                             holder.addCallback(this@VMActivity)
                         }.also { view ->

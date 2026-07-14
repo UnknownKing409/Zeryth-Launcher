@@ -83,8 +83,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shape
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -144,6 +146,7 @@ import com.movtery.zalithlauncher.ui.screens.content.versions.elements.filterMod
 import com.movtery.zalithlauncher.ui.screens.content.versions.layouts.VersionChunkBackground
 import com.movtery.zalithlauncher.ui.theme.itemColor
 import com.movtery.zalithlauncher.ui.theme.onItemColor
+
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
 import com.movtery.zalithlauncher.utils.animation.swapAnimateDpAsState
 import com.movtery.zalithlauncher.utils.file.FolderFileCounter
@@ -251,6 +254,7 @@ private class ModsManageViewModel(
             modsState = LoadingState.Loading
             selectedMods.clear() //清空所有已选择的模组
             canUpdate = false
+            canUpdateAll = false
 
             if (checkCount) modsCount.checkDir()
             try {
@@ -338,6 +342,7 @@ private class ModsManageViewModel(
                     -value
                 }
             }
+        checkCanUpdate()
     }
 
     fun selectAllMods() {
@@ -748,11 +753,27 @@ fun ModsManagerScreen(
                             },
                             isModsSelected = viewModel.selectedMods.isNotEmpty(),
                             canUpdate = viewModel.canUpdate,
+                            canUpdateAll = viewModel.canUpdateAll,
                             onSelectAll = {
                                 viewModel.selectAllMods()
                             },
                             onClearModsSelected = {
                                 viewModel.clearSelected()
+                            },
+                            onEnableAll = {
+                                viewModel.enableSelectedMods()
+                            },
+                            onDisableAll = {
+                                viewModel.disableSelectedMods()
+                            },
+                            onUpdateAllMods = {
+                                if (
+                                    updaterViewModel.modsUpdateOperation == ModsUpdateOperation.None &&
+                                    viewModel.deleteAllOperation == DeleteAllOperation.None
+                                ) {
+                                    val allUpdatableMods = viewModel.allMods.filter { it.localMod.checkRemote }
+                                    updaterViewModel.modsUpdateOperation = ModsUpdateOperation.Warning(allUpdatableMods)
+                                }
                             },
                             swapToDownload = swapToDownload,
                             refresh = { viewModel.refresh(context) },
@@ -860,6 +881,10 @@ private fun ModsActionsHeader(
     canUpdate: Boolean,
     onSelectAll: () -> Unit,
     onClearModsSelected: () -> Unit,
+    onEnableAll: () -> Unit = {},
+    onDisableAll: () -> Unit = {},
+    onUpdateAllMods: () -> Unit = {},
+    canUpdateAll: Boolean = false,
     swapToDownload: () -> Unit,
     refresh: () -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit = {},
@@ -1061,6 +1086,17 @@ private fun ModsActionsHeader(
                         .horizontalScroll(scrollState),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (canUpdateAll && hasModLoader) {
+                        IconButton(
+                            onClick = onUpdateAllMods
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_autorenew),
+                                contentDescription = stringResource(R.string.mods_update_all)
+                            )
+                        }
+                    }
+
                     val taskBuilder = rememberMultipleUriImportTaskBuilder(
                         id = "ContentManager.Mods.Import",
                         targetDir = modsDir,

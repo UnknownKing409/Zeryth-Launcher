@@ -18,6 +18,7 @@
 
 package com.movtery.zalithlauncher.ui.screens.content
 
+import android.content.Context
 import android.os.Environment
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.horizontalScroll
@@ -63,6 +64,7 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.path.GamePathManager
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionComparator
+import com.movtery.zalithlauncher.game.version.installed.VersionMover
 import com.movtery.zalithlauncher.game.version.installed.VersionType
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.installed.cleanup.GameAssetCleaner
@@ -78,6 +80,8 @@ import com.movtery.zalithlauncher.ui.components.ScalingLabel
 import com.movtery.zalithlauncher.ui.components.fadeEdge
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.content.elements.CleanupOperation
+import com.movtery.zalithlauncher.ui.screens.content.elements.GameFolderOperation
+import com.movtery.zalithlauncher.ui.screens.content.elements.GameFolderOperationDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.GamePathItemLayout
 import com.movtery.zalithlauncher.ui.screens.content.elements.GamePathOperation
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionCategory
@@ -151,6 +155,52 @@ private class VersionsScreenViewModel : ViewModel() {
     /** 游戏无用资源清理者 */
     var cleaner by mutableStateOf<GameAssetCleaner?>(null)
 
+    /** 游戏文件夹操作（移动版本） */
+    var gameFolderOperation by mutableStateOf<GameFolderOperation>(GameFolderOperation.None)
+
+    /** 版本移动器 */
+    var mover by mutableStateOf<VersionMover?>(null)
+
+    fun startMoveVersions(
+        context: Context,
+        versions: List<Version>,
+        targetPath: String,
+        onStart: () -> Unit = {},
+        onStop: () -> Unit = {},
+        onComplete: ((List<String>, List<Pair<String, String>>) -> Unit)? = null
+    ) {
+        mover = VersionMover(
+            context = context,
+            scope = viewModelScope,
+            versions = versions,
+            sourceGameHome = GamePathManager.currentPath.value,
+            targetGamePath = targetPath,
+            changeState = { gameFolderOperation = it }
+        ).also {
+            gameFolderOperation = GameFolderOperation.MoveVersionsProgress(it)
+            it.start(
+                onEnd = { moved, failed ->
+                    mover = null
+                    gameFolderOperation = GameFolderOperation.MoveVersionsResult(moved, failed)
+                    onComplete?.invoke(moved, failed)
+                    onStop()
+                },
+                onThrowable = { th ->
+                    mover = null
+                    gameFolderOperation = GameFolderOperation.None
+                    onStop()
+                }
+            )
+        }
+        onStart()
+    }
+
+    fun cancelMove() {
+        mover?.cancel()
+        mover = null
+        gameFolderOperation = GameFolderOperation.None
+    }
+
     fun cleanUnusedFiles(
         onStart: () -> Unit = {},
         onStop: () -> Unit = {}
@@ -183,6 +233,7 @@ private class VersionsScreenViewModel : ViewModel() {
 
     override fun onCleared() {
         cancelCleaner()
+        cancelMove()
         currentJob?.cancel()
     }
 }
@@ -235,6 +286,7 @@ fun VersionsManageScreen(
     onLaunchGame: (Version) -> Unit = {}
 ) {
     val viewModel = rememberVersionViewModel()
+    val context = LocalContext.current
 
     val versions by rememberVersions(VersionsManager.versions, viewModel)
     val currentVersion by VersionsManager.currentVersion.collectAsStateWithLifecycle()
@@ -244,6 +296,21 @@ fun VersionsManageScreen(
         gamePathOperation = viewModel.gamePathOperation,
         changeState = { viewModel.gamePathOperation = it },
         submitError = submitError
+    )
+
+    GameFolderOperationDialog(
+        operation = viewModel.gameFolderOperation,
+        changeState = { viewModel.gameFolderOperation = it },
+        versions = versions,
+        onStartMove = { selectedVersions, targetPath ->
+            viewModel.startMoveVersions(
+                context = context,
+                versions = selectedVersions,
+                targetPath = targetPath,
+                onStart = { eventViewModel.sendKeepScreen(true) },
+                onStop = { eventViewModel.sendKeepScreen(false) }
+            )
+        }
     )
 
     BaseScreen(
@@ -267,6 +334,9 @@ fun VersionsManageScreen(
                     if (viewModel.cleanupOperation == CleanupOperation.None) {
                         viewModel.cleanupOperation = CleanupOperation.Tip
                     }
+                },
+                onMoveVersions = {
+                    viewModel.gameFolderOperation = GameFolderOperation.MoveVersionsSelect
                 },
                 changePathOperation = {
                     viewModel.gamePathOperation = it
@@ -336,6 +406,7 @@ private fun LeftMenu(
     isRefreshing: Boolean,
     swapToFileSelector: (path: String) -> Unit,
     onCleanupGameFiles: () -> Unit,
+    onMoveVersions: () -> Unit,
     changePathOperation: (GamePathOperation) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -411,6 +482,15 @@ private fun LeftMenu(
             enabled = canHandlePermission
         ) {
             MarqueeText(text = stringResource(R.string.versions_manage_game_path_add_new))
+        }
+
+        ScalingActionButton(
+            modifier = Modifier
+                .padding(PaddingValues(horizontal = 12.dp, vertical = 8.dp))
+                .fillMaxWidth(),
+            onClick = onMoveVersions
+        ) {
+            MarqueeText(text = stringResource(R.string.versions_manage_move_versions))
         }
 
         ScalingActionButton(

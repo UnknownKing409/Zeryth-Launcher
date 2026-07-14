@@ -24,6 +24,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -171,12 +172,14 @@ fun GamePathItemLayout(
                     .padding(top = 4.dp, bottom = 4.dp)
                     .alpha(if (enabled) 1f else DisabledAlpha)
             ) {
-                Text(
-                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
-                    text = if (notDefault) item.title else stringResource(R.string.versions_manage_game_path_default),
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE).weight(1f),
+                        text = if (notDefault) item.title else stringResource(R.string.versions_manage_game_path_default),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
+                    )
+                }
                 Text(
                     modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
                     text = item.path,
@@ -188,7 +191,7 @@ fun GamePathItemLayout(
         badge = {
             var menuExpanded by remember { mutableStateOf(false) }
 
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     modifier = Modifier.size(24.dp),
                     onClick = { menuExpanded = !menuExpanded }

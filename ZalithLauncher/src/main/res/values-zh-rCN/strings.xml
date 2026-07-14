@@ -110,6 +110,7 @@
     <string name="crash_type">崩溃类型：%s</string>
     <string name="crash_type_launcher">启动器崩溃</string>
     <string name="crash_type_game">游戏运行崩溃</string>
+    <string name="crash_show_logs">查看游戏日志</string>
     <string name="crash_share_logs">分享日志</string>
     <string name="crash_restart">重启应用</string>
     <string name="crash_exit">退出应用</string>
@@ -484,11 +485,13 @@
     <string name="account_logging_not_purchased_minecraft">未检查到 Minecraft 配置信息，请前往 Minecraft 的官方网站购买。</string>
     <string name="account_type_microsoft">微软账号</string>
     <string name="account_type_local">离线账号</string>
+    <string name="account_type_ely_by">Ely.by</string>
     <string name="account_add_new_server">添加认证服务器</string>
     <string name="account_add_new_server_button">添加认证服务器</string>
     <string name="account_add_new_account">添加账号</string>
     <string name="account_label_username">填写用户名</string>
     <string name="account_label_server_url">填写服务器地址</string>
+    <string name="account_add_server_quick_ely_by">快速添加：Ely.by</string>
     <string name="account_label_email">填写邮箱或用户名</string>
     <string name="account_label_password">填写密码</string>
     <string name="account_change_skin">更换皮肤</string>
@@ -623,6 +626,9 @@
     <string name="execute_jar_title">执行 Jar 文件</string>
     <!--  版本  -->
     <string name="versions_manage_game_path_default">默认游戏目录</string>
+    <string name="versions_manage_game_path_default_badge">默认目录</string>
+    <string name="versions_manage_select_default_folder_warning_title">修改默认目录？</string>
+    <string name="versions_manage_select_default_folder_warning_text">隔离版本将被移动到新目录下（不包括非隔离版本）。这可能需要一些时间。</string>
     <string name="versions_manage_game_path_add_new">添加游戏目录</string>
     <string name="versions_manage_game_path_edit_title">为该游戏目录命名</string>
     <string name="versions_manage_game_path_delete_title">删除游戏目录</string>
@@ -834,6 +840,7 @@
     <string name="shader_pack_manage_name">光影包名称</string>
     <string name="shader_pack_manage_delete_warning">您确定要删除光影包 %s 吗？该操作不可撤销！</string>
     <string name="shader_pack_manage_no_packs">当前版本还没有光影包</string>
+    <string name="shader_pack_manage_info">光影包信息</string>
     <string name="screenshots_manage">截图管理</string>
     <string name="screenshots_manage_no_screenshots">当前版本还没有截图</string>
     <string name="screenshots_manage_export">导出</string>
@@ -890,14 +897,6 @@
     <string name="settings_renderer_sustained_performance_summary">启用后，系统会为游戏提供更稳定的性能输出，适用于长时间游玩，但可能略微降低设备响应速度以防止过热</string>
     <string name="settings_renderer_shader_dump_title">着色器日志输出</string>
     <string name="settings_renderer_shader_dump_summary">将游戏运行时转换后的着色器代码输出到日志文件，便于调试或分析图形渲染过程</string>
-    <string name="settings_renderer_fsr_title">FSR1 超分辨率</string>
-    <string name="settings_renderer_fsr_summary">AMD FidelityFX Super Resolution 1.0 — 以边缘重建技术将低分辨率渲染升级至全分辨率</string>
-    <string name="settings_renderer_fsr_quality_title">FSR 质量</string>
-    <string name="settings_renderer_fsr_quality_summary">质量越高 = 内部渲染分辨率越高</string>
-    <string name="settings_renderer_fsr_quality_ultra">极致质量</string>
-    <string name="settings_renderer_fsr_quality_quality">质量</string>
-    <string name="settings_renderer_fsr_quality_balanced">平衡</string>
-    <string name="settings_renderer_fsr_quality_performance">性能</string>
     <string name="sidebar_shortcut_menu">快捷菜单</string>
     <string name="settings_renderer_vulkan_driver_system_title">使用系统 Vulkan 驱动</string>
     <string name="settings_renderer_vulkan_driver_system_summary">启用后，启动器将强制使用系统自带的 Vulkan 驱动（适用于 Adreno GPU），而不使用默认的 Turnip 驱动。本设置仅影响使用 Vulkan 渲染的 Zink 后端及相关模组</string>

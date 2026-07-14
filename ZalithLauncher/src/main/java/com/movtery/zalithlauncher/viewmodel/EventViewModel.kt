@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 class EventViewModel : ViewModel() {
-    private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 1)
+    private val _events = MutableSharedFlow<Event>(replay = 1, extraBufferCapacity = 1)
     val events = _events.asSharedFlow()
 
     /**
@@ -124,12 +124,10 @@ class EventViewModel : ViewModel() {
         }
         /** 设备 Vulkan 检查 */
         data object VulkanCheck: Event
-
-        /** 在 MainActivity 中显示 Toast */
-        data class ShowToast(
-            val text: AndroidStringText,
-            val duration: Int = Toast.LENGTH_SHORT
-        ) : Event
+        /** 在应用内打开日志文件 */
+        data class OpenLog(val path: String) : Event
+        /** 展示 Toast 消息 */
+        data class ShowToast(val text: AndroidStringText, val duration: Int) : Event
     }
 }
 

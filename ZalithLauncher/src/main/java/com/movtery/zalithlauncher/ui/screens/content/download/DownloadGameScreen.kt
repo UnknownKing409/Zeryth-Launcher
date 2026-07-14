@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -233,11 +234,12 @@ fun DownloadGameScreen(
                         downloadScreenKey = downloadScreenKey,
                         downloadGameScreenKey = downloadGameScreenKey,
                         eventViewModel = eventViewModel,
-                    ) { versionString ->
-                        backStack.navigateTo(
-                            NormalNavKey.DownloadGame.Addons(versionString)
-                        )
-                    }
+                        onVersionSelect = { versionString ->
+                            backStack.navigateTo(
+                                NormalNavKey.DownloadGame.Addons(versionString)
+                            )
+                        }
+                    )
                 }
                 entry<NormalNavKey.DownloadGame.Addons> { key ->
                     val context = LocalContext.current

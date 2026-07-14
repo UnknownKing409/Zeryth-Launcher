@@ -49,7 +49,7 @@ fun PlatformSearchFilter.toCurseForgeRequest(
             *curseforgeCategories
         ),
         searchFilter = query,
-        gameVersion = gameVersion,
+        gameVersion = gameVersion?.takeIf { it.isNotEmptyOrBlank() }?.trim(),
         sortField = sortField,
         modLoader = modloader as? CurseForgeModLoader,
         index = index,

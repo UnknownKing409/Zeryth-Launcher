@@ -106,6 +106,7 @@ fun SearchResourcePackScreen(
                 }
             }
         },
+        filterPersistenceKey = AllSettings.searchResourcePackFilter.key,
         swapToDownload = swapToDownload
     )
 }

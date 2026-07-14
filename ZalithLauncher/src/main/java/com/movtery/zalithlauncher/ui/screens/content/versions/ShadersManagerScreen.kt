@@ -120,6 +120,7 @@ import com.movtery.zalithlauncher.utils.animation.swapAnimateDpAsState
 import com.movtery.zalithlauncher.utils.file.FolderFileCounter
 import com.movtery.zalithlauncher.utils.file.formatFileSize
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
+import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.version.shader_pack.RemoteShaderPack
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -166,12 +167,8 @@ private class ShadersManageViewModel(
      */
     val selectedPacks = mutableStateListOf<RemoteShaderPack>()
 
-    /**
-     * 删除所有已选择文件的操作流程
-     */
     var deleteAllOperation by mutableStateOf<DeleteAllOperation>(DeleteAllOperation.None)
 
-    /** 临时记录的光影包数量 */
     private var packCount = FolderFileCounter(shadersDir)
 
     //远端图标加载队列，避免同时对大量光影包发起网络请求
@@ -249,9 +246,6 @@ private class ShadersManageViewModel(
     }
 
     private var job: Job? = null
-    /**
-     * @param checkCount 刷新目录内文件数量记录
-     */
     fun refresh(
         checkCount: Boolean = true
     ) {
@@ -411,6 +405,7 @@ fun ShadersManagerScreen(
     version: Version,
     backToMainScreen: () -> Unit,
     swapToDownload: () -> Unit,
+    onSwapMoreInfo: (id: String, Platform) -> Unit = { _, _ -> },
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     if (!version.isValid()) {
@@ -523,6 +518,7 @@ fun ShadersManagerScreen(
                             addToSelected = { viewModel.selectedPacks.add(it) },
                             onToggleEnabled = { viewModel.togglePackEnabled(it) },
                             updateOperation = { shaderOperation = it },
+                            onSwapMoreInfo = onSwapMoreInfo,
                             onLoad = { viewModel.loadShaderPack(it) }
                         )
                     }
@@ -768,6 +764,7 @@ private fun ShadersList(
     addToSelected: (RemoteShaderPack) -> Unit,
     onToggleEnabled: (RemoteShaderPack) -> Unit,
     updateOperation: (ShaderOperation) -> Unit,
+    onSwapMoreInfo: (id: String, Platform) -> Unit = { _, _ -> },
     onLoad: (RemoteShaderPack) -> Unit
 ) {
     shadersList?.let { list ->
@@ -798,6 +795,7 @@ private fun ShadersList(
                         },
                         onToggleEnabled = { onToggleEnabled(pack) },
                         onDelete = { updateOperation(ShaderOperation.Delete(pack.info)) },
+                        onSwapMoreInfo = onSwapMoreInfo,
                         onLoad = { onLoad(pack) }
                     )
                 }
@@ -828,6 +826,7 @@ private fun ShaderPackItem(
     onClick: () -> Unit = {},
     onToggleEnabled: () -> Unit = {},
     onDelete: () -> Unit = {},
+    onSwapMoreInfo: (id: String, Platform) -> Unit = { _, _ -> },
     onLoad: () -> Unit = {},
     itemColor: Color = itemColor(),
     itemContentColor: Color = onItemColor(),
@@ -849,6 +848,7 @@ private fun ShaderPackItem(
     LaunchedEffect(pack) {
         onLoad()
     }
+
 
     Surface(
         modifier = modifier
@@ -872,6 +872,7 @@ private fun ShaderPackItem(
                 iconSize = 40.dp,
                 isDisabled = !shaderPackInfo.isEnabled
             )
+
 
             Column(
                 modifier = Modifier
@@ -899,6 +900,52 @@ private fun ShaderPackItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                var showLocalInfo by remember { mutableStateOf(false) }
+
+                val projectInfo = pack.projectInfo
+                IconButton(
+                    modifier = Modifier.size(38.dp),
+                    onClick = {
+                        if (projectInfo != null) {
+                            onSwapMoreInfo(projectInfo.id, projectInfo.platform)
+                        } else {
+                            showLocalInfo = true
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_info_outlined),
+                        contentDescription = stringResource(R.string.shader_pack_manage_info)
+                    )
+                }
+
+                if (showLocalInfo) {
+                    SimpleAlertDialog(
+                        title = shaderPackInfo.displayName,
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                val file = shaderPackInfo.file
+                                Text(
+                                    text = stringResource(R.string.generic_path, file.absolutePath),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = stringResource(R.string.generic_file_size, formatFileSize(shaderPackInfo.fileSize)),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = stringResource(if (shaderPackInfo.isEnabled) R.string.generic_status_enabled else R.string.generic_status_disabled),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        confirmText = stringResource(R.string.generic_confirm),
+                        onConfirm = { showLocalInfo = false },
+                        onCancel = { showLocalInfo = false },
+                        onDismissRequest = { showLocalInfo = false }
+                    )
+                }
+
                 //启用/禁用
                 Checkbox(
                     checked = shaderPackInfo.isEnabled,

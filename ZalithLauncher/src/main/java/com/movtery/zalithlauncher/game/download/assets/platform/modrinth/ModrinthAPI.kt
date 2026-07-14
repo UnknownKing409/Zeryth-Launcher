@@ -40,8 +40,8 @@ fun PlatformSearchFilter.toModrinthRequest(
     query: String,
     platformClasses: PlatformClasses
 ): ModrinthSearchRequest {
-    val modrinthVersion = gameVersion?.let { version ->
-        VersionFacet(version)
+    val modrinthVersion = gameVersion?.takeIf { it.isNotEmptyOrBlank() }?.let { version ->
+        VersionFacet(version.trim())
     }
     val modrinthCategories = categories.map { category ->
         category as? ModrinthFacet

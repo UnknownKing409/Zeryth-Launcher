@@ -60,6 +60,11 @@ object AllSettings : SettingsRegistry() {
     val vulkanDriver = stringSetting("vulkanDriver", "default turnip")
 
     /**
+     * Turnip 驱动下载源（GitHub owner/repo）
+     */
+    val turnipRepo = stringSetting("turnipRepo", "K11MCH1/AdrenoToolsDrivers")
+
+    /**
      * 图形 API（Minecraft 26.2+）
      */
     val graphicsApi = enumSetting("graphicsApi", GraphicsApi.DEFAULT_OPENGL)
@@ -67,7 +72,7 @@ object AllSettings : SettingsRegistry() {
     /**
      * 分辨率
      */
-    val resolutionRatio = intSetting("resolutionRatio", 100, 25..300)
+    val resolutionRatio = intSetting("resolutionRatio", 70, 25..300)
 
     /**
      * 游戏页面全屏化
@@ -78,6 +83,11 @@ object AllSettings : SettingsRegistry() {
      * 使用 SurfaceView 渲染
      */
     val useSurfaceView = boolSetting("useSurfaceView", false)
+
+    /**
+     * Kopper Zink uyarısını bir daha gösterme
+     */
+    val surfaceViewKopperWarningDontShow = boolSetting("surfaceViewKopperWarningDontShow", false)
 
     /**
      * 持续性能模式
@@ -154,6 +164,11 @@ object AllSettings : SettingsRegistry() {
      * 启动游戏时自动展示日志，直到游戏开始渲染
      */
     val showLogAutomatic = boolSetting("showLogAutomatic", false)
+
+    /**
+     * 游戏加载时隐藏控制布局
+     */
+    val hideControlsDuringLoading = boolSetting("hideControlsDuringLoading", true)
 
     /**
      * 日志字体大小
@@ -461,6 +476,11 @@ object AllSettings : SettingsRegistry() {
      */
     val assetDownloadSource = enumSetting("assetDownloadSource", MirrorSourceType.OFFICIAL_FIRST)
 
+    /**
+     * 是否使用旧版版本选择器（仅正式版，无搜索框）
+     */
+    val classicVersionPicker = boolSetting("classicVersionPicker", true)
+
     //Control
     /**
      * 全局默认控制布局文件名
@@ -747,6 +767,36 @@ object AllSettings : SettingsRegistry() {
     val searchShadersCategories = stringListSetting("searchShadersCategories", emptyList())
 
     /**
+     * 搜索模组时保存的过滤器状态（JSON）
+     */
+    val searchModFilter = stringSetting("searchModFilter", "")
+
+    /**
+     * 搜索整合包时保存的过滤器状态（JSON）
+     */
+    val searchModpackFilter = stringSetting("searchModpackFilter", "")
+
+    /**
+     * 搜索资源包时保存的过滤器状态（JSON）
+     */
+    val searchResourcePackFilter = stringSetting("searchResourcePackFilter", "")
+
+    /**
+     * 搜索光影时保存的过滤器状态（JSON）
+     */
+    val searchShadersFilter = stringSetting("searchShadersFilter", "")
+
+    /**
+     * 搜索存档时保存的过滤器状态（JSON）
+     */
+    val searchSavesFilter = stringSetting("searchSavesFilter", "")
+
+    /**
+     * 在下载页面显示快照版本（snapshot/old/aprilfools等）
+     */
+    val showSnapshotVersions = boolSetting("showSnapshotVersions", false)
+
+    /**
      * 启动 MC26.2+ 时，自动检查 Vulkan
      */
     val autoVulkanChecker = boolSetting("autoVulkanChecker", true)
@@ -755,15 +805,14 @@ object AllSettings : SettingsRegistry() {
     val fsrEnabled = boolSetting("fsrEnabled", false)
     val fsrQuality = intSetting("fsrQuality", 2, 1..4) // 1=UltraQuality, 2=Quality, 3=Balanced, 4=Performance
 
-      // ZL1 Legacy Backport setting (named to avoid JVM signature clash with getDisableGestures)
-      val zl1DisableGestures = boolSetting("zl1_disableGestures", false)
+    // ZL1 Legacy Backport setting (named to avoid JVM signature clash with getDisableGestures)
+    val zl1DisableGestures = boolSetting("zl1_disableGestures", false)
 
-      // ZL1 Legacy Backport @JvmStatic accessors — callable as AllSettings.xxx() from Java
-      @JvmStatic fun getGyroSmoothing() = gyroscopeSmoothing
-      @JvmStatic fun getGyroSampleRate() = gyroscopeSampleRate
-      @JvmStatic fun getMouseScale() = mouseSize
-      @JvmStatic fun getMouseSpeed() = mouseCaptureSensitivity
-      @JvmStatic fun getDisableGestures() = zl1DisableGestures
-      @JvmStatic fun getDeadZoneScale() = gamepadDeadZoneScale
-  
+    // ZL1 Legacy Backport @JvmStatic accessors — callable as AllSettings.xxx() from Java
+    @JvmStatic fun getGyroSmoothing() = gyroscopeSmoothing
+    @JvmStatic fun getGyroSampleRate() = gyroscopeSampleRate
+    @JvmStatic fun getMouseScale() = mouseSize
+    @JvmStatic fun getMouseSpeed() = mouseCaptureSensitivity
+    @JvmStatic fun getDisableGestures() = zl1DisableGestures
+    @JvmStatic fun getDeadZoneScale() = gamepadDeadZoneScale
 }

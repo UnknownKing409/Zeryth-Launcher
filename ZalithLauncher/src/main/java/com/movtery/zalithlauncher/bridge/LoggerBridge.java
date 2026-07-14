@@ -53,5 +53,7 @@ public final class LoggerBridge {
         // gets touched first, call this independently here as well (idempotent, safe).
         NativeLibraryLoader.preloadFFmpegSystemDependencies();
         NativeLibraryLoader.loadPojavLib();
+        //pojavexec yüklendikten sonra RTLD_GLOBAL ile sistem lib'lerini yükle
+        NativeLibraryLoader.reloadFFmpegSystemDependenciesGlobally();
     }
 }

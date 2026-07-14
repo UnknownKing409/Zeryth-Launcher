@@ -106,6 +106,7 @@ fun SearchShadersScreen(
                 }
             }
         },
+        filterPersistenceKey = AllSettings.searchShadersFilter.key,
         swapToDownload = swapToDownload
     )
 }

@@ -24,11 +24,37 @@
     <string name="generic_download">Download</string>
     <string name="generic_done">Done</string>
     <string name="generic_close">Close</string>
+    <string name="benchmark_title">GPU Benchmark</string>
+    <string name="benchmark_run">Run Benchmark</string>
+    <string name="benchmark_running">Benchmarking… %ds remaining</string>
+    <string name="benchmark_result_avg">Avg FPS</string>
+    <string name="benchmark_result_min">Min FPS</string>
+    <string name="benchmark_result_p99">99th pct FPS</string>
+    <string name="benchmark_result_stability">Stability</string>
+    <string name="benchmark_result_score">Score</string>
+    <string name="benchmark_note">Tests raw GPU draw-call throughput (500 quads × 15 s). Higher score = better renderer performance headroom.</string>
+    <string name="benchmark_select_renderers">Select Renderers to Compare</string>
+    <string name="benchmark_select_all">Select All</string>
+    <string name="benchmark_deselect_all">Deselect All</string>
+    <string name="benchmark_select_minimum">Select at least 1 renderer to start</string>
+    <string name="benchmark_start">Start Benchmark</string>
+    <string name="benchmark_running_renderer">Benchmarking: %s</string>
+    <string name="benchmark_progress_of">%1$d of %2$d</string>
+    <string name="benchmark_comparison_title">Comparison Results</string>
+    <string name="benchmark_score_label">Score: %d</string>
+    <string name="benchmark_col_renderer">Renderer</string>
+    <string name="benchmark_col_avg">Avg</string>
+    <string name="benchmark_col_min">Min</string>
+    <string name="benchmark_col_p99">P99</string>
+    <string name="benchmark_col_stab">Stab%%</string>
+    <string name="benchmark_run_again">Run Again</string>
     <string name="generic_clear">Clear</string>
     <string name="generic_import">Import</string>
     <string name="generic_enable">Enable</string>
     <string name="generic_disable">Disable</string>
     <string name="generic_open_link">Open in Browser</string>
+    <string name="generic_select">Select</string>
+    <string name="generic_default">Default</string>
     <string name="generic_cannot_empty">Content cannot be empty!</string>
     <string name="generic_input_invalid_character">Invalid character in name: \"%s\"</string>
     <string name="generic_input_failed_to_number">Input cannot be parsed as a number</string>
@@ -48,6 +74,9 @@
     <string name="generic_authorization">Authorization</string>
     <string name="generic_file_name">File Name: %s</string>
     <string name="generic_file_size">File Size: %s</string>
+    <string name="generic_path">Path: %s</string>
+    <string name="generic_status_enabled">Status: Enabled</string>
+    <string name="generic_status_disabled">Status: Disabled</string>
     <string name="generic_all">All</string>
     <string name="generic_enabled">Enabled</string>
     <string name="generic_disabled">Disabled</string>
@@ -67,6 +96,7 @@
     <string name="page_title_account_list">Account List</string>
     <string name="page_title_select_files">Select Path</string>
     <string name="page_title_file_manager">File Manager</string>
+    <string name="page_title_file_editor">Edit File</string>
     <string name="page_title_home_page_editor">Home Page Editor</string>
     <!-- Files -->
     <string name="files_browse_folder">Browse Folder</string>
@@ -96,6 +126,18 @@
     <string name="stats_no_data">No data yet</string>
     <string name="stats_view_all">View All</string>
     <string name="stats_today_header">TODAY\'S STATISTICS</string>
+    <string name="stats_suggested_video">⭐ SUGGESTED VIDEO - CREATOR</string>
+    <string name="stats_play_time">Play Time</string>
+    <string name="stats_today">Today</string>
+    <string name="stats_month">This Month</string>
+    <string name="stats_all_time">All Time</string>
+    <string name="stats_most_played">Most Played</string>
+    <string name="stats_play_time_title">Play Time Statistics</string>
+    <string name="stats_changelog">Changelog</string>
+    <string name="stats_click">Click</string>
+    <string name="stats_changelog_loading">Loading changelog…</string>
+    <string name="stats_click_for_more">Click for more</string>
+    <string name="stats_statistics">STATISTICS</string>
     <string name="empty_holder" translatable="false">%s</string>
     <!-- Sort By -->
     <string name="sort_by">Sort By</string>
@@ -133,6 +175,7 @@
     <string name="crash_type">Crash Type: %s</string>
     <string name="crash_type_launcher">Launcher Crash</string>
     <string name="crash_type_game">Game Crash</string>
+    <string name="crash_show_logs">Show Game Logs</string>
     <string name="crash_share_logs">Share Logs</string>
     <string name="crash_view_logs">View Logs</string>
     <string name="crash_restart">Restart</string>
@@ -142,6 +185,8 @@
     <string name="crash_link_share_uploading">Uploading logs to %s</string>
     <string name="crash_link_share_failed">Upload Failed</string>
     <string name="crash_link_share_failed_link_not_found">No available link found. Please try again later.</string>
+    <string name="crash_analysis_main_crash">Main Crash (%d)</string>
+    <string name="crash_analysis_found_errors">Found Errors (%d)</string>
     <string name="crash_launch_crash_title">App Launch Failed</string>
     <string name="crash_launch_crash_message">The launcher encountered a serious problem and crashed during startup</string>
     <!-- Errors -->
@@ -280,6 +325,8 @@
     <string name="download_assets_search_mc_versions">Search MC Versions</string>
     <string name="download_assets_dependency_projects">Dependencies</string>
     <string name="download_assets_optional_projects">Optional Projects</string>
+    <string name="download_assets_download_all_deps">Download All Dependencies</string>
+    <string name="download_assets_install_with_deps">Install with Dependencies</string>
     <string name="download_assets_loading_page_data">Starting to load paged data</string>
     <string name="download_assets_loaded_chunk_page">Paged data loaded, chunk %1$d, page %2$d</string>
     <string name="download_assets_loading_dep_project">Loading and caching dependency project, ID: %s</string>
@@ -466,6 +513,7 @@
     <string name="game_menu_option_show_menu">Enable Menu Overlay</string>
     <string name="game_menu_option_show_menu_hided">Game menu overlay has been disabled. You can open the game menu using the system back button</string>
     <string name="game_menu_option_controls_opacity">Control Layout Opacity</string>
+    <string name="game_menu_option_hide_controls_loading">Hide Controls During Loading</string>
     <string name="game_styles_joystick">Manage Joystick</string>
     <string name="game_styles_joystick_enable">Enable Joystick</string>
     <string name="game_styles_joystick_x">Joystick X Position</string>
@@ -525,6 +573,7 @@
     <string name="account_type_local">Offline</string>
     <string name="account_add_new_server">Add Auth Server</string>
     <string name="account_add_new_server_button">Add Auth</string>
+    <string name="account_add_server_quick_ely_by">Quick add: Ely.by</string>
     <string name="account_add_new_account">Add Account</string>
     <string name="account_label_username">Username</string>
     <string name="account_label_server_url">Enter server address</string>
@@ -639,13 +688,106 @@
     <string name="cape_name_builder">Builder</string>
     <string name="cape_name_crafter">Crafter</string>
     <!-- File Management -->
-    <string name="files_back_to_parent">Back</string>
+    <string name="files_back_to_parent">Back...</string>
     <string name="files_create_dir">Create Folder</string>
+    <string name="files_create_file">Create File</string>
     <string name="files_select_dir">Select Folder</string>
     <string name="files_current_path">Current path: %s</string>
     <string name="files_no_selectable_content">No selectable content</string>
+    <string name="file_manager_upload">Upload File</string>
+    <string name="file_manager_upload_success">File added</string>
+    <string name="file_manager_upload_failed">Failed to add file: %s</string>
+    <string name="file_manager_create_file_failed">Failed to create file: %s</string>
+    <string name="file_manager_delete">Delete</string>
+    <string name="file_manager_delete_confirm_title">Delete this item?</string>
+    <string name="file_manager_delete_confirm_message">"%s" will be permanently deleted. This cannot be undone.</string>
+    <string name="file_manager_delete_failed">Failed to delete: %s</string>
+    <string name="file_manager_rename">Rename</string>
+    <string name="file_manager_rename_failed">Failed to rename: %s</string>
+    <string name="file_manager_edit">Edit</string>
+    <string name="file_manager_no_files">This folder is empty</string>
+    <string name="file_editor_save">Save</string>
+    <string name="file_editor_saved">Saved</string>
+    <string name="file_editor_save_failed">Failed to save: %s</string>
+    <string name="file_editor_load_failed">Failed to open file: %s</string>
+    <string name="file_editor_unsupported">This file type isn\'t supported by the text editor</string>
+    <string name="file_editor_too_large">This file is too large to edit (over 2 MB)</string>
     <string name="file_invalid_length" formatted="false">Name too long! (Current: %d, Max: %d)</string>
     <string name="file_invalid_leading_or_trailing_space">Cannot start or end with a space!</string>
+    <!-- Built-in File Manager -->
+    <string name="file_manager_sidebar_hide">Hide sidebar</string>
+    <string name="file_manager_sidebar_show">Show sidebar</string>
+    <string name="file_manager_exit_selection">Exit selection</string>
+    <string name="file_manager_items_selected">%1$d item(s) selected</string>
+    <string name="file_manager_cut">Cut</string>
+    <string name="file_manager_copy">Copy</string>
+    <string name="file_manager_select_all">Select all</string>
+    <string name="file_manager_deselect_all">Deselect all</string>
+    <string name="file_manager_sort">Sort</string>
+    <string name="file_manager_search_files">Search files</string>
+    <string name="file_manager_selection_mode">Selection mode</string>
+    <string name="file_manager_move_here">Move Here</string>
+    <string name="file_manager_paste_here">Paste Here</string>
+    <string name="file_manager_new_folder">New Folder</string>
+    <string name="file_manager_new_file">New File</string>
+    <string name="file_manager_import">Import</string>
+    <string name="file_manager_refresh">Refresh</string>
+    <string name="file_manager_up_one_folder">Up one folder</string>
+    <string name="file_manager_game_folder">Game Folder</string>
+    <string name="file_manager_no_matching_files">No matching files</string>
+    <string name="file_manager_import_files_hint">Import files or create folders.</string>
+    <string name="file_manager_try_different_search">Try a different search term.</string>
+    <string name="file_manager_go_to_path">Go to Path</string>
+    <string name="file_manager_directory_path">Directory path</string>
+    <string name="file_manager_go">Go</string>
+    <string name="file_manager_new_name">New name</string>
+    <string name="file_manager_delete_confirm_file">Delete \"%1$s\"? This cannot be undone.</string>
+    <string name="file_manager_delete_items_title">Delete items</string>
+    <string name="file_manager_delete_items_confirm">Permanently delete %1$d item(s)? This cannot be undone.</string>
+    <string name="file_manager_sidebar_game">GAME</string>
+    <string name="file_manager_sidebar_content">CONTENT</string>
+    <string name="file_manager_sidebar_media">MEDIA</string>
+    <string name="file_manager_sidebar_mods">Mods</string>
+    <string name="file_manager_sidebar_resourcepacks">Resource Packs</string>
+    <string name="file_manager_sidebar_screenshots">Screenshots</string>
+    <string name="file_manager_clipboard">Clipboard</string>
+    <string name="file_manager_current_folder">Current Folder</string>
+    <string name="file_manager_game_data">Game data</string>
+    <string name="file_manager_storage">Storage</string>
+    <string name="file_manager_folder">Folder</string>
+    <string name="file_manager_more_options">More options</string>
+    <string name="file_manager_properties">Properties</string>
+    <string name="file_manager_properties_item_name">Name</string>
+    <string name="file_manager_properties_type">Type</string>
+    <string name="file_manager_properties_location">Location</string>
+    <string name="file_manager_properties_size">Size</string>
+    <string name="file_manager_properties_modified">Modified</string>
+    <string name="file_manager_properties_readable">Readable</string>
+    <string name="file_manager_properties_writable">Writable</string>
+    <string name="file_manager_properties_executable">Executable</string>
+    <string name="file_manager_properties_yes">Yes</string>
+    <string name="file_manager_properties_no">No</string>
+    <string name="file_manager_properties_file">File</string>
+    <string name="file_manager_properties_files">Files</string>
+    <string name="file_manager_properties_folders">Folders</string>
+    <string name="file_manager_properties_total_size">Total size</string>
+    <string name="file_manager_properties_close">Close</string>
+    <string name="file_manager_properties_title_multi">Properties \u2014 %1$d items</string>
+    <string name="file_manager_clipboard_cut_title">Cut \u2014 pending move</string>
+    <string name="file_manager_clipboard_copy_title">Copy \u2014 pending paste</string>
+    <string name="file_manager_clipboard_destination">Destination: %1$s</string>
+    <string name="file_manager_clipboard_clear">Clear</string>
+    <string name="file_manager_and_more">\u2026 and %1$d more</string>
+    <string name="file_manager_n_locations">%1$d locations</string>
+    <string name="file_manager_dir_not_exist">Directory does not exist</string>
+    <string name="file_manager_not_a_dir">Path is not a directory</string>
+    <string name="file_manager_cannot_access">Cannot access this directory</string>
+    <string name="file_manager_collapse_section">Collapse %1$s</string>
+    <string name="file_manager_expand_section">Expand %1$s</string>
+    <string name="file_manager_bytes">%1$d B</string>
+    <string name="file_manager_kb">%1$.1f KB</string>
+    <string name="file_manager_mb">%1$.1f MB</string>
+    <string name="file_manager_gb">%1$.2f GB</string>
     <!-- Java Runtime -->
     <string name="multirt_runtime_corrupt">Corrupted Java runtime</string>
     <string name="multirt_runtime_incompatible_arch">Incompatible architecture: %s</string>
@@ -663,6 +805,9 @@
     <string name="execute_jar_title">Execute Jar</string>
     <!-- Version Management -->
     <string name="versions_manage_game_path_default">Default Game Folder</string>
+    <string name="versions_manage_game_path_default_badge">Default Folder</string>
+    <string name="versions_manage_select_default_folder_warning_title">Change Default Folder?</string>
+    <string name="versions_manage_select_default_folder_warning_text">Isolated versions will be moved to the new folder. This may take a while.</string>
     <string name="versions_manage_game_path_add_new">Add Game Folder</string>
     <string name="versions_manage_game_path_edit_title">Rename Game Folder</string>
     <string name="versions_manage_game_path_delete_title">Delete Game Folder</string>
@@ -692,6 +837,9 @@
     <string name="turnip_driver_installed">Installed Drivers</string>
     <string name="turnip_driver_available">Available to Download</string>
     <string name="turnip_driver_delete_confirm">Delete driver "%s"? This cannot be undone.</string>
+    <string name="turnip_repo_dialog_title">Turnip Repository</string>
+    <string name="turnip_repo_dialog_hint">owner/repo</string>
+    <string name="turnip_import_zip">Import AdrenoTools ZIP</string>
     <string name="versions_manage_rename_version">Rename Version</string>
     <string name="versions_manage_copy_version">Copy Version</string>
     <string name="versions_manage_copy_version_tip">Copy the current version as a new version, with version isolation enabled by default. Check "Copy All Files" below to also include all generated files (resource packs, saves, game settings, etc.).</string>
@@ -826,6 +974,7 @@
     <string name="mods_manage_no_mods">No mods for this version</string>
     <string name="mods_manage_no_loader">No mod loader for the current version, mods cannot be used</string>
     <string name="mods_update">Update Mods</string>
+    <string name="mods_update_all">Update All Mods</string>
     <string name="mods_update_warning_1">Before checking for mod updates, please note that updating a large number of mods at once may cause compatibility issues, making a previously working game suddenly unusable.</string>
     <string name="mods_update_warning_2">The launcher currently does not provide a mod changelog feature. You need to review mod update details yourself to ensure functionality after updating.</string>
     <string name="mods_update_warning_3">The launcher only updates mods in bulk to the latest version, and this action is irreversible. Please carefully select which mods to update.</string>
@@ -886,6 +1035,7 @@
     <string name="shader_pack_manage_name">Shader Pack Name</string>
     <string name="shader_pack_manage_delete_warning">Are you sure you want to delete the shader pack %s? This action cannot be undone!</string>
     <string name="shader_pack_manage_no_packs">No shader packs for this version</string>
+    <string name="shader_pack_manage_info">Shader Pack Information</string>
     <string name="screenshots_manage">Screenshots</string>
     <string name="screenshots_manage_no_screenshots">No screenshots for this version</string>
     <string name="screenshots_manage_export">Export</string>
@@ -938,43 +1088,10 @@
     <string name="settings_renderer_resolution_scale_summary">Lower values improve performance; higher values enhance graphics quality. Adjust according to your needs</string>
     <string name="settings_renderer_full_screen_title">Game Fullscreen</string>
     <string name="settings_renderer_full_screen_summary">Enable fullscreen mode, ignoring safe areas like notches and punch-holes</string>
-    <!-- GPU Benchmark -->
-    <string name="benchmark_title">GPU Benchmark</string>
-    <string name="benchmark_run">Run Benchmark</string>
-    <string name="benchmark_running">Benchmarking… %ds remaining</string>
-    <string name="benchmark_result_avg">Avg FPS</string>
-    <string name="benchmark_result_min">Min FPS</string>
-    <string name="benchmark_result_p99">99th pct FPS</string>
-    <string name="benchmark_result_stability">Stability</string>
-    <string name="benchmark_result_score">Score</string>
-    <string name="benchmark_note">Tests raw GPU draw-call throughput (500 quads × 15 s). Higher score = better renderer performance headroom.</string>
-    <string name="benchmark_select_renderers">Select Renderers to Compare</string>
-    <string name="benchmark_select_all">Select All</string>
-    <string name="benchmark_deselect_all">Deselect All</string>
-    <string name="benchmark_select_minimum">Select at least 1 renderer to start</string>
-    <string name="benchmark_start">Start Benchmark</string>
-    <string name="benchmark_running_renderer">Benchmarking: %s</string>
-    <string name="benchmark_progress_of">%1$d of %2$d</string>
-    <string name="benchmark_comparison_title">Comparison Results</string>
-    <string name="benchmark_score_label">Score: %d</string>
-    <string name="benchmark_col_renderer">Renderer</string>
-    <string name="benchmark_col_avg">Avg</string>
-    <string name="benchmark_col_min">Min</string>
-    <string name="benchmark_col_p99">P99</string>
-    <string name="benchmark_col_stab">Stab%%</string>
-    <string name="benchmark_run_again">Run Again</string>
     <string name="settings_renderer_sustained_performance_title">Sustained Performance Mode</string>
     <string name="settings_renderer_sustained_performance_summary">When enabled, the system provides more stable performance for the game, suitable for long play sessions, but may slightly reduce device responsiveness to prevent overheating</string>
     <string name="settings_renderer_shader_dump_title">Shader Logging</string>
     <string name="settings_renderer_shader_dump_summary">Output the converted shader code during game runtime to a log file for easier debugging and graphics rendering analysis</string>
-    <string name="settings_renderer_fsr_title">FSR1 Upscaling</string>
-    <string name="settings_renderer_fsr_summary">AMD FidelityFX Super Resolution 1.0 — scales up a lower-resolution render to full resolution with edge reconstruction</string>
-    <string name="settings_renderer_fsr_quality_title">FSR Quality</string>
-    <string name="settings_renderer_fsr_quality_summary">Higher quality = higher internal render resolution</string>
-    <string name="settings_renderer_fsr_quality_ultra">Ultra Quality</string>
-    <string name="settings_renderer_fsr_quality_quality">Quality</string>
-    <string name="settings_renderer_fsr_quality_balanced">Balanced</string>
-    <string name="settings_renderer_fsr_quality_performance">Performance</string>
     <string name="sidebar_shortcut_menu">Shortcut Menu</string>
     <string name="settings_renderer_vulkan_driver_system_title">Use System Vulkan Driver</string>
     <string name="settings_renderer_vulkan_driver_system_summary">When enabled, the launcher will force the use of the system\'s built-in Vulkan driver (for Adreno GPUs) instead of the default Turnip driver. This setting only affects the Zink backend and related mods that use Vulkan rendering</string>
@@ -985,6 +1102,24 @@
     <string name="settings_renderer_force_big_core_summary">Bind Minecraft\'s rendering thread to the CPU\'s high-performance cores (big cores). Enabling this may increase power consumption and heat</string>
     <string name="settings_renderer_surface_title">Use SurfaceView Rendering</string>
     <string name="settings_renderer_surface_summary">Renders using a separate layer outside the UI</string>
+    <string name="settings_renderer_surface_summary_kopper_disabled">Unavailable while using the Kopper Zink renderer</string>
+    <string name="settings_renderer_surface_kopper_warning">SurfaceView rendering cannot be used with the Kopper Zink renderer. Android forces this combination to rotate the game\'s output, causing it to render in portrait even though the launcher stays in landscape. Please keep SurfaceView disabled while Kopper Zink is selected.</string>
+    <string name="settings_renderer_surface_kopper_warning_dont_show">Don\'t show again</string>
+    <string name="gpu_benchmark_title">GPU Benchmark</string>
+    <string name="gpu_benchmark_start">Start Benchmark</string>
+    <string name="gpu_benchmark_running">Running...</string>
+    <string name="gpu_benchmark_gpu">GPU</string>
+    <string name="gpu_benchmark_gl">OpenGL</string>
+    <string name="gpu_benchmark_vulkan">Vulkan</string>
+    <string name="gpu_benchmark_vulkan_supported">Supported</string>
+    <string name="gpu_benchmark_vulkan_unsupported">Not Supported</string>
+    <string name="gpu_benchmark_fps">Performance</string>
+    <string name="gpu_benchmark_recommendation">Recommendation</string>
+    <string name="gpu_benchmark_error">Error</string>
+    <string name="gpu_benchmark_recommend_adreno">Freedreno (Adreno) or Vulkan Zink</string>
+    <string name="gpu_benchmark_recommend_mali">Panfrost (Mali) or Vulkan Zink</string>
+    <string name="gpu_benchmark_recommend_vulkan">Vulkan Zink</string>
+    <string name="gpu_benchmark_recommend_fallback">Krypton Wrapper (NGGL4ES)</string>
     <string name="settings_game_version_isolation_title">Global Version Isolation</string>
     <string name="settings_game_version_isolation_summary">Isolates all versions so that their data does not interfere with each other</string>
     <string name="settings_game_skip_game_integrity_check_title">Skip Integrity Check</string>
@@ -999,7 +1134,8 @@
     <string name="settings_game_java_memory_summary">Adjust Minecraft\'s memory usage</string>
     <string name="settings_game_java_memory_used_text">Used: %1$dMB / %2$dMB</string>
     <string name="settings_game_java_memory_allocation_text">Allocated: %dMB</string>
-    <string name="settings_game_auto_ram_allocation_summary">Enable to automatically determine the optimal JVM memory based on device RAM</string>
+    <string name="settings_game_auto_ram_allocation_title">Automatic Memory Allocation</string>
+    <string name="settings_game_auto_ram_allocation_summary">Automatically determine the optimal JVM memory based on device RAM. Manual controls are disabled while active</string>
     <string name="settings_game_native_lib_plugin_title">Native Library Plugins</string>
     <string name="settings_game_native_lib_plugin_summary">Lists all loaded native library plugins. You can enable or disable them in the list.</string>
     <string name="settings_game_graphics_api_title">Graphics API</string>
@@ -1150,6 +1286,8 @@
     <string name="settings_launcher_mirror_assets_download_title">Asset Platform Download Source</string>
     <string name="settings_launcher_mirror_official_first">Prefer Official Source</string>
     <string name="settings_launcher_mirror_mirror_first">Prefer Mirror Source</string>
+    <string name="settings_launcher_show_snapshot_versions_title">Show Snapshot Versions</string>
+    <string name="settings_launcher_show_snapshot_versions_summary">Display snapshot, old, and experimental versions in the asset download page version filter</string>
     <string name="settings_launcher_background_title">Launcher Background</string>
     <string name="settings_launcher_background_summary">Choose an image or video as the launcher background</string>
     <string name="settings_launcher_background_importing">Importing launcher background file</string>
@@ -1418,6 +1556,9 @@
     <string name="rank_master">Master</string>
     <string name="rank_legend">Legend</string>
     <string name="play_time_format">Play Time: %s Hours</string>
+
+
+
     <string name="settings_chroma_name_title">Chroma Username</string>
     <string name="chroma_mode_red_blue">Red &amp; Blue</string>
     <string name="chroma_mode_sunset">Sunset</string>
@@ -1502,17 +1643,62 @@
     <string name="legacy_control_manage_set_default">Set as Default</string>
 
     <!-- Upstream sync: build-76 additions -->
-    <string name="download_assets_download_all_deps">Download Dependencies</string>
-    <string name="download_assets_install_with_deps">Install with Dependencies</string>
-    <string name="mods_update_all">Update All Mods</string>
-    <string name="account_add_server_quick_ely_by">Quick add: Ely.by</string>
     <string name="download_game_classic_picker">Classic version list</string>
     <string name="download_game_classic_picker_summary">Show only release versions without search bar</string>
     <string name="download_game_installed_at_top">Installed versions first</string>
-    <string name="stats_play_time">Play Time</string>
-    <string name="stats_today">Today</string>
-    <string name="stats_month">This Month</string>
-    <string name="stats_all_time">All Time</string>
-    <string name="stats_most_played">Most Played</string>
-    <string name="stats_play_time_title">Play Time Statistics</string>
+
+    <!-- MobileGlues Settings -->
+    <string name="mobileglues_settings_title">MobileGlues Settings</string>
+    <string name="mobileglues_section_rendering">Rendering</string>
+    <string name="mobileglues_section_extensions">Extensions</string>
+    <string name="mobileglues_section_cache">Cache</string>
+    <string name="mobileglues_section_other">Other</string>
+    <string name="mobileglues_angle_mode">ANGLE Mode</string>
+    <string name="mobileglues_angle_disable">Disable</string>
+    <string name="mobileglues_angle_auto">Auto</string>
+    <string name="mobileglues_angle_force">Force</string>
+    <string name="mobileglues_angle_compatible">Compatible</string>
+    <string name="mobileglues_no_error_mode">No Error Mode</string>
+    <string name="mobileglues_no_error_strict">Strict</string>
+    <string name="mobileglues_no_error_moderate">Moderate</string>
+    <string name="mobileglues_no_error_relaxed">Relaxed</string>
+    <string name="mobileglues_no_error_ignore_all">Ignore All</string>
+    <string name="mobileglues_multidraw_mode">Multidraw Mode</string>
+    <string name="mobileglues_multidraw_auto">Auto</string>
+    <string name="mobileglues_multidraw_basevertex">BaseVertex</string>
+    <string name="mobileglues_multidraw_compute">Compute</string>
+    <string name="mobileglues_angle_depth_clear_fix">ANGLE Depth Clear Fix</string>
+    <string name="mobileglues_angle_clear_off">Off</string>
+    <string name="mobileglues_angle_clear_mode1">Mode 1</string>
+    <string name="mobileglues_angle_clear_mode2">Mode 2</string>
+    <string name="mobileglues_custom_gl_version">Custom GL Version</string>
+    <string name="mobileglues_gl_disabled">Disabled</string>
+    <string name="mobileglues_compute_shader">Compute Shader</string>
+    <string name="mobileglues_compute_shader_summary">Enable EXT_compute_shader</string>
+    <string name="mobileglues_timer_query">Timer Query</string>
+    <string name="mobileglues_timer_query_summary">Enable EXT_timer_query (inverted: off = enabled)</string>
+    <string name="mobileglues_direct_state_access">Direct State Access</string>
+    <string name="mobileglues_direct_state_access_summary">Enable EXT_direct_state_access</string>
+    <string name="mobileglues_cache_size_label">GLSL Cache Size (MB)</string>
+    <string name="mobileglues_cache_size_supporting">Set -1 to clear cache; 0 uses default (32)</string>
+    <string name="mobileglues_saved_toast">MobileGlues settings saved</string>
+    <string name="mobileglues_reset_confirm_message">Are you sure you want to reset MobileGlues settings?</string>
+
+    <string name="versions_manage_select_default_folder">Set Default Game Folder</string>
+    <string name="versions_manage_select_default_folder_title">Select Default Game Folder</string>
+
+    <string name="versions_manage_move_versions">Move Versions</string>
+    <string name="versions_manage_move_versions_select_versions">Select versions to move</string>
+    <string name="versions_manage_move_versions_select_target">Select target game folder</string>
+    <string name="versions_manage_move_versions_summary">Review move</string>
+    <string name="versions_manage_move_versions_progress">Moving versions…</string>
+    <string name="versions_manage_move_versions_no_versions">No versions found (all of the versions may not have version isolation)</string>
+    <string name="versions_manage_move_versions_version_count">%1$d version(s) selected</string>
+    <string name="versions_manage_move_versions_next">Next</string>
+    <string name="versions_manage_move_versions_finish">Finish</string>
+    <string name="versions_manage_move_versions_from">From</string>
+    <string name="versions_manage_move_versions_to">To</string>
+    <string name="versions_manage_move_versions_moving">Moving %1$s…</string>
+    <string name="versions_manage_move_versions_done">Move complete</string>
+    <string name="versions_manage_move_versions_failed">Move failed</string>
 </resources>

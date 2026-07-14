@@ -207,6 +207,7 @@ fun SearchModPackScreen(
                 }
             }
         },
+        filterPersistenceKey = AllSettings.searchModpackFilter.key,
         swapToDownload = swapToDownload,
         extraFilter = {
             //新增导入整合包按钮

@@ -18,6 +18,7 @@
 
 package com.movtery.zalithlauncher.ui.screens.game.elements
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +62,7 @@ import com.movtery.zalithlauncher.ui.components.MenuSliderLayout
 import com.movtery.zalithlauncher.ui.components.MenuState
 import com.movtery.zalithlauncher.ui.components.MenuSwitchButton
 import com.movtery.zalithlauncher.ui.components.MenuTextButton
+
 import com.movtery.zalithlauncher.ui.components.lazyScrollWithBar
 import com.movtery.zalithlauncher.ui.control.HotbarRule
 import com.movtery.zalithlauncher.ui.control.gyroscope.isGyroscopeAvailable
@@ -105,6 +108,7 @@ fun GameMenuSubscreen(
     onEditLayout: () -> Unit,
     onShowToast: (AndroidStringText, Int) -> Unit
 ) {
+    val ctx = LocalContext.current
     DualMenuSubscreen(
         state = state,
         closeScreen = closeScreen,
@@ -450,7 +454,7 @@ private fun ControlOverview(
         item {
             MenuSwitchButton(
                 modifier = Modifier.fillMaxWidth(),
-                text = "Hide Controls During Loading",
+                text = stringResource(R.string.game_menu_option_hide_controls_loading),
                 switch = AllSettings.hideControlsDuringLoading.state,
                 onSwitch = { AllSettings.hideControlsDuringLoading.save(it) },
                 color = color,
