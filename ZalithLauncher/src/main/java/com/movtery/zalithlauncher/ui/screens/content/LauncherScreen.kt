@@ -270,6 +270,7 @@ fun LauncherScreen(
                         onNavigateToVersionSettings = navigateToVersions,
                         onHomePageEvent = onHomePageEvent,
                         onNavigateToStats = onNavigateToStats,
+                        onNavigateToPlayTimeStats = onNavigateToPlayTimeStats,
                         onNavigateToLog = onNavigateToLog,
                         onFpsClick = onFpsClick,
                         onFileManagerClick = onFileManagerClick,
@@ -295,6 +296,11 @@ fun LauncherScreen(
                     VersionsManager.currentVersion.value?.let { version ->
                         navigateToVersions(version)
                     }
+                }
+                val toFileManagerScreen: () -> Unit = {
+                    backStackViewModel.mainScreen.navigateTo(
+                        screenKey = NormalNavKey.BuiltInFileManager()
+                    )
                 }
 
                 // Right panel -- collapses horizontally via AnimatedVisibility
@@ -329,11 +335,6 @@ fun LauncherScreen(
                         toFileManagerScreen = toFileManagerScreen
                     )
                 }
-            }
-            val toFileManagerScreen: () -> Unit = {
-                backStackViewModel.mainScreen.navigateTo(
-                    screenKey = NormalNavKey.BuiltInFileManager()
-                )
             }
 
             // Floating restore dock -- appears when right panel is collapsed
