@@ -19,8 +19,10 @@
 package com.movtery.zalithlauncher.ui.screens.content.download.assets.elements
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
@@ -65,6 +67,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -596,50 +600,32 @@ private fun GameVersionFilterLayout(
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     // ── Tab row (Stable / Snapshots) ──────────────────────────
+                    // A single rounded "track" pill hosting two sliding segments, in the
+                    // style of a Material segmented button rather than two plain boxes.
                     if (allowSnapshots) {
                         item {
-                            Row(
+                            Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(bottom = 10.dp),
+                                shape = RoundedCornerShape(percent = 50),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                             ) {
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { showSnapshots = false },
-                                    shape = MaterialTheme.shapes.medium,
-                                    color = if (!showSnapshots)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceVariant
+                                Row(
+                                    modifier = Modifier.padding(all = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
+                                    GameVersionTab(
+                                        modifier = Modifier.weight(1f),
                                         text = stringResource(R.string.download_assets_filter_game_version_stable),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (!showSnapshots)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        selected = !showSnapshots,
+                                        onClick = { showSnapshots = false }
                                     )
-                                }
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { showSnapshots = true },
-                                    shape = MaterialTheme.shapes.medium,
-                                    color = if (showSnapshots)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Text(
+                                    GameVersionTab(
+                                        modifier = Modifier.weight(1f),
                                         text = stringResource(R.string.download_assets_filter_game_version_snapshots),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (showSnapshots)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        selected = showSnapshots,
+                                        onClick = { showSnapshots = true }
                                     )
                                 }
                             }
@@ -669,6 +655,52 @@ private fun GameVersionFilterLayout(
                 }
             }
         }
+    }
+}
+
+/**
+ * A single pill-shaped segment inside [GameVersionFilterLayout]'s Stable/Snapshots track.
+ * Colors and elevation animate on selection change instead of snapping, and the selected
+ * segment gets a subtle raised surface + tonal color instead of a flat block fill.
+ */
+@Composable
+private fun GameVersionTab(
+    modifier: Modifier = Modifier,
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(durationMillis = 200),
+        label = "GameVersionTabContainer"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected)
+            MaterialTheme.colorScheme.onPrimary
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 200),
+        label = "GameVersionTabContent"
+    )
+
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(percent = 50),
+        color = containerColor,
+        shadowElevation = if (selected) 2.dp else 0.dp
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = contentColor
+        )
     }
 }
 
