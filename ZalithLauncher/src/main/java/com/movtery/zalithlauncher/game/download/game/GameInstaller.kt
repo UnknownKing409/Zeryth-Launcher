@@ -25,7 +25,6 @@ import com.movtery.zalithlauncher.context.GlobalContext
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskStage
 import com.movtery.zalithlauncher.coroutine.TaskFlowExecutor
-import com.movtery.zalithlauncher.coroutine.TaskStage
 import com.movtery.zalithlauncher.coroutine.TitledTask
 import com.movtery.zalithlauncher.coroutine.addTask
 import com.movtery.zalithlauncher.coroutine.buildPhase
@@ -1112,46 +1111,4 @@ class GameInstaller(
         return this
     }
 
-      /**
-       * 创建一个用于 TaskSystem 的代理任务，镜像当前安装进度
-       * 用于最小化安装对话框，同时让安装在后台继续运行
-       */
-      fun createBackgroundTask(onCancelRequest: () -> Unit): Task {
-          return Task.runTask(
-              id = "game_install_${info.customVersionName}",
-              task = { proxyTask ->
-                  coroutineScope {
-                      val mirrorJob = launch {
-                          // Poll the current task state at a fixed interval.
-                          // Task.progress and friends are StateFlow-backed but polling keeps this
-                          // mirror loop simple and avoids juggling multiple concurrent collectors.
-                          while (true) {
-                              kotlinx.coroutines.delay(150)
-                              val titledTasks = tasksFlow.value
-                              val running = titledTasks.firstOrNull { it.task.stage.value == TaskStage.RUNNING }
-                                  ?: titledTasks.lastOrNull()
-                              running?.task?.let { t ->
-                                  proxyTask.updateProgress(t.progress.value)
-                                  proxyTask.updateMessage(t.message.value)
-                                  val rate = t.rateBytesPerSec.value
-                                  if (rate != null) proxyTask.updateSpeed(rate)
-                                  else proxyTask.clearSpeed()
-                              }
-                          }
-                      }
-                      try {
-                          taskExecutor.awaitCompletion()
-                      } catch (e: kotlinx.coroutines.CancellationException) {
-                          throw e
-                      } catch (_: Exception) {
-                          // 安装完成（成功或失败），代理任务正常结束
-                      } finally {
-                          mirrorJob.cancel()
-                      }
-                  }
-              },
-              onCancel = onCancelRequest
-          )
-      }
-  
 }

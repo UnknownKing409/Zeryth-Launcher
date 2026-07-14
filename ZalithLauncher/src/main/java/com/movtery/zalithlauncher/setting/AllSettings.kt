@@ -582,11 +582,6 @@ object AllSettings : SettingsRegistry() {
     val controlsOpacity = intSetting("controlsOpacity", 100, 0..100)
 
     /**
-     * 加载时隐藏控制布局
-     */
-    val hideControlsDuringLoading = boolSetting("hideControlsDuringLoading", true)
-
-    /**
      * 控制布局编辑器：是否开启控件吸附功能
      */
     val editorEnableWidgetSnap = boolSetting("editorEnableWidgetSnap", true)

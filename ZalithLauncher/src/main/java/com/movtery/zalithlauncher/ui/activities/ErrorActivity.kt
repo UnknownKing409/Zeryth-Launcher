@@ -230,7 +230,7 @@ class ErrorActivity : BaseAppCompatActivity() {
                             text = errorMessage.message,
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        hintMessage?.let { hint ->
+                        errorMessage.hintMessage?.let { hint ->
                             Text(
                                 text = hint,
                                 style = MaterialTheme.typography.bodyMedium

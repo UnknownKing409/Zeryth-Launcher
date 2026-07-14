@@ -23,6 +23,7 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformSearchFi
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthFacet
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.ModrinthModLoaderCategory
 import com.movtery.zalithlauncher.game.download.assets.platform.modrinth.models.VersionFacet
+import com.movtery.zalithlauncher.utils.string.isNotEmptyOrBlank
 
 /**
  * Modrinth 平台的 API 链接

@@ -247,6 +247,7 @@ suspend fun downloadDependenciesBatch(
 
             // Submit the download task (runs in TaskSystem background)
             downloadSingleForVersions(
+                context = context,
                 version = best,
                 versions = gameVersions,
                 folder = folder,

@@ -122,7 +122,6 @@ object ControlManager {
                 ControlData(
                     file = file,
                     controlLayout = ObservableControlLayout(layout),
-                    isSupport = isSupport,
                     isBuiltIn = file.name == BUILTIN_CONTROL_FILENAME
                 )
             }?.let { list ->
