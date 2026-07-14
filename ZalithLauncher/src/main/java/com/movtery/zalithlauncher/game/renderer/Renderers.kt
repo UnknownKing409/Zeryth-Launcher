@@ -26,7 +26,6 @@
   import com.movtery.zalithlauncher.game.renderer.renderers.NGGL4ESRenderer
   import com.movtery.zalithlauncher.game.renderer.renderers.PanfrostRenderer
   import com.movtery.zalithlauncher.game.renderer.renderers.VirGLRenderer
-  import com.movtery.zalithlauncher.game.renderer.renderers.VulkanZinkRenderer
   import com.movtery.zalithlauncher.utils.device.Architecture
   import com.movtery.zalithlauncher.utils.device.checkVulkanSupport
   import com.movtery.zalithlauncher.utils.logging.Logger
@@ -57,7 +56,6 @@
           addRenderers(
               NGGL4ESRenderer,
               GL4ESRenderer,
-              VulkanZinkRenderer,
               KopperZinkRenderer,
               MobileGluesRenderer,
               VirGLRenderer,
@@ -65,6 +63,11 @@
               PanfrostRenderer
           )
       }
+
+      /**
+       * 获取当前的渲染器列表
+       */
+      fun getRenderers(): List<RendererInterface> = renderers
 
       /**
        * 获取兼容当前设备的所有渲染器

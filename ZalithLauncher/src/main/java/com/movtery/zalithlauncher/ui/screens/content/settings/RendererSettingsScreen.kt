@@ -227,7 +227,7 @@ fun RendererSettingsScreen(
 
                     val currentRendererId = AllSettings.renderer.state
                     val v2PluginEnvUnits = remember(currentRendererId) {
-                        Renderers.getCompatibleRenderers(context).second
+                        Renderers.getRenderers()
                             .filterIsInstance<RendererV2Data>()
                             .find { it.getUniqueIdentifier() == currentRendererId }
                             ?.env?.getConfigurableUnits()?.takeIf { it.isNotEmpty() }
