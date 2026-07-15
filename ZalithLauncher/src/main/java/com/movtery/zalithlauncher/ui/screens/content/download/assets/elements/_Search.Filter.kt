@@ -651,8 +651,9 @@ private fun GameVersionFilterLayout(
                             },
                             itemLayout = {
                                 Row(
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
                                         text = version,
@@ -855,6 +856,11 @@ private fun FilterListItem(
             FilterSelectionMode.Single -> RadioButton(selected = selected, onClick = onClick)
             FilterSelectionMode.Multiple -> Checkbox(checked = selected, onCheckedChange = onCheckedChange)
         }
-        itemLayout()
+        // Give itemLayout the remaining row width (instead of its natural wrap-content size)
+        // so content inside it can right-align things (e.g. a trailing icon) against the
+        // actual edge of the list item rather than sitting immediately after the text.
+        Box(modifier = Modifier.weight(1f)) {
+            itemLayout()
+        }
     }
 }
