@@ -134,7 +134,10 @@ private data class VersionFilter(
     val aprilFools: Boolean = false,
     val old: Boolean = false,
     val id: String = "",
-)
+) {
+    /** Number of version-type categories currently active. */
+    val activeCount: Int get() = listOf(release, snapshot, aprilFools, old).count { it }
+}
 
 private class VersionsViewModel : ViewModel() {
     var versionState by mutableStateOf<VersionState>(VersionState.Loading)
@@ -330,28 +333,32 @@ private fun VersionHeader(
                     VersionTypeItem(
                         selected = versionFilter.release,
                         onClick = {
-                            onVersionFilterChange(versionFilter.copy(release = versionFilter.release.not()))
+                            if (!versionFilter.release || versionFilter.activeCount > 1)
+                                onVersionFilterChange(versionFilter.copy(release = versionFilter.release.not()))
                         },
                         text = stringResource(R.string.download_game_type_release)
                     )
                     VersionTypeItem(
                         selected = versionFilter.snapshot,
                         onClick = {
-                            onVersionFilterChange(versionFilter.copy(snapshot = versionFilter.snapshot.not()))
+                            if (!versionFilter.snapshot || versionFilter.activeCount > 1)
+                                onVersionFilterChange(versionFilter.copy(snapshot = versionFilter.snapshot.not()))
                         },
                         text = stringResource(R.string.download_game_type_snapshot)
                     )
                     VersionTypeItem(
                         selected = versionFilter.aprilFools,
                         onClick = {
-                            onVersionFilterChange(versionFilter.copy(aprilFools = versionFilter.aprilFools.not()))
+                            if (!versionFilter.aprilFools || versionFilter.activeCount > 1)
+                                onVersionFilterChange(versionFilter.copy(aprilFools = versionFilter.aprilFools.not()))
                         },
                         text = stringResource(R.string.download_game_type_april_fools)
                     )
                     VersionTypeItem(
                         selected = versionFilter.old,
                         onClick = {
-                            onVersionFilterChange(versionFilter.copy(old = versionFilter.old.not()))
+                            if (!versionFilter.old || versionFilter.activeCount > 1)
+                                onVersionFilterChange(versionFilter.copy(old = versionFilter.old.not()))
                         },
                         text = stringResource(R.string.download_game_type_old)
                     )
