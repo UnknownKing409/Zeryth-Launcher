@@ -588,6 +588,10 @@
     <string name="settings_game_java_memory_allocation_text">Ayrılmış: %dMB</string>
     <string name="settings_game_auto_ram_allocation_title">Otomatik Bellek Tahsisi</string>
     <string name="settings_game_auto_ram_allocation_summary">Cihaz RAM\'ine göre optimum JVM belleğini otomatik olarak belirleyin. Etkinleştirildiğinde manuel kontroller devre dışı kalır.</string>
+    <string name="settings_game_auto_ram_mode_dynamic">Dinamik</string>
+    <string name="settings_game_auto_ram_mode_dynamic_summary">Android ve arka plan hizmetleri için güvenli bir boşluk ayırır</string>
+    <string name="settings_game_auto_ram_mode_maximum">Maksimum</string>
+    <string name="settings_game_auto_ram_mode_maximum_summary">Boşluk ayırmadan tüm mevcut boş RAM\'i kullanır</string>
     <string name="settings_game_jvm_args_title">JVM Argümanları</string>
     <string name="settings_game_jvm_args_summary">JVM başlatılırken eklenen JVM parametreleri; emin olunmadan değiştirilmesi önerilmez, çünkü bu çökme olasılığını artırabilir</string>
     <string name="settings_game_show_log_automatic_title">Otomatik Olarak Günlükleri Göster</string>

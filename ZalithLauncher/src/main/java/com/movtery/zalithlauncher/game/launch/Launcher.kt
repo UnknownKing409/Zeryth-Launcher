@@ -39,6 +39,7 @@ import com.movtery.zalithlauncher.path.LibPath
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
+import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
 import com.movtery.zalithlauncher.setting.unit.getOrMin
 import com.movtery.zalithlauncher.utils.device.Architecture
 import com.movtery.zalithlauncher.utils.device.Architecture.ARCH_X86
@@ -117,10 +118,10 @@ abstract class Launcher(
             screenSize = screenSize,
             useLocalLanguage = useLocalLanguage
         ).toMutableList()
-        val effectiveRamAllocation = if (AllSettings.autoRamAllocation.getValue()) {
-            computeDynamicRAMAllocation(context)
-        } else {
-            AllSettings.ramAllocation.getOrMin()
+        val effectiveRamAllocation = when {
+            !AllSettings.autoRamAllocation.getValue() -> AllSettings.ramAllocation.getOrMin()
+            AllSettings.maximizeRamAllocation.getValue() -> computeMaximumRAMAllocation(context)
+            else -> computeDynamicRAMAllocation(context)
         }
         progressFinalUserArgs(args, effectiveRamAllocation)
 

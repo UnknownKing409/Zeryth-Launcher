@@ -31,6 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +57,8 @@ import com.movtery.zalithlauncher.path.URL_CLOUD_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.path.URL_GITHUB_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
+import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
+import com.movtery.zalithlauncher.ui.components.CheckChip
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.setting.unit.min
 import com.movtery.zalithlauncher.ui.base.BaseScreen
@@ -229,29 +235,68 @@ fun GameSettingsScreen(
                         summary = stringResource(R.string.settings_game_auto_ram_allocation_summary),
                         onCheckedChange = { enabled ->
                             if (enabled) {
-                                // Seed with the current dynamic value so the slider
-                                // immediately reflects live system conditions.
-                                AllSettings.ramAllocation.save(computeDynamicRAMAllocation(context))
+                                // Seed the slider immediately with the appropriate live value
+                                // for whichever mode was previously selected.
+                                val maximize = AllSettings.maximizeRamAllocation.getValue()
+                                AllSettings.ramAllocation.save(
+                                    if (maximize) computeMaximumRAMAllocation(context)
+                                    else computeDynamicRAMAllocation(context)
+                                )
                             }
                         },
                         columnLayout = {
                             val autoRamEnabled = AllSettings.autoRamAllocation.state
+                            val maximizeRam = AllSettings.maximizeRamAllocation.state
                             val ramValue = AllSettings.ramAllocation.state ?: AllSettings.ramAllocation.min
                             var showValueEditDialog by remember { mutableStateOf(false) }
 
                             // Periodically recompute and update the allocation while
-                            // automatic mode is active.  Only update when the new value
+                            // automatic mode is active.  Only updates when the new value
                             // differs by >= 128 MB to prevent constant micro-fluctuations.
-                            LaunchedEffect(autoRamEnabled) {
+                            // Restarts whenever the mode switches so the first tick uses
+                            // the correct algorithm immediately.
+                            LaunchedEffect(autoRamEnabled, maximizeRam) {
                                 if (!autoRamEnabled) return@LaunchedEffect
                                 while (true) {
                                     delay(5_000L)
-                                    val newValue = computeDynamicRAMAllocation(context)
+                                    val newValue = if (maximizeRam) computeMaximumRAMAllocation(context)
+                                                   else computeDynamicRAMAllocation(context)
                                     val current = AllSettings.ramAllocation.state
                                         ?: AllSettings.ramAllocation.min
                                     if (kotlin.math.abs(newValue - current) >= 128) {
                                         AllSettings.ramAllocation.save(newValue)
                                     }
+                                }
+                            }
+
+                            // Mode selector — slides down when automatic allocation is active
+                            AnimatedVisibility(
+                                visible = autoRamEnabled,
+                                enter = expandVertically(animationSpec = tween(300)),
+                                exit = shrinkVertically(animationSpec = tween(300))
+                            ) {
+                                FlowRow(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CheckChip(
+                                        selected = !maximizeRam,
+                                        label = { Text(stringResource(R.string.settings_game_auto_ram_mode_dynamic)) },
+                                        onClick = {
+                                            AllSettings.maximizeRamAllocation.save(false)
+                                            AllSettings.ramAllocation.save(computeDynamicRAMAllocation(context))
+                                        }
+                                    )
+                                    CheckChip(
+                                        selected = maximizeRam,
+                                        label = { Text(stringResource(R.string.settings_game_auto_ram_mode_maximum)) },
+                                        onClick = {
+                                            AllSettings.maximizeRamAllocation.save(true)
+                                            AllSettings.ramAllocation.save(computeMaximumRAMAllocation(context))
+                                        }
+                                    )
                                 }
                             }
 

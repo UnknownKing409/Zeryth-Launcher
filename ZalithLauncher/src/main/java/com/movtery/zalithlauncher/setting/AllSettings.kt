@@ -151,6 +151,14 @@ object AllSettings : SettingsRegistry() {
     val autoRamAllocation = boolSetting("autoRamAllocation", false)
 
     /**
+     * 最大化内存分配（不保留系统余量）
+     * Only meaningful when [autoRamAllocation] is true.
+     * false = Dynamic mode (subtracts safety headroom)
+     * true  = Maximum mode (uses all available free RAM)
+     */
+    val maximizeRamAllocation = boolSetting("maximizeRamAllocation", false)
+
+    /**
      * 自定义Jvm启动参数
      */
     val jvmArgs = stringSetting("jvmArgs", "")
