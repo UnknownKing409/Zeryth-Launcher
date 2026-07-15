@@ -307,6 +307,7 @@
     <string name="download_assets_filter_game_version">Game Version</string>
     <string name="download_assets_filter_game_version_stable">Stable</string>
     <string name="download_assets_filter_game_version_snapshots">Snapshots</string>
+    <string name="download_assets_filter_game_version_installed">Already installed on this device</string>
     <string name="download_assets_filter_category">Category</string>
     <string name="download_assets_filter_modloader">Mod Loader</string>
     <string name="download_assets_filter_none">None Selected</string>

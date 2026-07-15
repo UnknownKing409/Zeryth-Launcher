@@ -104,8 +104,24 @@ private class SearchScreenViewModel(
     var currentSearchJob: Job? = null
     var currentSearchMCMODSJob: Job? = null
 
-    /** Issue #9: 已安装的Minecraft版本号（用于在版本列表顶部显示） */
-    val installedVersionIds: List<String> = VersionsManager.versions.value.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct()
+    /**
+     * Issue #9: 已安装的Minecraft版本号（用于在版本列表顶部显示，并渲染已安装星标）。
+     * 持续订阅 [VersionsManager.versions]，因此安装/删除版本、导入/移除实例后会自动刷新，
+     * 无需重启启动器；缓存为一个已 distinct 的 List，滚动时不会重复触发文件系统扫描——
+     * 真正的扫描仍然只发生在 VersionsManager.refresh() 内部（由安装/删除/导入等操作触发）。
+     */
+    var installedVersionIds: List<String> by mutableStateOf(
+        VersionsManager.versions.value.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct()
+    )
+        private set
+
+    init {
+        viewModelScope.launch {
+            VersionsManager.versions.collect { versions ->
+                installedVersionIds = versions.mapNotNull { it.getVersionInfo()?.minecraftVersion }.distinct()
+            }
+        }
+    }
 
     /**
      * 仅更新搜索名称

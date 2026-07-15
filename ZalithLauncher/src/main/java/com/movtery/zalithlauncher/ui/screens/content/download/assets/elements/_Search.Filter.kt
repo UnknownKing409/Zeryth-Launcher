@@ -537,13 +537,17 @@ private fun GameVersionFilterLayout(
     LaunchedEffect(expanded) { if (!expanded) showSnapshots = false }
     LaunchedEffect(allowSnapshots) { if (!allowSnapshots) showSnapshots = false }
 
+    // De-duped lookup set reused for both pinning installed versions to the top of the
+    // Stable tab and for rendering the installed-star indicator on every version row —
+    // computed once per `installedVersions` change instead of per-row/per-recomposition.
+    val installedSet = remember(installedVersions) { installedVersions.toSet() }
+
     // Stable = Release; installed versions pinned to the top (de-duped)
     val stableVersions = remember(allVersions, installedVersions) {
         val releases = allVersions
             .filter { it.type == MinecraftVersion.Type.Release }
             .map { it.version.id }
         val base = if (releases.isEmpty()) popularVersions else releases
-        val installedSet = installedVersions.toSet()
         installedVersions + base.filter { it !in installedSet }
     }
 
@@ -635,6 +639,7 @@ private fun GameVersionFilterLayout(
                     // ── Version list ──────────────────────────────────────────
                     items(displayVersions) { version ->
                         val isSelected = selectedVersion == version
+                        val isInstalled = version in installedSet
                         FilterListItem(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -645,10 +650,22 @@ private fun GameVersionFilterLayout(
                                 onVersionChange(if (checked) version else null)
                             },
                             itemLayout = {
-                                Text(
-                                    text = version,
-                                    style = MaterialTheme.typography.labelMedium
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = version,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    if (isInstalled) {
+                                        Icon(
+                                            modifier = Modifier.size(14.dp),
+                                            painter = painterResource(R.drawable.ic_star_filled),
+                                            contentDescription = stringResource(R.string.download_assets_filter_game_version_installed)
+                                        )
+                                    }
+                                }
                             }
                         )
                     }
