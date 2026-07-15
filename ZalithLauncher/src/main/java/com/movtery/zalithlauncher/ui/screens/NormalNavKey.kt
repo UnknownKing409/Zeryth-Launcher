@@ -218,13 +218,6 @@ sealed interface NormalNavKey : TitledNavKey {
         @Contextual override val title: AndroidStringText = androidText(R.string.stats_play_time_title)
     }
 
-    /** 文件管理屏幕 */
-    @Serializable data class FileManager(
-        val initialPath: String? = null
-    ) : NormalNavKey {
-        @Contextual override val title: AndroidStringText = androidText(R.string.page_title_file_manager)
-    }
-
     /** 协议展示屏幕 */
     @Serializable data class License(
         val raw: Int

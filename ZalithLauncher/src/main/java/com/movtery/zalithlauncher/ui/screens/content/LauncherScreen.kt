@@ -213,7 +213,7 @@ fun LauncherScreen(
         }
         val onFileManagerClick: () -> Unit = {
             backStackViewModel.mainScreen.navigateTo(
-                screenKey = NormalNavKey.FileManager()
+                screenKey = NormalNavKey.BuiltInFileManager()
             )
         }
         val onVersionsManageClick: () -> Unit = {

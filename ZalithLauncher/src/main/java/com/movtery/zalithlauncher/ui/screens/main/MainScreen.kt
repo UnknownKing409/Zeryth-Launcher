@@ -100,7 +100,6 @@ import com.movtery.zalithlauncher.ui.screens.TitledNavKey
 import com.movtery.zalithlauncher.ui.screens.content.AccountManageScreen
 import com.movtery.zalithlauncher.ui.screens.content.BuiltInFileManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.DownloadScreen
-import com.movtery.zalithlauncher.ui.screens.content.FileManagerScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileEditorScreen
 import com.movtery.zalithlauncher.ui.screens.content.FileSelectorScreen
 import com.movtery.zalithlauncher.ui.screens.content.HomePageEditorScreen
@@ -237,7 +236,7 @@ fun MainScreen(
                 toFileManagerScreen = {
                     screenBackStackModel.mainScreen.removeAndNavigateTo(
                         removes = screenBackStackModel.clearBeforeNavKeys,
-                        screenKey = NormalNavKey.FileManager()
+                        screenKey = NormalNavKey.BuiltInFileManager()
                     )
                 },
                 changeExpandedState = {
@@ -302,7 +301,7 @@ private fun <E: TitledNavKey> TopBar(
     val festivals = LocalFestivals.current
 
     val inMultiplayerScreen = mainScreenKey is NormalNavKey.Multiplayer
-    val inFileManagerScreen = mainScreenKey is NormalNavKey.FileManager
+    val inFileManagerScreen = mainScreenKey is NormalNavKey.BuiltInFileManager
     val inDownloadScreen = mainScreenKey is NestedNavKey.Download
     val inSettingsScreen = mainScreenKey is NestedNavKey.Settings
 
@@ -748,9 +747,6 @@ private fun NavigationUI(
                     GameStatsScreen(
                         backStackViewModel = screenBackStackModel,
                     )
-                }
-                entry<NormalNavKey.FileManager> { key ->
-                    FileManagerScreen(initialPath = key.initialPath)
                 }
                 entry<NormalNavKey.PlayTimeStats> {
                     PlayTimeStatsScreen(

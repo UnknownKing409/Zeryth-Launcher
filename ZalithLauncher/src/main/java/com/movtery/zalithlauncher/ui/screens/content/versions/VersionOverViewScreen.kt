@@ -89,8 +89,7 @@ fun VersionOverViewScreen(
     versionsScreenKey: TitledNavKey?,
     backToMainScreen: () -> Unit,
     onExport: () -> Unit,
-    navigateToFileManager: (File) -> Unit,
-    onOpenFolder: (String) -> Unit = {},
+    onOpenFolder: (path: String) -> Unit,
     eventViewModel: EventViewModel,
     version: Version,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
@@ -192,7 +191,7 @@ fun VersionOverViewScreen(
                             )
                             return@VersionQuickActions
                         }
-                        navigateToFileManager(folder)
+                        onOpenFolder(folder.absolutePath)
                     }
                 )
             }
