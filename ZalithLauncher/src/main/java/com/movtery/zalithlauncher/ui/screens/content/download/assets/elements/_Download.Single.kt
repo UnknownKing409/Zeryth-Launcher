@@ -41,7 +41,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -398,54 +397,6 @@ private fun DownloadDialog(
                             }
                         }
 
-                        if (onDownloadAllDependencies != null && dependencies.isNotEmpty()) {
-                            val actionButtonShape = MaterialTheme.shapes.large
-                            val actionButtonHeight = 46.dp
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                //仅下载所有前置/可选项目，安装行为保持不变
-                                OutlinedButton(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(actionButtonHeight),
-                                    shape = actionButtonShape,
-                                    onClick = {
-                                        onDownloadAllDependencies(
-                                            dependencyProjects,
-                                            selectedVersions.toList(),
-                                            classes
-                                        )
-                                    }
-                                ) {
-                                    MarqueeText(
-                                        text = stringResource(R.string.download_assets_download_all_deps),
-                                        style = MaterialTheme.typography.labelLarge
-                                    )
-                                }
-
-                                //一键安装所选模组及其所有必需前置项目
-                                if (onInstallWithDependencies != null) {
-                                    Button(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(actionButtonHeight),
-                                        shape = actionButtonShape,
-                                        onClick = {
-                                            if (selectedVersions.isNotEmpty()) {
-                                                onInstallWithDependencies(selectedVersions.toList(), dependencies)
-                                            }
-                                        }
-                                    ) {
-                                        MarqueeText(
-                                            text = stringResource(R.string.download_assets_install_with_deps),
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
