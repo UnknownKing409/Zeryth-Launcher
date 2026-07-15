@@ -23,6 +23,7 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.InstallerRestoreRegistry
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
+import com.movtery.zalithlauncher.game.download.assets.platform.PlatformProject
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion
 import com.movtery.zalithlauncher.game.download.assets.platform.getVersions
 import com.movtery.zalithlauncher.game.download.assets.platform.mcim.mapMCIMMirrorUrls
@@ -40,6 +41,9 @@ import com.movtery.zalithlauncher.utils.network.withSpeedReport
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okio.IOException
 import org.apache.commons.io.FileUtils
 import java.io.File
@@ -195,10 +199,15 @@ fun mapExceptionToMessage(e: Throwable): AndroidStringText {
  *
  * For each dependency:
  * 1. Fetches all available platform versions.
- * 2. Picks the best version – prefers versions compatible with the installed
- *    Minecraft versions; falls back to the most recently published one.
- * 3. Initialises the version's file metadata (may require an extra network call).
- * 4. Submits a background download task via [downloadSingleForVersions].
+ * 2. Initialises every candidate's file metadata first (some platforms require an
+ *    extra network call before [PlatformVersion.platformGameVersion] / [PlatformVersion.platformLoaders]
+ *    / [PlatformVersion.platformFileName] can be safely read — reading them before init
+ *    throws, which used to be silently swallowed and looked like "nothing downloads").
+ * 3. Filters the initialised candidates by the installed Minecraft version, then by
+ *    mod loader (falling back to the unfiltered set whenever a filter eliminates everyone,
+ *    since some platform listings omit loader/game-version tags on a given file).
+ * 4. Picks the most recently published match and submits a background download task via
+ *    [downloadSingleForVersions].
  *
  * Pre-download failures (network error fetching versions, no version found,
  * init failure) are reported via [onEachError]. Errors that occur during the
@@ -210,40 +219,70 @@ fun mapExceptionToMessage(e: Throwable): AndroidStringText {
  * @param onEachError called with (name, errorMessage) for pre-download failures
  */
 suspend fun downloadDependenciesBatch(
-    context: android.content.Context,
-    deps: List<Pair<com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion.PlatformDependency, com.movtery.zalithlauncher.game.download.assets.platform.PlatformProject>>,
+    context: Context,
+    deps: List<Pair<PlatformVersion.PlatformDependency, PlatformProject>>,
     gameVersions: List<Version>,
     folder: String,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
     onEachError: (name: String, error: String) -> Unit
-) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    val mcVersions = gameVersions
+) = withContext(Dispatchers.IO) {
+    val targetGameVersions = gameVersions
         .mapNotNull { it.getVersionInfo()?.minecraftVersion }
         .distinct()
+    val targetLoaders = gameVersions
+        .mapNotNull { it.getVersionInfo()?.loaderInfo?.loader?.displayName }
+        .distinct()
+
+    fun normalizeLoaderName(name: String) = name.replace(" ", "").replace("-", "").lowercase()
 
     for ((dep, project) in deps) {
         val name = project.platformTitle()
         runCatching {
             // Fetch all versions for this dependency project
-            val allVersions = com.movtery.zalithlauncher.game.download.assets.platform.getVersions(
+            val allVersions = getVersions(
                 projectID = dep.projectId,
                 platform = dep.platform
             )
 
-            // Pick best version: prefer MC-version-compatible, fallback to most recent
-            val best = if (mcVersions.isEmpty()) {
-                allVersions.maxByOrNull { it.platformDatePublished() }
-            } else {
-                allVersions
-                    .filter { v -> v.platformGameVersion().any { it in mcVersions } }
-                    .maxByOrNull { it.platformDatePublished() }
-                    ?: allVersions.maxByOrNull { it.platformDatePublished() }
-            } ?: throw java.io.IOException("No available version found for dependency: $name")
-
-            // Initialise file metadata (some platforms require an extra network call)
-            check(best.initFile(dep.projectId)) {
-                "Failed to initialise version info for dependency: $name"
+            // Initialise every candidate first; unusable/uninitialisable ones are dropped here
+            // instead of crashing later when their metadata is read.
+            val initializedVersions = allVersions.mapNotNull { ver ->
+                runCatching { if (ver.initFile(dep.projectId)) ver else null }.getOrNull()
             }
+
+            if (initializedVersions.isEmpty()) {
+                onEachError(name, "No downloadable file found for dependency: $name")
+                return@runCatching
+            }
+
+            // Filter by installed Minecraft version, falling back to the full set if nothing matches
+            var matchingVersions = if (targetGameVersions.isNotEmpty()) {
+                initializedVersions
+                    .filter { v -> v.platformGameVersion().any { it in targetGameVersions } }
+                    .ifEmpty { initializedVersions }
+            } else {
+                initializedVersions
+            }
+
+            // Further filter by mod loader, again falling back if that empties the set
+            if (targetLoaders.isNotEmpty()) {
+                val filteredByLoader = matchingVersions.filter { ver ->
+                    val loaders = ver.platformLoaders()
+                    loaders.isEmpty() || loaders.any { loader ->
+                        val loaderName = normalizeLoaderName(loader.getDisplayName())
+                        targetLoaders.any { target ->
+                            val targetName = normalizeLoaderName(target)
+                            loaderName.contains(targetName) || targetName.contains(loaderName)
+                        }
+                    }
+                }
+                if (filteredByLoader.isNotEmpty()) {
+                    matchingVersions = filteredByLoader
+                }
+            }
+
+            val best = matchingVersions.maxByOrNull { it.platformDatePublished() }
+                ?: throw IOException("No available version found for dependency: $name")
 
             // Submit the download task (runs in TaskSystem background)
             downloadSingleForVersions(
@@ -254,7 +293,7 @@ suspend fun downloadDependenciesBatch(
                 submitError = submitError
             )
         }.onFailure { e ->
-            if (e !is kotlinx.coroutines.CancellationException) {
+            if (e !is CancellationException) {
                 Logger.warning(TAG, "Failed to prepare batch download for dependency: $name", e)
                 val msg = mapExceptionToMessage(e).toAndroidString(context)
                 onEachError(name, msg)
