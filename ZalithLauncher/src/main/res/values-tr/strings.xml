@@ -745,6 +745,10 @@
     <string name="disclaimer_title">Resmi Olmayan Sürüm</string>
     <string name="disclaimer_content">Bu, Zalith Launcher 2\'nin resmi olmayan, değiştirilmiş bir versiyonudur.</string>
     <string name="disclaimer_original_repo">Orijinal Repo</string>
+    <string name="onboarding_main_screen_mode_title">Ana Ekran Düzeninizi Seçin</string>
+    <string name="onboarding_main_screen_mode_default_desc">Bugünün istatistiklerini gösteren sade bir görünüm. Hızlı oyun başlatmak için idealdir.</string>
+    <string name="onboarding_main_screen_mode_advanced_desc">Sürüm listesi, sekmeler ve hızlı erişim paneliyle tam başlatıcı arayüzü.</string>
+    <string name="onboarding_main_screen_mode_hint">Bunu daha sonra Ayarlar → Başlatıcı Ekranı → Ana Ekran Modu kısmından değiştirebilirsiniz</string>
     <string name="launcher_fork_subtitle">Zalith Launcher 2\'nin bir çatalıdır</string>
     <string name="about_acknowledgements_title">Teşekkür ve Atıflar</string>
     <string name="about_acknowledgements_pojav_text">%s PojavLauncherdan başlatma backend kodu kullanır</string>

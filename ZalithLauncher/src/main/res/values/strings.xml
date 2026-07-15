@@ -1273,6 +1273,10 @@
     <string name="settings_launcher_main_screen_mode_summary">Choose how much is shown on the launcher\'s main screen</string>
     <string name="settings_launcher_main_screen_mode_default">Default</string>
     <string name="settings_launcher_main_screen_mode_advanced">Advanced</string>
+    <string name="onboarding_main_screen_mode_title">Choose Your Main Screen Layout</string>
+    <string name="onboarding_main_screen_mode_default_desc">A clean overview showing today\'s stats. Great for quick game launches.</string>
+    <string name="onboarding_main_screen_mode_advanced_desc">Full launcher interface with version list, tabs, and quick-access panel.</string>
+    <string name="onboarding_main_screen_mode_hint">You can change this later in Settings → Launcher Screen → Main Screen Mode</string>
     <string name="settings_launcher_language">Language</string>
     <string name="settings_launcher_full_screen_title">Fullscreen Mode</string>
     <string name="settings_launcher_full_screen_summary">Make the launcher pages fullscreen, ignoring safe areas like notches and punch-holes</string>

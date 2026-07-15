@@ -87,6 +87,7 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.TitleTaskFlowDialo
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.path.URL_ORIGINAL_PROJECT
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.enums.MainScreenMode
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
@@ -157,6 +158,7 @@ fun MainScreen(
 
     val isTaskMenuExpanded = AllSettings.launcherTaskMenuExpanded.state
     val showDisclaimer = AllSettings.disclaimerAccepted.state
+    val mainScreenModeSelected = AllSettings.mainScreenModeSelected.state
     val context = androidx.compose.ui.platform.LocalContext.current
 
     if (!showDisclaimer) {
@@ -172,6 +174,54 @@ fun MainScreen(
                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(URL_ORIGINAL_PROJECT))
                 context.startActivity(intent)
             }
+        )
+    } else if (!mainScreenModeSelected) {
+        // First-launch only: ask the user which main screen layout they prefer.
+        // The dialog is non-dismissable — both buttons commit a choice.
+        SimpleAlertDialog(
+            title = stringResource(R.string.onboarding_main_screen_mode_title),
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_launcher_main_screen_mode_default),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = stringResource(R.string.onboarding_main_screen_mode_default_desc),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = stringResource(R.string.settings_launcher_main_screen_mode_advanced),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = stringResource(R.string.onboarding_main_screen_mode_advanced_desc),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = stringResource(R.string.onboarding_main_screen_mode_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.settings_launcher_main_screen_mode_advanced),
+            dismissText = stringResource(R.string.settings_launcher_main_screen_mode_default),
+            onConfirm = {
+                AllSettings.mainScreenMode.save(MainScreenMode.Advanced)
+                AllSettings.mainScreenModeSelected.save(true)
+            },
+            onCancel = {
+                AllSettings.mainScreenMode.save(MainScreenMode.Default)
+                AllSettings.mainScreenModeSelected.save(true)
+            },
+            onDismissRequest = { /* non-dismissable — user must make a choice */ }
         )
     }
 

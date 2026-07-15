@@ -691,6 +691,13 @@ object AllSettings : SettingsRegistry() {
     val disclaimerAccepted = boolSetting("disclaimerAccepted", false)
 
     /**
+     * 是否已完成首次启动的主屏幕模式选择
+     * false = 尚未选择（首次启动显示引导弹窗）
+     * true  = 已选择，不再显示
+     */
+    val mainScreenModeSelected = boolSetting("mainScreenModeSelected", false)
+
+    /**
      * 玩家结束运行游戏的次数
      */
     val finishedGame = intSetting("finishedGame", 0)
