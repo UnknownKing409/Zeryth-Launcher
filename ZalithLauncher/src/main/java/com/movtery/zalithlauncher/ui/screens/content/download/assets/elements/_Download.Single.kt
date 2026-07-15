@@ -317,15 +317,15 @@ private fun DownloadDialog(
                     shadowElevation = 6.dp
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(18.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .weight(1f, fill = false)
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             if (hasDeps) {
                                 val listState = rememberLazyListState()
@@ -448,13 +448,10 @@ private fun DownloadDialog(
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             FilledTonalButton(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp),
-                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.weight(0.5f),
                                 onClick = onDismiss
                             ) {
                                 MarqueeText(text = stringResource(R.string.generic_cancel))
@@ -474,10 +471,7 @@ private fun DownloadDialog(
                                 }
                             }
                             Button(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp),
-                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.weight(0.5f),
                                 onClick = {
                                     if (selectedVersions.isNotEmpty()) {
                                         onInstall(selectedVersions)
