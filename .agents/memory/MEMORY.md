@@ -4,3 +4,4 @@
 - [Game Version selector Stable/Snapshot tabs](game-version-stable-snapshot-tabs.md) — real module is top-level `ZalithLauncher/` per settings.gradle.kts; a dead duplicate tree let 5+ "fix" commits pass CI without ever shipping.
 - [Cross-branch composable porting](cross-branch-composable-porting.md) — when porting a screen from another branch, diff imports symbol-by-symbol and check for repo-native mojibake in source comments; both cause CI-only failures invisible to static grep.
 - [Branch freshness before cross-branch ports](branch-freshness-check.md) — always diff + check last-commit dates before "replace X with the other branch's version"; the named source branch can be the stale one.
+- [Network-aware manual-load toggles](network-aware-manual-load.md) — reuse the existing `isUsingMobileData(context)` util as the *initial value* of a manual-show state flag instead of adding new network logic.
