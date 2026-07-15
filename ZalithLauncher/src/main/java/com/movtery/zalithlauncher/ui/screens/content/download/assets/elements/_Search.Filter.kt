@@ -662,7 +662,9 @@ private fun GameVersionFilterLayout(
                                     )
                                     if (isInstalled) {
                                         Icon(
-                                            modifier = Modifier.size(14.dp),
+                                            modifier = Modifier
+                                                .padding(end = 8.dp)
+                                                .size(14.dp),
                                             painter = painterResource(R.drawable.ic_star_filled),
                                             contentDescription = stringResource(R.string.download_assets_filter_game_version_installed)
                                         )
