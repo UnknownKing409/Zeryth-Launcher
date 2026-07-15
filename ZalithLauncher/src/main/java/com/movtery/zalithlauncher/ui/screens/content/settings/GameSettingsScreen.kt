@@ -31,10 +31,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,7 +52,7 @@ import com.movtery.zalithlauncher.game.plugin.natives.NativePluginManager
 import com.movtery.zalithlauncher.path.URL_CLOUD_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.path.URL_GITHUB_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.setting.AllSettings
-import com.movtery.zalithlauncher.setting.findBestRAMAllocation
+import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.setting.unit.min
 import com.movtery.zalithlauncher.ui.base.BaseScreen
@@ -227,13 +229,31 @@ fun GameSettingsScreen(
                         summary = stringResource(R.string.settings_game_auto_ram_allocation_summary),
                         onCheckedChange = { enabled ->
                             if (enabled) {
-                                AllSettings.ramAllocation.save(findBestRAMAllocation(context))
+                                // Seed with the current dynamic value so the slider
+                                // immediately reflects live system conditions.
+                                AllSettings.ramAllocation.save(computeDynamicRAMAllocation(context))
                             }
                         },
                         columnLayout = {
                             val autoRamEnabled = AllSettings.autoRamAllocation.state
                             val ramValue = AllSettings.ramAllocation.state ?: AllSettings.ramAllocation.min
                             var showValueEditDialog by remember { mutableStateOf(false) }
+
+                            // Periodically recompute and update the allocation while
+                            // automatic mode is active.  Only update when the new value
+                            // differs by >= 128 MB to prevent constant micro-fluctuations.
+                            LaunchedEffect(autoRamEnabled) {
+                                if (!autoRamEnabled) return@LaunchedEffect
+                                while (true) {
+                                    delay(5_000L)
+                                    val newValue = computeDynamicRAMAllocation(context)
+                                    val current = AllSettings.ramAllocation.state
+                                        ?: AllSettings.ramAllocation.min
+                                    if (kotlin.math.abs(newValue - current) >= 128) {
+                                        AllSettings.ramAllocation.save(newValue)
+                                    }
+                                }
+                            }
 
                             Column(
                                 modifier = Modifier

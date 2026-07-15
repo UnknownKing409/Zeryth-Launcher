@@ -38,7 +38,7 @@ import com.movtery.zalithlauncher.game.plugin.renderer.RendererPluginManager
 import com.movtery.zalithlauncher.path.LibPath
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.setting.AllSettings
-import com.movtery.zalithlauncher.setting.findBestRAMAllocation
+import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
 import com.movtery.zalithlauncher.setting.unit.getOrMin
 import com.movtery.zalithlauncher.utils.device.Architecture
 import com.movtery.zalithlauncher.utils.device.Architecture.ARCH_X86
@@ -118,7 +118,7 @@ abstract class Launcher(
             useLocalLanguage = useLocalLanguage
         ).toMutableList()
         val effectiveRamAllocation = if (AllSettings.autoRamAllocation.getValue()) {
-            findBestRAMAllocation(context)
+            computeDynamicRAMAllocation(context)
         } else {
             AllSettings.ramAllocation.getOrMin()
         }
