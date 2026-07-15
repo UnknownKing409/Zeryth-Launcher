@@ -1066,17 +1066,6 @@ private fun ModsActionsHeader(
                         .horizontalScroll(scrollState),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (canUpdateAll && hasModLoader) {
-                        IconButton(
-                            onClick = onUpdateAllMods
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_autorenew),
-                                contentDescription = stringResource(R.string.mods_update_all)
-                            )
-                        }
-                    }
-
                     val taskBuilder = rememberMultipleUriImportTaskBuilder(
                         id = "ContentManager.Mods.Import",
                         targetDir = modsDir,
