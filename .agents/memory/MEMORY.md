@@ -5,3 +5,4 @@
 - [Cross-branch composable porting](cross-branch-composable-porting.md) — when porting a screen from another branch, diff imports symbol-by-symbol and check for repo-native mojibake in source comments; both cause CI-only failures invisible to static grep.
 - [Branch freshness before cross-branch ports](branch-freshness-check.md) — always diff + check last-commit dates before "replace X with the other branch's version"; the named source branch can be the stale one.
 - [Network-aware manual-load toggles](network-aware-manual-load.md) — reuse the existing `isUsingMobileData(context)` util as the *initial value* of a manual-show state flag instead of adding new network logic.
+- [Selective cross-branch porting after freshness check](selective-cross-branch-porting.md) — when a "replace with branch B" request would delete branch A's superset features, port only branch B's genuinely new logic into branch A's structure instead of a full swap.
