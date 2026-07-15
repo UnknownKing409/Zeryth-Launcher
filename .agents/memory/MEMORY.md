@@ -6,3 +6,4 @@
 - [Branch freshness before cross-branch ports](branch-freshness-check.md) — always diff + check last-commit dates before "replace X with the other branch's version"; the named source branch can be the stale one.
 - [Network-aware manual-load toggles](network-aware-manual-load.md) — reuse the existing `isUsingMobileData(context)` util as the *initial value* of a manual-show state flag instead of adding new network logic.
 - [Selective cross-branch porting after freshness check](selective-cross-branch-porting.md) — when a "replace with branch B" request would delete branch A's superset features, port only branch B's genuinely new logic into branch A's structure instead of a full swap.
+- [ViewModel snapshot vs reactive StateFlow fields](viewmodel-snapshot-vs-reactive.md) — a `val x: T = someFlow.value` field only reads the flow once at construction; watch for this when a "live update" requirement is involved.
