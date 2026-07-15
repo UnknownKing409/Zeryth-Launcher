@@ -90,8 +90,11 @@ import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.enums.MainScreenMode
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
+import com.movtery.zalithlauncher.ui.components.RadioCard
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.TextRailItem
 import com.movtery.zalithlauncher.ui.screens.BackStackNavKey
@@ -177,33 +180,89 @@ fun MainScreen(
         )
     } else if (!mainScreenModeSelected) {
         // First-launch only: ask the user which main screen layout they prefer.
-        // The dialog is non-dismissable — both buttons commit a choice.
-        SimpleAlertDialog(
-            title = stringResource(R.string.onboarding_main_screen_mode_title),
+        // Non-dismissable — the user must tap a card and confirm.
+        var selectedMode by remember { mutableStateOf(MainScreenMode.Default) }
+
+        AlertDialog(
+            onDismissRequest = { /* non-dismissable — user must make a choice */ },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_setting_launcher),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(text = stringResource(R.string.onboarding_main_screen_mode_title))
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_launcher_main_screen_mode_default),
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_main_screen_mode_default_desc),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Default option card
+                    RadioCard(
+                        selected = selectedMode == MainScreenMode.Default,
+                        onClick = { selectedMode = MainScreenMode.Default },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_home_filled),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_launcher_main_screen_mode_default),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.onboarding_main_screen_mode_default_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
-                    Text(
-                        text = stringResource(R.string.settings_launcher_main_screen_mode_advanced),
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_main_screen_mode_advanced_desc),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    // Advanced option card
+                    RadioCard(
+                        selected = selectedMode == MainScreenMode.Advanced,
+                        onClick = { selectedMode = MainScreenMode.Advanced },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_dashboard_filled),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_launcher_main_screen_mode_advanced),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.onboarding_main_screen_mode_advanced_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    // Hint: can be changed later in Settings
                     Text(
                         text = stringResource(R.string.onboarding_main_screen_mode_hint),
                         style = MaterialTheme.typography.labelSmall,
@@ -211,17 +270,16 @@ fun MainScreen(
                     )
                 }
             },
-            confirmText = stringResource(R.string.settings_launcher_main_screen_mode_advanced),
-            dismissText = stringResource(R.string.settings_launcher_main_screen_mode_default),
-            onConfirm = {
-                AllSettings.mainScreenMode.save(MainScreenMode.Advanced)
-                AllSettings.mainScreenModeSelected.save(true)
-            },
-            onCancel = {
-                AllSettings.mainScreenMode.save(MainScreenMode.Default)
-                AllSettings.mainScreenModeSelected.save(true)
-            },
-            onDismissRequest = { /* non-dismissable — user must make a choice */ }
+            confirmButton = {
+                Button(
+                    onClick = {
+                        AllSettings.mainScreenMode.save(selectedMode)
+                        AllSettings.mainScreenModeSelected.save(true)
+                    }
+                ) {
+                    Text(stringResource(R.string.generic_confirm))
+                }
+            }
         )
     }
 
