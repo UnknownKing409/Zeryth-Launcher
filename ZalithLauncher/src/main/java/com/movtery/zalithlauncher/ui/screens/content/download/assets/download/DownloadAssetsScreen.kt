@@ -94,6 +94,7 @@ import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.Do
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ProjectUrlsContent
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ScreenshotItemLayout
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.ShowScreenshotsButton
+import com.movtery.zalithlauncher.utils.network.isUsingMobileData
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.VersionInfoMap
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.initAll
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.mapWithVersions
@@ -581,8 +582,8 @@ private fun ProjectInfo(
                 val summary = remember { project.platformSummary() }
                 val urls = remember { project.platformUrls(defaultClasses) }
                 val screenshots = remember { project.platformScreenshots() }
-                //截图默认不自动加载，需要用户手动点击按钮才开始加载，避免消耗不必要的移动流量
-                var showScreenshots by remember { mutableStateOf(false) }
+                //Wi-Fi下自动加载截图；移动数据下默认不自动加载，需要用户手动点击按钮才开始加载，避免消耗不必要的移动流量
+                var showScreenshots by remember { mutableStateOf(!isUsingMobileData(context)) }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
