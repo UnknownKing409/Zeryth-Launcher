@@ -8,7 +8,7 @@ Built upon the solid foundation of Zalith Launcher 2, Zeryth Launcher aims to pr
 
 ---
 
-# 📋 What's New In This Fork?
+# 📋 What's New In This Fork? 
 
 Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section lists **only the major features, improvements, and changes made specifically for Zeryth Launcher.**
 
