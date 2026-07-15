@@ -40,6 +40,7 @@ import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
 import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
+import com.movtery.zalithlauncher.setting.findBestRAMAllocation
 import com.movtery.zalithlauncher.setting.unit.getOrMin
 import com.movtery.zalithlauncher.utils.device.Architecture
 import com.movtery.zalithlauncher.utils.device.Architecture.ARCH_X86
@@ -120,8 +121,11 @@ abstract class Launcher(
         ).toMutableList()
         val effectiveRamAllocation = when {
             !AllSettings.autoRamAllocation.getValue() -> AllSettings.ramAllocation.getOrMin()
-            AllSettings.maximizeRamAllocation.getValue() -> computeMaximumRAMAllocation(context)
-            else -> computeDynamicRAMAllocation(context)
+            else -> when (AllSettings.autoRamAllocationMode.getValue()) {
+                "static"  -> findBestRAMAllocation(context)
+                "maximum" -> computeMaximumRAMAllocation(context)
+                else      -> computeDynamicRAMAllocation(context)  // "dynamic" (default)
+            }
         }
         progressFinalUserArgs(args, effectiveRamAllocation)
 

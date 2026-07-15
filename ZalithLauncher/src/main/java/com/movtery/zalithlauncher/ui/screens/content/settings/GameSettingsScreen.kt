@@ -58,6 +58,7 @@ import com.movtery.zalithlauncher.path.URL_GITHUB_NATIVE_LIB_PLUGINS
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
 import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
+import com.movtery.zalithlauncher.setting.findBestRAMAllocation
 import com.movtery.zalithlauncher.ui.components.CheckChip
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.setting.unit.min
@@ -235,32 +236,37 @@ fun GameSettingsScreen(
                         summary = stringResource(R.string.settings_game_auto_ram_allocation_summary),
                         onCheckedChange = { enabled ->
                             if (enabled) {
-                                // Seed the slider immediately with the appropriate live value
-                                // for whichever mode was previously selected.
-                                val maximize = AllSettings.maximizeRamAllocation.getValue()
+                                // Seed the slider immediately with the value appropriate
+                                // for whichever mode was last selected.
+                                val mode = AllSettings.autoRamAllocationMode.getValue()
                                 AllSettings.ramAllocation.save(
-                                    if (maximize) computeMaximumRAMAllocation(context)
-                                    else computeDynamicRAMAllocation(context)
+                                    when (mode) {
+                                        "static"  -> findBestRAMAllocation(context)
+                                        "maximum" -> computeMaximumRAMAllocation(context)
+                                        else      -> computeDynamicRAMAllocation(context)
+                                    }
                                 )
                             }
                         },
                         columnLayout = {
                             val autoRamEnabled = AllSettings.autoRamAllocation.state
-                            val maximizeRam = AllSettings.maximizeRamAllocation.state
+                            val allocMode = AllSettings.autoRamAllocationMode.state
                             val ramValue = AllSettings.ramAllocation.state ?: AllSettings.ramAllocation.min
                             var showValueEditDialog by remember { mutableStateOf(false) }
 
                             // Periodically recompute and update the allocation while
-                            // automatic mode is active.  Only updates when the new value
-                            // differs by >= 128 MB to prevent constant micro-fluctuations.
+                            // automatic mode is active.  Static mode is set once and never
+                            // polled; dynamic and maximum refresh every 5 seconds.
                             // Restarts whenever the mode switches so the first tick uses
                             // the correct algorithm immediately.
-                            LaunchedEffect(autoRamEnabled, maximizeRam) {
-                                if (!autoRamEnabled) return@LaunchedEffect
+                            LaunchedEffect(autoRamEnabled, allocMode) {
+                                if (!autoRamEnabled || allocMode == "static") return@LaunchedEffect
                                 while (true) {
                                     delay(5_000L)
-                                    val newValue = if (maximizeRam) computeMaximumRAMAllocation(context)
-                                                   else computeDynamicRAMAllocation(context)
+                                    val newValue = when (allocMode) {
+                                        "maximum" -> computeMaximumRAMAllocation(context)
+                                        else      -> computeDynamicRAMAllocation(context)
+                                    }
                                     val current = AllSettings.ramAllocation.state
                                         ?: AllSettings.ramAllocation.min
                                     if (kotlin.math.abs(newValue - current) >= 128) {
@@ -282,18 +288,26 @@ fun GameSettingsScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     CheckChip(
-                                        selected = !maximizeRam,
+                                        selected = allocMode == "static",
+                                        label = { Text(stringResource(R.string.settings_game_auto_ram_mode_static)) },
+                                        onClick = {
+                                            AllSettings.autoRamAllocationMode.save("static")
+                                            AllSettings.ramAllocation.save(findBestRAMAllocation(context))
+                                        }
+                                    )
+                                    CheckChip(
+                                        selected = allocMode == "dynamic",
                                         label = { Text(stringResource(R.string.settings_game_auto_ram_mode_dynamic)) },
                                         onClick = {
-                                            AllSettings.maximizeRamAllocation.save(false)
+                                            AllSettings.autoRamAllocationMode.save("dynamic")
                                             AllSettings.ramAllocation.save(computeDynamicRAMAllocation(context))
                                         }
                                     )
                                     CheckChip(
-                                        selected = maximizeRam,
+                                        selected = allocMode == "maximum",
                                         label = { Text(stringResource(R.string.settings_game_auto_ram_mode_maximum)) },
                                         onClick = {
-                                            AllSettings.maximizeRamAllocation.save(true)
+                                            AllSettings.autoRamAllocationMode.save("maximum")
                                             AllSettings.ramAllocation.save(computeMaximumRAMAllocation(context))
                                         }
                                     )
