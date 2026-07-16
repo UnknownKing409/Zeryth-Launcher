@@ -521,6 +521,7 @@ fun MemoryPreview(
     textStyle: TextStyle = MaterialTheme.typography.labelMedium,
     textColorOnMemory: Color = MaterialTheme.colorScheme.onPrimary,
     textColorOnBackground: Color = MaterialTheme.colorScheme.onSurface,
+    isAllocatedMode: Boolean = false,
     usedText: @Composable (usedMemory: Double, totalMemory: Double) -> String,
     previewText: (@Composable (preview: Double) -> String)? = null
 ) {
@@ -530,12 +531,21 @@ fun MemoryPreview(
     var totalMemory by remember { mutableDoubleStateOf(0.0) }
     var usedMemory by remember { mutableDoubleStateOf(0.0) }
 
-    LaunchedEffect(Unit) {
+    // Restart the sampling loop whenever the display mode changes so the
+    // overlay switches instantly without restarting Minecraft.
+    LaunchedEffect(isAllocatedMode) {
         infinityCancellableBlock(delay = delay) {
-            //总内存
-            totalMemory = getTotalMemory(context).bytesToMB()
-            //已使用内存
-            usedMemory = getUsedMemory(context).bytesToMB()
+            if (isAllocatedMode) {
+                // Read JVM heap – same process as Minecraft on Android launchers.
+                val rt = Runtime.getRuntime()
+                usedMemory = (rt.totalMemory() - rt.freeMemory()).toDouble() / (1024.0 * 1024.0)
+                totalMemory = rt.maxMemory().toDouble() / (1024.0 * 1024.0)
+            } else {
+                //总内存
+                totalMemory = getTotalMemory(context).bytesToMB()
+                //已使用内存
+                usedMemory = getUsedMemory(context).bytesToMB()
+            }
         }
     }
 

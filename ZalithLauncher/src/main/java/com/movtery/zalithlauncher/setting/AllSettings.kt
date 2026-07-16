@@ -540,6 +540,11 @@ object AllSettings : SettingsRegistry() {
     val showMemory = boolSetting("showMemory", false)
 
     /**
+     * 内存显示模式：显示已分配JVM内存 (Allocated) 还是系统总内存 (System)
+     */
+    val memoryDisplayMode = enumSetting("memoryDisplayMode", com.movtery.zalithlauncher.setting.enums.MemoryDisplayMode.System)
+
+    /**
      * 在游戏画面上展示菜单悬浮窗
      */
     val showMenuBall = boolSetting("showMenuBall", true)

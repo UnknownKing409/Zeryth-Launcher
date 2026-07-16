@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.setting.enums.MemoryDisplayMode
 import com.movtery.zalithlauncher.ui.components.FloatingBall
 import com.movtery.zalithlauncher.ui.screens.content.elements.MemoryPreview
 
@@ -58,6 +59,7 @@ fun DraggableGameBall(
     onSavePos: () -> Unit,
     gameFps: Int?,
     showMemory: Boolean,
+    memoryDisplayMode: MemoryDisplayMode = MemoryDisplayMode.System,
     opened: Boolean,
     alpha: Float = 1f,
     onClick: () -> Unit = {}
@@ -75,6 +77,7 @@ fun DraggableGameBall(
         GameBallContent(
             gameFps = gameFps,
             showMemory = showMemory,
+            memoryDisplayMode = memoryDisplayMode,
             opened = opened,
         )
     }
@@ -84,6 +87,7 @@ fun DraggableGameBall(
 private fun GameBallContent(
     gameFps: Int?,
     showMemory: Boolean,
+    memoryDisplayMode: MemoryDisplayMode = MemoryDisplayMode.System,
     opened: Boolean,
 ) {
     val showFps = remember(gameFps) {
@@ -151,6 +155,7 @@ private fun GameBallContent(
                     mainColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
                     backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                     textStyle = MaterialTheme.typography.labelSmall,
+                    isAllocatedMode = memoryDisplayMode == MemoryDisplayMode.Allocated,
                     usedText = { usedMemory, totalMemory ->
                         "${usedMemory.toInt()}MB/${totalMemory.toInt()}MB"
                     }
