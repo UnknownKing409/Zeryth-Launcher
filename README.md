@@ -4,7 +4,7 @@
 
 Zeryth Launcher is an unofficial fork of **Zalith Launcher 2**. This project is **not affiliated with or endorsed by** the Zalith Launcher developers, Mojang Studios, or Microsoft.
 
-Built upon the solid foundation of Zalith Launcher 2, Zeryth Launcher aims to provide a refined Minecraft: Java Edition launcher for Android with new features, improved customization, performance enhancements, and a modern user experience. 
+Built upon the solid foundation of Zalith Launcher 2, Zeryth Launcher aims to provide a refined Minecraft: Java Edition launcher for Android with new features, improved customization, performance enhancements, and a modern user experience.  
 
 ---
 
