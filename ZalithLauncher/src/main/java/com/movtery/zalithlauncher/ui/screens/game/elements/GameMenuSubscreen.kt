@@ -73,6 +73,7 @@ import com.movtery.zalithlauncher.ui.control.gyroscope.isGyroscopeAvailable
 import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.cardTitleColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
+import androidx.compose.ui.text.style.TextAlign
 import com.movtery.zalithlauncher.viewmodel.GamepadViewModel
 
 private data class IconTab(val iconRes: Int, val iconSize: Dp = 18.dp)
@@ -342,13 +343,25 @@ private fun GameActionContent(
                         modifier = Modifier.weight(1f),
                         selected = selectedMode == MemoryDisplayMode.Allocated,
                         onClick = { AllSettings.memoryDisplayMode.save(MemoryDisplayMode.Allocated) },
-                        label = { Text(stringResource(R.string.game_menu_option_memory_mode_allocated)) }
+                        label = {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(R.string.game_menu_option_memory_mode_allocated),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     )
                     FilterChip(
                         modifier = Modifier.weight(1f),
                         selected = selectedMode == MemoryDisplayMode.System,
                         onClick = { AllSettings.memoryDisplayMode.save(MemoryDisplayMode.System) },
-                        label = { Text(stringResource(R.string.game_menu_option_memory_mode_system)) }
+                        label = {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = stringResource(R.string.game_menu_option_memory_mode_system),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     )
                 }
             }

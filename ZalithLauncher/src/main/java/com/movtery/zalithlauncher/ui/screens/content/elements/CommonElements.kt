@@ -94,6 +94,11 @@ import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.utils.file.checkExtensionOrThrow
 import com.movtery.zalithlauncher.utils.file.formatFileSize
+import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
+import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
+import com.movtery.zalithlauncher.setting.findBestRAMAllocation
+import com.movtery.zalithlauncher.setting.unit.getOrMin
 import com.movtery.zalithlauncher.utils.platform.bytesToMB
 import com.movtery.zalithlauncher.utils.platform.getTotalMemory
 import com.movtery.zalithlauncher.utils.platform.getUsedMemory
@@ -536,10 +541,21 @@ fun MemoryPreview(
     LaunchedEffect(isAllocatedMode) {
         infinityCancellableBlock(delay = delay) {
             if (isAllocatedMode) {
-                // Read JVM heap – same process as Minecraft on Android launchers.
-                val rt = Runtime.getRuntime()
-                usedMemory = (rt.totalMemory() - rt.freeMemory()).toDouble() / (1024.0 * 1024.0)
-                totalMemory = rt.maxMemory().toDouble() / (1024.0 * 1024.0)
+                // Total = effective allocation from launcher settings, mirrors Launcher.kt logic
+                // so it stays in sync with autoRamAllocation / autoRamAllocationMode toggles.
+                val allocatedMB = when {
+                    !AllSettings.autoRamAllocation.getValue() ->
+                        AllSettings.ramAllocation.getOrMin()
+                    else -> when (AllSettings.autoRamAllocationMode.getValue()) {
+                        "static"  -> findBestRAMAllocation(context)
+                        "maximum" -> computeMaximumRAMAllocation(context)
+                        else      -> computeDynamicRAMAllocation(context) // "dynamic" (default)
+                    }
+                }
+                totalMemory = allocatedMB.toDouble()
+                // Used = system used memory — best available proxy for Minecraft's
+                // RAM consumption while it is the dominant running process.
+                usedMemory = getUsedMemory(context).bytesToMB()
             } else {
                 //总内存
                 totalMemory = getTotalMemory(context).bytesToMB()
