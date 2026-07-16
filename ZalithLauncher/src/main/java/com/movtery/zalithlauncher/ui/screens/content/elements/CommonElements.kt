@@ -553,9 +553,10 @@ fun MemoryPreview(
                     }
                 }
                 totalMemory = allocatedMB.toDouble()
-                // Used = system used memory — best available proxy for Minecraft's
-                // RAM consumption while it is the dominant running process.
-                usedMemory = getUsedMemory(context).bytesToMB()
+                // Used = system used memory, capped at the allocation ceiling.
+                // Raw system used can exceed the allocated amount (other processes
+                // also consume RAM), so we clamp it so the bar never overflows.
+                usedMemory = minOf(getUsedMemory(context).bytesToMB(), totalMemory)
             } else {
                 //总内存
                 totalMemory = getTotalMemory(context).bytesToMB()

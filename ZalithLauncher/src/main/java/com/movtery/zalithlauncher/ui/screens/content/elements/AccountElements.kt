@@ -359,7 +359,7 @@ fun AccountAvatar(
                 LaunchedEffect(account) {
                     accountTypeAlpha.animateTo(
                         targetValue = 0f,
-                        animationSpec = tween(durationMillis = 3000)
+                        animationSpec = tween(durationMillis = 5000, delayMillis = 3000)
                     )
                 }
                 Text(
