@@ -311,7 +311,7 @@ fun rememberChromaBrush(): Brush {
 fun AccountAvatar(
     modifier: Modifier = Modifier,
     account: Account?,
-    avatarSize: Dp = 64.dp,
+    avatarSize: Dp = 72.dp,
     refreshKey: Any? = null,
     onClick: () -> Unit = {}
 ) {
@@ -325,7 +325,9 @@ fun AccountAvatar(
     ) {
         Column(
             modifier = Modifier
-                .padding(all = 12.dp)
+                .padding(all = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (account != null) {
                 PlayerFace(
@@ -343,34 +345,18 @@ fun AccountAvatar(
                     contentDescription = null
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 text = account?.username ?: stringResource(R.string.account_add_new_account),
                 maxLines = 1,
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     brush = if (useChroma) chromaBrush else null
                 )
             )
             if (account != null) {
-                val context = LocalContext.current
-                val playTimeMs = AllSettings.playTime.state
-                
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                     text = getAccountTypeName(account),
-                    style = MaterialTheme.typography.labelSmall
-                )
-                Text(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = PlayTimeUtils.getRankName(context, playTimeMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = PlayTimeUtils.formatPlayTime(context, playTimeMs),
                     style = MaterialTheme.typography.labelSmall
                 )
             }
