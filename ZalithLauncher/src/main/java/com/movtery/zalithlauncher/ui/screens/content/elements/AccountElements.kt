@@ -88,6 +88,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
@@ -354,8 +355,17 @@ fun AccountAvatar(
                 )
             )
             if (account != null) {
+                val accountTypeAlpha = remember(account) { Animatable(1f) }
+                LaunchedEffect(account) {
+                    accountTypeAlpha.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 3000)
+                    )
+                }
                 Text(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .alpha(accountTypeAlpha.value),
                     text = getAccountTypeName(account),
                     style = MaterialTheme.typography.labelSmall
                 )
