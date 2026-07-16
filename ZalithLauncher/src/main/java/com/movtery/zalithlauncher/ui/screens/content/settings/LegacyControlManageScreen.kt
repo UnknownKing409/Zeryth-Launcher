@@ -81,6 +81,7 @@ private sealed interface LegacyOperation {
     data object CreateNew : LegacyOperation
     data class Delete(val data: LegacyControlData) : LegacyOperation
     data class EditInfo(val data: LegacyControlData) : LegacyOperation
+    data class RestoreBuiltIn(val data: LegacyControlData) : LegacyOperation
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -172,6 +173,20 @@ fun LegacyControlManageContent(
                 }
             )
         }
+        is LegacyOperation.RestoreBuiltIn -> {
+            SimpleAlertDialog(
+                title = stringResource(R.string.generic_warning),
+                text = stringResource(R.string.control_manage_builtin_restore_message),
+                confirmText = stringResource(R.string.control_manage_builtin_restore_confirm),
+                onConfirm = {
+                    LegacyControlManager.restoreBuiltInLayout()
+                    operation = LegacyOperation.None
+                },
+                onDismiss = {
+                    operation = LegacyOperation.None
+                }
+            )
+        }
     }
 
     AnimatedRow(
@@ -191,7 +206,8 @@ fun LegacyControlManageContent(
                 onCreate = { operation = LegacyOperation.CreateNew },
                 onSelect = { data -> LegacyControlManager.selectControl(data) },
                 onDuplicate = { data -> LegacyControlManager.duplicate(data) },
-                onDelete = { data -> operation = LegacyOperation.Delete(data) }
+                onDelete = { data -> operation = LegacyOperation.Delete(data) },
+                onRestore = { data -> operation = LegacyOperation.RestoreBuiltIn(data) }
             )
         }
         AnimatedItem(scope) { xOffset ->
@@ -221,7 +237,8 @@ private fun LegacyLayoutList(
     onCreate: () -> Unit,
     onSelect: (LegacyControlData) -> Unit,
     onDuplicate: (LegacyControlData) -> Unit = {},
-    onDelete: (LegacyControlData) -> Unit
+    onDelete: (LegacyControlData) -> Unit,
+    onRestore: (LegacyControlData) -> Unit = {}
 ) {
     BackgroundCard(
         modifier = modifier.fillMaxHeight(),
@@ -294,7 +311,8 @@ private fun LegacyLayoutList(
                             isSelected = isSelected,
                             onSelect = { onSelect(data) },
                             onDuplicate = { onDuplicate(data) },
-                            onDelete = { onDelete(data) }
+                            onDelete = { onDelete(data) },
+                            onRestore = { onRestore(data) }
                         )
                     }
                 }
@@ -310,7 +328,8 @@ private fun LegacyLayoutItem(
     isSelected: Boolean,
     onSelect: () -> Unit,
     onDuplicate: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRestore: () -> Unit = {}
 ) {
     val scale = remember { Animatable(initialValue = 0.95f) }
     LaunchedEffect(Unit) {
@@ -376,6 +395,14 @@ private fun LegacyLayoutItem(
                     painter = painterResource(R.drawable.ic_copy_all_outlined),
                     contentDescription = stringResource(R.string.legacy_control_manage_duplicate)
                 )
+            }
+            if (data.isBuiltIn) {
+                IconButton(onClick = onRestore) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_restart_alt),
+                        contentDescription = stringResource(R.string.control_manage_builtin_restore)
+                    )
+                }
             }
             if (!data.isBuiltIn) {
                 IconButton(onClick = onDelete) {
@@ -506,13 +533,11 @@ private fun LegacyLayoutInfo(
                 ) {
                     MarqueeText(text = stringResource(R.string.generic_share))
                 }
-                if (!data.isBuiltIn) {
-                    ScalingActionButton(
-                        modifier = Modifier.weight(1f, fill = false),
-                        onClick = { onEditInfo(data) }
-                    ) {
-                        MarqueeText(text = stringResource(R.string.legacy_control_manage_edit_info))
-                    }
+                ScalingActionButton(
+                    modifier = Modifier.weight(1f, fill = false),
+                    onClick = { onEditInfo(data) }
+                ) {
+                    MarqueeText(text = stringResource(R.string.legacy_control_manage_edit_info))
                 }
             }
         }

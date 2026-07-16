@@ -1155,6 +1155,9 @@
     <string name="control_manage_create_new_field_blank">Bu alan boş bırakılamaz</string>
     <string name="control_manage_create_new_field_long">Metin çok uzun</string>
     <string name="control_manage_delete_message">%s Bu kontrol şemasını silmek istiyor musunuz?</string>
+    <string name="control_manage_builtin_restore">Varsayılanları Geri Yükle</string>
+    <string name="control_manage_builtin_restore_message">Bu yerleşik kontrol düzenini orijinal haline geri yüklemek istediğinizden emin misiniz?</string>
+    <string name="control_manage_builtin_restore_confirm">Geri Yükle</string>
     <string name="control_manage_saving">Kaydediliyor</string>
     <string name="control_manage_failed_to_save">Kaydetme başarısız</string>
     <string name="control_manage_list_empty">Kontrol şeması bulunamadı</string>

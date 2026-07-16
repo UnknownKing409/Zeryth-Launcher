@@ -176,6 +176,8 @@ private sealed interface ControlOperation {
     data class EditDescription(val data: ControlData) : ControlOperation
     /** 编辑版本名称 */
     data class EditVersion(val data: ControlData) : ControlOperation
+    /** 恢复内置布局为出厂默认值 */
+    data class RestoreBuiltIn(val data: ControlData) : ControlOperation
 }
 
 private enum class EditTextType(val length: Int, val titleRes: Int, val allowEmpty: Boolean) {
@@ -466,6 +468,9 @@ fun ControlManageScreen(
                     message = androidText(e.getMessageOrToString())
                 )
             }
+        },
+        onRestore = { data ->
+            ControlManager.restoreBuiltInLayout(context)
         }
     )
 
@@ -533,6 +538,9 @@ fun ControlManageScreen(
                                 onDelete = { data ->
                                     viewModel.operation = ControlOperation.Delete(data)
                                 },
+                                onRestore = { data ->
+                                    viewModel.operation = ControlOperation.RestoreBuiltIn(data)
+                                },
                                 eventViewModel = eventViewModel,
                             )
                         }
@@ -583,7 +591,8 @@ private fun ControlOperation(
     changeOperation: (ControlOperation) -> Unit,
     onCreate: (name: String, author: String, versionName: String) -> Unit,
     onDelete: (ControlData) -> Unit,
-    onSave: (ControlData) -> Unit
+    onSave: (ControlData) -> Unit,
+    onRestore: (ControlData) -> Unit
 ) {
     when (operation) {
         is ControlOperation.None -> {}
@@ -672,6 +681,20 @@ private fun ControlOperation(
                 }
             )
         }
+        is ControlOperation.RestoreBuiltIn -> {
+            SimpleAlertDialog(
+                title = stringResource(R.string.generic_warning),
+                text = stringResource(R.string.control_manage_builtin_restore_message),
+                confirmText = stringResource(R.string.control_manage_builtin_restore_confirm),
+                onConfirm = {
+                    onRestore(operation.data)
+                    changeOperation(ControlOperation.None)
+                },
+                onDismiss = {
+                    changeOperation(ControlOperation.None)
+                }
+            )
+        }
     }
 }
 
@@ -689,6 +712,7 @@ private fun ControlLayoutList(
     onCreate: () -> Unit,
     onCopy: (ControlData) -> Unit,
     onDelete: (ControlData) -> Unit,
+    onRestore: (ControlData) -> Unit,
     eventViewModel: EventViewModel,
 ) {
     BackgroundCard(
@@ -733,7 +757,8 @@ private fun ControlLayoutList(
                             selected = data.file.name == AllSettings.controlLayout.state,
                             onSelected = { ControlManager.selectControl(data) },
                             onCopy = { onCopy(data) },
-                            onDelete = { onDelete(data) }
+                            onDelete = { onDelete(data) },
+                            onRestore = { onRestore(data) }
                         )
                     }
                 }
@@ -811,6 +836,7 @@ private fun ControlLayoutItem(
     onSelected: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit,
+    onRestore: () -> Unit,
     color: Color = itemColor(),
     contentColor: Color = onItemColor(),
 ) {
@@ -896,6 +922,17 @@ private fun ControlLayoutItem(
                     contentDescription = stringResource(R.string.generic_copy)
                 )
             }
+            //恢复内置默认值（仅内置布局显示）
+            if (data.isBuiltIn) {
+                IconButton(
+                    onClick = onRestore
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_restart_alt),
+                        contentDescription = stringResource(R.string.control_manage_builtin_restore)
+                    )
+                }
+            }
             //删除
             if (!data.isBuiltIn) {
                 IconButton(
@@ -955,12 +992,9 @@ private fun ControlLayoutInfo(
         } else {
             val info = data.controlLayout.info
             // For built-in layouts, edit callbacks are no-ops so fields render as read-only.
-            val editText: (ControlData, ObservableTranslatableString, EditTextType) -> Unit =
-                if (data.isBuiltIn) { _, _, _ -> } else onEditText
-            val editDescription: (ControlData) -> Unit =
-                if (data.isBuiltIn) { _ -> } else onEditDescription
-            val editVersion: (ControlData) -> Unit =
-                if (data.isBuiltIn) { _ -> } else onEditVersion
+            val editText = onEditText
+            val editDescription = onEditDescription
+            val editVersion = onEditVersion
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -1062,16 +1096,14 @@ private fun ControlLayoutInfo(
                     )
                 }
 
-                if (!data.isBuiltIn) {
-                    ScalingActionButton(
-                        modifier = Modifier
-                            .weight(1f, fill = false),
-                        onClick = { onEditLayout(data) }
-                    ) {
-                        MarqueeText(
-                            text = stringResource(R.string.control_manage_info_edit)
-                        )
-                    }
+                ScalingActionButton(
+                    modifier = Modifier
+                        .weight(1f, fill = false),
+                    onClick = { onEditLayout(data) }
+                ) {
+                    MarqueeText(
+                        text = stringResource(R.string.control_manage_info_edit)
+                    )
                 }
             }
         }

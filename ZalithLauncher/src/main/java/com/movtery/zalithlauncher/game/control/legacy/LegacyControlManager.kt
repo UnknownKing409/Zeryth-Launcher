@@ -54,12 +54,41 @@ object LegacyControlManager {
             val dir = PathManager.DIR_LEGACY_CONTROL_LAYOUTS
             if (!dir.exists()) dir.mkdirs()
             val builtInFile = File(dir, BUILTIN_LEGACY_FILENAME)
-            // Always overwrite so title/content stays current; users cannot edit built-in layouts.
-            val json = GlobalContext.readRawContent(R.raw.zeryth_default_legacy_layout)
-            builtInFile.writeText(json)
-            Logger.info(TAG, "Seeded built-in default legacy layout.")
+            // Only write the file if it is absent so user edits are preserved across launches.
+            // Use restoreBuiltInLayout() to explicitly reset to the factory default.
+            if (!builtInFile.exists()) {
+                val json = GlobalContext.readRawContent(R.raw.zeryth_default_legacy_layout)
+                builtInFile.writeText(json)
+                Logger.info(TAG, "Seeded built-in default legacy layout (first install).")
+            }
         } catch (e: Exception) {
             Logger.warning(TAG, "Failed to seed built-in legacy layout", e)
+        }
+    }
+
+    /**
+     * Overwrites the built-in Legacy layout file with the original bundled resource,
+     * restoring it to its factory default state.
+     */
+    fun restoreBuiltInLayout(
+        onSuccess: () -> Unit = {},
+        onError: (Exception) -> Unit = {}
+    ) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val dir = PathManager.DIR_LEGACY_CONTROL_LAYOUTS
+                if (!dir.exists()) dir.mkdirs()
+                val builtInFile = File(dir, BUILTIN_LEGACY_FILENAME)
+                val json = GlobalContext.readRawContent(R.raw.zeryth_default_legacy_layout)
+                builtInFile.writeText(json)
+                Logger.info(TAG, "Restored built-in legacy layout to factory default.")
+                refresh()
+            }.onSuccess {
+                withContext(Dispatchers.Main) { onSuccess() }
+            }.onFailure { e ->
+                Logger.warning(TAG, "Failed to restore built-in legacy layout", e)
+                withContext(Dispatchers.Main) { onError(e as Exception) }
+            }
         }
     }
 
