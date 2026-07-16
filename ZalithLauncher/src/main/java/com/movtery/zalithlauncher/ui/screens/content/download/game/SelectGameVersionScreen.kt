@@ -528,22 +528,26 @@ private fun VersionItemLayout(
                     )
                 }
 
-                downloadSizeText?.let { sizeStr ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         modifier = Modifier.alpha(0.7f),
-                        text = stringResource(R.string.download_game_version_download_size, sizeStr),
+                        text = formatDate(
+                            input = version.version.releaseTime,
+                            pattern = stringResource(R.string.date_format)
+                        ),
                         style = MaterialTheme.typography.labelMedium
                     )
+                    downloadSizeText?.let { sizeStr ->
+                        Text(
+                            modifier = Modifier.alpha(0.7f),
+                            text = stringResource(R.string.download_game_version_download_size, sizeStr),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
-
-                Text(
-                    modifier = Modifier.alpha(0.7f),
-                    text = formatDate(
-                        input = version.version.releaseTime,
-                        pattern = stringResource(R.string.date_format)
-                    ),
-                    style = MaterialTheme.typography.labelMedium
-                )
             }
 
             wikiUrl?.let { url ->
