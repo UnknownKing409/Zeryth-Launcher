@@ -51,7 +51,17 @@ object MinecraftVersions {
     private val sizeCache = ConcurrentHashMap<String, Long>()
 
     /**
-     * Returns the estimated download size (client JAR + all game assets) for a version.
+     * Returns the total download size (client JAR + required libraries + all game assets)
+     * for a version. The calculation mirrors [com.movtery.zalithlauncher.game.version.download.BaseMinecraftDownloader]
+     * so the displayed value represents the true download payload for a fresh install.
+     *
+     * Library size logic follows the downloader exactly:
+     * - org.lwjgl is excluded (bundled by the launcher).
+     * - Modern libraries (with a `downloads.artifact` block): use `artifact.size`.
+     * - Legacy libraries (no `downloads` block): use the top-level `size` field.
+     * - Libraries whose `downloads` block is present but has no `artifact` are skipped
+     *   (the downloader skips them too).
+     *
      * Results are cached in memory for the session so repeated calls are instant.
      * Returns null if the size cannot be determined.
      */
@@ -61,9 +71,27 @@ object MinecraftVersions {
             runCatching {
                 val json = fetchStringFromUrls(versionUrl.mapBMCLMirrorUrls())
                 val gameManifest = GSON.fromJson(json, GameManifest::class.java)
+
                 val clientSize = gameManifest.downloads?.client?.size ?: 0L
                 val assetTotalSize = gameManifest.rawAssetIndex?.totalSize ?: 0L
-                val total = clientSize + assetTotalSize
+
+                // Sum library sizes using the same logic as BaseMinecraftDownloader.loadLibraryDownloads()
+                val librariesSize = gameManifest.libraries
+                    ?.filter { library -> !library.name.startsWith("org.lwjgl") }
+                    ?.sumOf { library ->
+                        when {
+                            // Modern format: downloads block with an artifact entry
+                            library.downloads?.artifact != null ->
+                                library.downloads.artifact.size.takeIf { it > 0L } ?: 0L
+                            // Legacy format: no downloads block at all — fall back to top-level size
+                            library.downloads == null ->
+                                library.size.takeIf { it > 0L } ?: 0L
+                            // downloads present but no artifact — downloader skips these
+                            else -> 0L
+                        }
+                    } ?: 0L
+
+                val total = clientSize + assetTotalSize + librariesSize
                 if (total > 0L) sizeCache[versionId] = total
                 total.takeIf { it > 0L }
             }.getOrElse { e ->
