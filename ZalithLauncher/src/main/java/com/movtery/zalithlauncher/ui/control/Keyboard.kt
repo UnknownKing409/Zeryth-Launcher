@@ -636,9 +636,17 @@ private fun KeyButton(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
-                        if (isTapMode) {
-                            currentOnTap(identifier)
-                        } else {
+                        // A normal tap always fires onTap.
+                        // • isTapMode=true  (gamepad binding): fires onTap as before.
+                        // • isTapMode=false (Send Keycode):    fires onTap for an instant
+                        //   Key Down → Key Up without leaving the key held.
+                        currentOnTap(identifier)
+                    },
+                    onLongPress = {
+                        // Long press is only meaningful in toggle mode (isTapMode=false).
+                        // It flips the held state and notifies the caller via onSwitch so
+                        // the key stays down until the same key is long-pressed again.
+                        if (!isTapMode) {
                             pressed = !pressed
                             currentOnSwitch(identifier, pressed)
                         }
