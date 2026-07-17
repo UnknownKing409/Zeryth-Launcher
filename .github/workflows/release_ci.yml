@@ -28,6 +28,7 @@ jobs:
       - name: Download Files
         uses: actions/download-artifact@v8
         with:
+          pattern: apk-*
           path: ./artifacts
           merge-multiple: true
 
