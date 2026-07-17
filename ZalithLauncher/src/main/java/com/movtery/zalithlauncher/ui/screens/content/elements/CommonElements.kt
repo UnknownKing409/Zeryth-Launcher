@@ -94,6 +94,7 @@ import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.utils.file.checkExtensionOrThrow
 import com.movtery.zalithlauncher.utils.file.formatFileSize
+import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.computeDynamicRAMAllocation
 import com.movtery.zalithlauncher.setting.computeMaximumRAMAllocation
@@ -541,22 +542,28 @@ fun MemoryPreview(
     LaunchedEffect(isAllocatedMode) {
         infinityCancellableBlock(delay = delay) {
             if (isAllocatedMode) {
-                // Total = effective allocation from launcher settings, mirrors Launcher.kt logic
-                // so it stays in sync with autoRamAllocation / autoRamAllocationMode toggles.
-                val allocatedMB = when {
-                    !AllSettings.autoRamAllocation.getValue() ->
-                        AllSettings.ramAllocation.getOrMin()
-                    else -> when (AllSettings.autoRamAllocationMode.getValue()) {
-                        "static"  -> findBestRAMAllocation(context)
-                        "maximum" -> computeMaximumRAMAllocation(context)
-                        else      -> computeDynamicRAMAllocation(context) // "dynamic" (default)
+                // Query the Minecraft JVM's Runtime directly via the native bridge.
+                // This reads the exact same values Minecraft's F3 debug screen reads:
+                //   total = Runtime.getRuntime().totalMemory()  (committed JVM heap)
+                //   used  = total - Runtime.getRuntime().freeMemory()
+                val packed = ZLBridge.getJvmHeapMemory()
+                if (packed >= 0L) {
+                    totalMemory = (packed ushr 32).toDouble()
+                    usedMemory  = (packed and 0xFFFFFFFFL).toDouble()
+                } else {
+                    // JVM not yet running (pre-launch) — fall back to configured allocation
+                    val allocatedMB = when {
+                        !AllSettings.autoRamAllocation.getValue() ->
+                            AllSettings.ramAllocation.getOrMin()
+                        else -> when (AllSettings.autoRamAllocationMode.getValue()) {
+                            "static"  -> findBestRAMAllocation(context)
+                            "maximum" -> computeMaximumRAMAllocation(context)
+                            else      -> computeDynamicRAMAllocation(context)
+                        }
                     }
+                    totalMemory = allocatedMB.toDouble()
+                    usedMemory  = minOf(getUsedMemory(context).bytesToMB(), totalMemory)
                 }
-                totalMemory = allocatedMB.toDouble()
-                // Used = system used memory, capped at the allocation ceiling.
-                // Raw system used can exceed the allocated amount (other processes
-                // also consume RAM), so we clamp it so the bar never overflows.
-                usedMemory = minOf(getUsedMemory(context).bytesToMB(), totalMemory)
             } else {
                 //总内存
                 totalMemory = getTotalMemory(context).bytesToMB()

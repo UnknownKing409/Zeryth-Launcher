@@ -76,6 +76,11 @@ public final class ZLBridge {
     @Keep public static native void sendInputData(int type, int i1, int i2, int i3, int i4);
     @Keep public static native void clipboardReceived(String data, String mimeTypeSub);
 
+    //Memory
+    // Returns JVM heap packed as (totalMB << 32) | usedMB — same values as Minecraft's F3 screen.
+    // Returns -1 when Minecraft's JVM has not yet started.
+    @Keep public static native long getJvmHeapMemory();
+
     //Utils
     @Keep public static native int chdir(String path);
     @Keep public static native void fsrInit(int qualityPreset);
