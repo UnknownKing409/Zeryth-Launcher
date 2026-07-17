@@ -51,8 +51,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -622,11 +625,13 @@ private fun KeyButton(
      */
     val isSelected = remember(refreshed) { isSelected(identifier) }
     var pressed by remember { mutableStateOf(false) }
+    var tapped by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnSwitch by rememberUpdatedState(onSwitch)
 
     val borderWidth by animateDpAsState(
-        if (pressed || isSelected) 2.dp
+        if (pressed || isSelected || tapped) 2.dp
         else (-1).dp
     )
 
@@ -636,6 +641,12 @@ private fun KeyButton(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
+                        // Flash the border briefly as a visual tap cue.
+                        tapped = true
+                        scope.launch {
+                            delay(150)
+                            tapped = false
+                        }
                         // A normal tap always fires onTap.
                         // • isTapMode=true  (gamepad binding): fires onTap as before.
                         // • isTapMode=false (Send Keycode):    fires onTap for an instant
