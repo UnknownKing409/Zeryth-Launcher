@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,9 +46,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.game.recorder.RecordingState
 import com.movtery.zalithlauncher.setting.enums.MemoryDisplayMode
 import com.movtery.zalithlauncher.ui.components.FloatingBall
 import com.movtery.zalithlauncher.ui.screens.content.elements.MemoryPreview
@@ -62,8 +66,15 @@ fun DraggableGameBall(
     memoryDisplayMode: MemoryDisplayMode = MemoryDisplayMode.System,
     opened: Boolean,
     alpha: Float = 1f,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    recordingState: RecordingState = RecordingState.IDLE,
+    onPauseRecording: () -> Unit = {},
+    onResumeRecording: () -> Unit = {},
+    onStopRecording: () -> Unit = {}
 ) {
+    val isRecordingActive = recordingState == RecordingState.RECORDING ||
+            recordingState == RecordingState.PAUSED
+
     FloatingBall(
         modifier = Modifier.focusProperties {
             canFocus = false
@@ -71,15 +82,88 @@ fun DraggableGameBall(
         position = position,
         onPositionChanged = onPositionChanged,
         onSavePos = onSavePos,
-        onClick = onClick,
+        // Suppress normal game-menu toggle while recording controls are shown
+        onClick = if (isRecordingActive) { {} } else onClick,
         alpha = alpha
     ) {
-        GameBallContent(
-            gameFps = gameFps,
-            showMemory = showMemory,
-            memoryDisplayMode = memoryDisplayMode,
-            opened = opened,
+        Crossfade(targetState = isRecordingActive, label = "ballMode") { recording ->
+            if (recording) {
+                RecordingControlContent(
+                    isPaused = recordingState == RecordingState.PAUSED,
+                    onPause = onPauseRecording,
+                    onResume = onResumeRecording,
+                    onStop = onStopRecording
+                )
+            } else {
+                GameBallContent(
+                    gameFps = gameFps,
+                    showMemory = showMemory,
+                    memoryDisplayMode = memoryDisplayMode,
+                    opened = opened,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Compact recording-control panel shown inside the floating ball while a recording
+ * is in progress.  The ball's normal click target is suppressed while this panel is
+ * visible, so every tap routes to the explicit Pause / Resume / Stop actions.
+ *
+ * These controls are rendered inside Compose and therefore live in the overlay layer
+ * that sits on top of the game's SurfaceView.  Because [GameRecorder] captures frames
+ * via PixelCopy / getBitmap directly from the SurfaceView buffer, this control panel
+ * is naturally absent from the recorded video.
+ */
+@Composable
+private fun RecordingControlContent(
+    isPaused: Boolean,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onStop: () -> Unit
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Red dot indicator
+        Icon(
+            painter = painterResource(R.drawable.ic_fiber_manual_record),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                   else Color.Red
         )
+        Spacer(Modifier.width(2.dp))
+        // Pause / Resume
+        IconButton(
+            onClick = if (isPaused) onResume else onPause,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (isPaused) R.drawable.ic_play_arrow_filled
+                    else R.drawable.ic_pause_filled
+                ),
+                contentDescription = stringResource(
+                    if (isPaused) R.string.recorder_resume else R.string.recorder_pause
+                ),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        // Stop & Save
+        IconButton(
+            onClick = onStop,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_stop_filled),
+                contentDescription = stringResource(R.string.recorder_stop_and_save),
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 

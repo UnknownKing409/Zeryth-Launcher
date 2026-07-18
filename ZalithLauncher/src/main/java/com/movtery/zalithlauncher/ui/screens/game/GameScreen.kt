@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.movtery.zalithlauncher.game.recorder.GameRecorder
+import com.movtery.zalithlauncher.game.recorder.RecordingState
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.movtery.layer_controller.ControlBoxLayout
@@ -548,6 +550,8 @@ fun GameScreen(
         eventViewModel.sendEvent(EventViewModel.Event.Game.SwitchIme(mode))
     }
     val editorViewModel = rememberEditorViewModel("ControlEditor_Times=${viewModel.editorRefresh}")
+    // Collect recorder state so the floating ball and menu button react in real-time
+    val recordingState by GameRecorder.state.collectAsStateWithLifecycle()
     val cursorMode by ZLBridgeStates.cursorMode.collectAsStateWithLifecycle()
     val isGrabbing = remember(cursorMode) {
         cursorMode == CURSOR_DISABLED
@@ -789,6 +793,17 @@ fun GameScreen(
             },
             onShowToast = { text, duration ->
                 eventViewModel.sendToast(text, duration)
+            },
+            onStartRecording = {
+                // Close the game menu, then start recording from the game surface
+                viewModel.gameMenuState = MenuState.HIDE
+                if (recordingState == RecordingState.IDLE) {
+                    GameRecorder.start(context)
+                    eventViewModel.sendToast(
+                        androidText(R.string.recorder_started),
+                        android.widget.Toast.LENGTH_SHORT
+                    )
+                }
             }
         )
 
@@ -849,6 +864,16 @@ fun GameScreen(
                     alpha = AllSettings.menuBallOpacity.state / 100f,
                     onClick = {
                         viewModel.switchMenu()
+                    },
+                    recordingState = recordingState,
+                    onPauseRecording = { GameRecorder.pause() },
+                    onResumeRecording = { GameRecorder.resume() },
+                    onStopRecording = {
+                        GameRecorder.stopAndSave(context)
+                        eventViewModel.sendToast(
+                            androidText(R.string.recorder_saved),
+                            android.widget.Toast.LENGTH_SHORT
+                        )
                     }
                 )
             }

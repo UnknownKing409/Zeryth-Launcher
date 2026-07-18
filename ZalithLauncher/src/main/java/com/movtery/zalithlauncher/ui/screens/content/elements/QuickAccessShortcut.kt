@@ -58,11 +58,14 @@ enum class QuickAccessShortcut(
 
     // ── Statistics shortcuts ───────────────────────────────────────────────────
     STATS("stats", R.drawable.ic_dashboard_outlined, R.string.quick_access_shortcut_stats),
-    PLAY_TIME_STATS("play_time_stats", R.drawable.ic_schedule_outlined, R.string.quick_access_shortcut_play_time_stats);
+    PLAY_TIME_STATS("play_time_stats", R.drawable.ic_schedule_outlined, R.string.quick_access_shortcut_play_time_stats),
+
+    // ── Media shortcuts ────────────────────────────────────────────────────────
+    RECORDINGS("recordings", R.drawable.ic_videocam_outlined, R.string.quick_access_shortcut_recordings);
 
     companion object {
         /** IDs used when no user configuration has been saved. */
-        val DEFAULT_IDS: List<String> = listOf(FPS.id, FILE_MANAGER.id, VERSIONS.id, CONTROLS.id)
+        val DEFAULT_IDS: List<String> = listOf(FPS.id, FILE_MANAGER.id, RECORDINGS.id, VERSIONS.id, CONTROLS.id)
 
         fun fromId(id: String): QuickAccessShortcut? = entries.find { it.id == id }
     }

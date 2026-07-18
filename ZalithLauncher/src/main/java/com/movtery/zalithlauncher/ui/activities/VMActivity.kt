@@ -31,6 +31,7 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.TextureView
+import com.movtery.zalithlauncher.game.recorder.GameSurfaceRegistry
 import android.view.TextureView.SurfaceTextureListener
 import android.view.WindowManager
 import android.widget.Toast
@@ -589,6 +590,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onDestroy() {
+        GameSurfaceRegistry.unregister()
         stopAllService()
         withHandler { onDestroy() }
         super.onDestroy()
@@ -778,6 +780,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                         SurfaceView(context).apply {
                             holder.addCallback(this@VMActivity)
                         }.also { view ->
+                            GameSurfaceRegistry.register(view)
                             applySizeToSurface = { width, height ->
                                 view.holder.setFixedSize(width, height)
                             }
@@ -789,6 +792,7 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
                             surfaceTextureListener = this@VMActivity
                         }.also { view ->
+                            GameSurfaceRegistry.register(view)
                             applySizeToSurface = { width, height ->
                                 view.surfaceTexture?.setDefaultBufferSize(width, height)
                             }

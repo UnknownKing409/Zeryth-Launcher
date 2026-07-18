@@ -309,6 +309,9 @@ fun LauncherScreen(
         val onPlayTimeStatsClick: () -> Unit = {
             backStackViewModel.mainScreen.navigateTo(screenKey = NormalNavKey.PlayTimeStats)
         }
+        val onRecordingsClick: () -> Unit = {
+            backStackViewModel.mainScreen.navigateTo(screenKey = NormalNavKey.Recordings)
+        }
 
         if (showAboutDialog) {
             AboutDialog(onDismissRequest = { showAboutDialog = false })
@@ -366,6 +369,7 @@ fun LauncherScreen(
                         onGameSettingsClick = onGameSettingsClick,
                         onStatsClick = onStatsClick,
                         onPlayTimeStatsClick = onPlayTimeStatsClick,
+                        onRecordingsClick = onRecordingsClick,
                         onCollapse = { navBarExpanded = false },
                     )
                 }
@@ -495,6 +499,7 @@ private fun ContentMenu(
     onGameSettingsClick: () -> Unit,
     onStatsClick: () -> Unit,
     onPlayTimeStatsClick: () -> Unit,
+    onRecordingsClick: () -> Unit = {},
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -750,6 +755,7 @@ private fun ContentMenu(
             onGameSettingsClick = onGameSettingsClick,
             onStatsClick = onStatsClick,
             onPlayTimeStatsClick = onPlayTimeStatsClick,
+            onRecordingsClick = onRecordingsClick,
             onSidebarStateChange = { expanded -> quickAccessExpanded = expanded }
         )
         }
@@ -800,6 +806,7 @@ private fun EmptyVersionsHint() {
       onGameSettingsClick: () -> Unit,
       onStatsClick: () -> Unit,
       onPlayTimeStatsClick: () -> Unit,
+      onRecordingsClick: () -> Unit = {},
       onSidebarStateChange: (Boolean) -> Unit = {},
       modifier: Modifier = Modifier
   ) {
@@ -930,6 +937,7 @@ private fun EmptyVersionsHint() {
                                           QuickAccessShortcut.GAME_SETTINGS -> onGameSettingsClick()
                                           QuickAccessShortcut.STATS -> onStatsClick()
                                           QuickAccessShortcut.PLAY_TIME_STATS -> onPlayTimeStatsClick()
+                                          QuickAccessShortcut.RECORDINGS -> onRecordingsClick()
                                       }
                                       onNavInteraction()
                                   }
