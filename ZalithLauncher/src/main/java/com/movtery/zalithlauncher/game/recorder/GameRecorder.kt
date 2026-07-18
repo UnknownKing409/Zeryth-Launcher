@@ -30,6 +30,13 @@ import android.util.Log
 import android.view.PixelCopy
 import android.view.SurfaceView
 import android.view.TextureView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,9 +67,21 @@ private const val VIDEO_BIT_RATE = 6_000_000 // 6 Mbps
  * [android.view.Surface.lockCanvas] / [android.view.Surface.unlockCanvasAndPost],
  * and [MediaRecorder] handles all H.264 encoding and MP4 muxing internally.
  *
+ * ## Audio recording
+ * Microphone audio is recorded via [MediaRecorder.AudioSource.MIC] when the caller
+ * passes [withMic] = true (which should happen whenever [android.Manifest.permission.RECORD_AUDIO]
+ * is granted).  Internal game audio capture (via [android.media.AudioPlaybackCaptureConfiguration])
+ * requires a [android.media.projection.MediaProjection] token and is not yet wired; the fallback
+ * is microphone-only or silent, with the caller informed via the returned boolean.
+ *
  * ## Pause / Resume
  * Uses [MediaRecorder.pause] / [MediaRecorder.resume] (API 24+, within our
  * minSdk 26), so the encoder gap is seamless in the output file.
+ *
+ * ## Elapsed timer
+ * [elapsedMs] is a [StateFlow] that ticks every ~250 ms while recording is active
+ * and pauses (accumulates) when the user pauses recording, giving the UI an accurate
+ * live timer.  It resets to 0 when recording stops.
  *
  * ## Output
  * Files land in `Movies/Zeryth Recordings/` via [MediaStore], making them
@@ -71,6 +90,18 @@ private const val VIDEO_BIT_RATE = 6_000_000 // 6 Mbps
 object GameRecorder {
     private val _state = MutableStateFlow(RecordingState.IDLE)
     val state: StateFlow<RecordingState> = _state.asStateFlow()
+
+    // ── Elapsed recording timer ───────────────────────────────────────────────
+    private val _elapsedMs = MutableStateFlow(0L)
+    /** Elapsed recording time in milliseconds.  Pauses when recording is paused, resets on stop. */
+    val elapsedMs: StateFlow<Long> = _elapsedMs.asStateFlow()
+
+    private val timerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var timerJob: Job? = null
+    /** Milliseconds accumulated before the most recent pause. */
+    @Volatile private var accumulatedMs = 0L
+    /** Wall-clock time (ms) at which the current recording/resume segment started. */
+    @Volatile private var resumeTimeMs = 0L
 
     // MediaRecorder and its input surface
     @Volatile private var recorder: MediaRecorder? = null
@@ -94,6 +125,8 @@ object GameRecorder {
      *
      * @param context Android context (used for [MediaStore] and file creation).
      * @param withMic If true, microphone audio is mixed in via [MediaRecorder.AudioSource.MIC].
+     *                The caller is responsible for confirming that [android.Manifest.permission.RECORD_AUDIO]
+     *                is granted before passing true.
      */
     fun start(context: Context, withMic: Boolean = false) {
         if (_state.value != RecordingState.IDLE) return
@@ -120,10 +153,15 @@ object GameRecorder {
                 MediaRecorder()
             }
             rec.apply {
+                // Audio source MUST be set before video source and output format
                 if (withMic) setAudioSource(MediaRecorder.AudioSource.MIC)
                 setVideoSource(MediaRecorder.VideoSource.SURFACE)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                if (withMic) setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                if (withMic) {
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setAudioEncodingBitRate(128_000)
+                    setAudioSamplingRate(44_100)
+                }
                 setVideoEncoder(MediaRecorder.VideoEncoder.H264)
                 setVideoSize(w, h)
                 setVideoFrameRate(FRAME_RATE)
@@ -147,6 +185,13 @@ object GameRecorder {
 
             isCapturing.set(true)
             _state.value = RecordingState.RECORDING
+
+            // Start the elapsed timer from zero
+            accumulatedMs = 0L
+            resumeTimeMs = System.currentTimeMillis()
+            _elapsedMs.value = 0L
+            startTimerTick()
+
             scheduleNextFrame()
 
             Log.i(TAG, "Recording started ${w}x${h} mic=$withMic")
@@ -161,8 +206,12 @@ object GameRecorder {
         if (_state.value != RecordingState.RECORDING) return
         try {
             recorder?.pause()
+            // Freeze timer: accumulate elapsed time up to this moment
+            accumulatedMs += System.currentTimeMillis() - resumeTimeMs
+            timerJob?.cancel()
+            timerJob = null
             _state.value = RecordingState.PAUSED
-            Log.i(TAG, "Recording paused")
+            Log.i(TAG, "Recording paused at ${accumulatedMs}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to pause: ${e.message}")
         }
@@ -173,6 +222,9 @@ object GameRecorder {
         if (_state.value != RecordingState.PAUSED) return
         try {
             recorder?.resume()
+            // Resume timer from where it left off
+            resumeTimeMs = System.currentTimeMillis()
+            startTimerTick()
             _state.value = RecordingState.RECORDING
             scheduleNextFrame()   // restart the frame loop
             Log.i(TAG, "Recording resumed")
@@ -192,6 +244,10 @@ object GameRecorder {
         if (current == RecordingState.IDLE || current == RecordingState.STOPPING) return
         _state.value = RecordingState.STOPPING
         isCapturing.set(false)
+
+        // Stop timer immediately
+        timerJob?.cancel()
+        timerJob = null
 
         // Finalise on the capture thread so any in-flight PixelCopy callback completes first.
         captureHandler?.post { finalise(context) }
@@ -252,6 +308,22 @@ object GameRecorder {
         }.onFailure { Log.w(TAG, "drawToSurface failed: ${it.message}") }
     }
 
+    // ──────────────────────────────────────────────────────────── Timer ───────
+
+    /**
+     * Starts (or restarts) the background coroutine that updates [elapsedMs] roughly
+     * every 250 ms.  The ticker respects [accumulatedMs] so that paused time is not counted.
+     */
+    private fun startTimerTick() {
+        timerJob?.cancel()
+        timerJob = timerScope.launch {
+            while (isActive) {
+                _elapsedMs.value = accumulatedMs + (System.currentTimeMillis() - resumeTimeMs)
+                delay(250L)
+            }
+        }
+    }
+
     // ─────────────────────────────────────────────────────── Finalisation ────
 
     private fun finalise(context: Context) {
@@ -282,6 +354,11 @@ object GameRecorder {
             captureHandler = null
             pendingUri = null
             pendingFile = null
+            // Reset timer
+            timerJob?.cancel()
+            timerJob = null
+            _elapsedMs.value = 0L
+            accumulatedMs = 0L
             _state.value = RecordingState.IDLE
         }
     }
@@ -296,6 +373,11 @@ object GameRecorder {
         captureThread?.quit()
         captureThread = null
         captureHandler = null
+        // Reset timer
+        timerJob?.cancel()
+        timerJob = null
+        _elapsedMs.value = 0L
+        accumulatedMs = 0L
         _state.value = RecordingState.IDLE
     }
 

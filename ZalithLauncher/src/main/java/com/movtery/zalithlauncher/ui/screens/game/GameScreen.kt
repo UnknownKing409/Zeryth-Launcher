@@ -21,8 +21,13 @@ package com.movtery.zalithlauncher.ui.screens.game
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -550,8 +555,9 @@ fun GameScreen(
         eventViewModel.sendEvent(EventViewModel.Event.Game.SwitchIme(mode))
     }
     val editorViewModel = rememberEditorViewModel("ControlEditor_Times=${viewModel.editorRefresh}")
-    // Collect recorder state so the floating ball and menu button react in real-time
+    // Collect recorder state and elapsed timer so the floating ball reacts in real-time
     val recordingState by GameRecorder.state.collectAsStateWithLifecycle()
+    val elapsedMs by GameRecorder.elapsedMs.collectAsStateWithLifecycle()
     val cursorMode by ZLBridgeStates.cursorMode.collectAsStateWithLifecycle()
     val isGrabbing = remember(cursorMode) {
         cursorMode == CURSOR_DISABLED
@@ -562,6 +568,18 @@ fun GameScreen(
         val name = AllSettings.legacyControlLayout.getValue()
         if (name.isNotEmpty()) File(PathManager.DIR_LEGACY_CONTROL_LAYOUTS, name).takeIf { it.exists() } else null
     } else null
+    // Permission launcher for RECORD_AUDIO — triggers recording once the user grants it
+    var pendingStartRecording by remember { mutableStateOf(false) }
+    val requestAudioPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (pendingStartRecording) {
+            pendingStartRecording = false
+            GameRecorder.start(context, withMic = granted)
+            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+        }
+    }
+
     val joystickMovementViewModel: JoystickMovementViewModel = viewModel()
     val terracottaViewModel = rememberTerracottaViewModel(
         keyTag = gameHandler.toString() + "_Terracotta",
@@ -795,14 +813,24 @@ fun GameScreen(
                 eventViewModel.sendToast(text, duration)
             },
             onStartRecording = {
-                // Close the game menu, then start recording from the game surface
+                // Close the game menu, then start recording with mic if permission is granted.
+                // If RECORD_AUDIO hasn't been granted yet, request it — recording starts
+                // automatically in the permission-result callback above.
                 viewModel.gameMenuState = MenuState.HIDE
                 if (recordingState == RecordingState.IDLE) {
-                    GameRecorder.start(context)
-                    eventViewModel.sendToast(
-                        androidText(R.string.recorder_started),
-                        android.widget.Toast.LENGTH_SHORT
-                    )
+                    val hasAudio = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasAudio) {
+                        GameRecorder.start(context, withMic = true)
+                        eventViewModel.sendToast(
+                            androidText(R.string.recorder_started),
+                            Toast.LENGTH_SHORT
+                        )
+                    } else {
+                        pendingStartRecording = true
+                        requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 }
             }
         )
@@ -866,6 +894,7 @@ fun GameScreen(
                         viewModel.switchMenu()
                     },
                     recordingState = recordingState,
+                    elapsedMs = elapsedMs,
                     onPauseRecording = { GameRecorder.pause() },
                     onResumeRecording = { GameRecorder.resume() },
                     onStopRecording = {

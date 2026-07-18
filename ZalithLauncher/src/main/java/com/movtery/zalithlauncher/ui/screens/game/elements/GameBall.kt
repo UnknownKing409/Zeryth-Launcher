@@ -68,6 +68,7 @@ fun DraggableGameBall(
     alpha: Float = 1f,
     onClick: () -> Unit = {},
     recordingState: RecordingState = RecordingState.IDLE,
+    elapsedMs: Long = 0L,
     onPauseRecording: () -> Unit = {},
     onResumeRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {}
@@ -82,43 +83,43 @@ fun DraggableGameBall(
         position = position,
         onPositionChanged = onPositionChanged,
         onSavePos = onSavePos,
-        // Suppress normal game-menu toggle while recording controls are shown
-        onClick = if (isRecordingActive) { {} } else onClick,
+        // Ball click always opens the Game Menu — fully accessible even while recording.
+        // Recording controls expand to the right of the ball instead of replacing it.
+        onClick = onClick,
         alpha = alpha
     ) {
-        Crossfade(targetState = isRecordingActive, label = "ballMode") { recording ->
-            if (recording) {
-                RecordingControlContent(
-                    isPaused = recordingState == RecordingState.PAUSED,
-                    onPause = onPauseRecording,
-                    onResume = onResumeRecording,
-                    onStop = onStopRecording
-                )
-            } else {
-                GameBallContent(
-                    gameFps = gameFps,
-                    showMemory = showMemory,
-                    memoryDisplayMode = memoryDisplayMode,
-                    opened = opened,
-                )
-            }
-        }
+        GameBallContent(
+            gameFps = gameFps,
+            showMemory = showMemory,
+            memoryDisplayMode = memoryDisplayMode,
+            opened = opened,
+            isRecordingActive = isRecordingActive,
+            isPaused = recordingState == RecordingState.PAUSED,
+            elapsedMs = elapsedMs,
+            onPauseRecording = onPauseRecording,
+            onResumeRecording = onResumeRecording,
+            onStopRecording = onStopRecording,
+        )
     }
 }
 
 /**
- * Compact recording-control panel shown inside the floating ball while a recording
- * is in progress.  The ball's normal click target is suppressed while this panel is
- * visible, so every tap routes to the explicit Pause / Resume / Stop actions.
+ * Compact recording-control strip that expands to the **right** of the floating ball while a
+ * recording is active — matching the same horizontal-expansion pattern used by the FPS display
+ * and Memory display.
  *
- * These controls are rendered inside Compose and therefore live in the overlay layer
- * that sits on top of the game's SurfaceView.  Because [GameRecorder] captures frames
- * via PixelCopy / getBitmap directly from the SurfaceView buffer, this control panel
- * is naturally absent from the recorded video.
+ * Controls are rendered inside Compose and therefore live in the overlay layer on top of the
+ * game's SurfaceView.  Because [com.movtery.zalithlauncher.game.recorder.GameRecorder] captures
+ * frames via PixelCopy / getBitmap directly from the SurfaceView buffer, this strip is naturally
+ * absent from recorded video.
+ *
+ * The floating ball itself remains clickable and continues to open the built-in Game Menu as
+ * normal, so the user can access all in-game launcher functions without stopping the recording.
  */
 @Composable
 private fun RecordingControlContent(
     isPaused: Boolean,
+    elapsedMs: Long,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit
@@ -127,19 +128,24 @@ private fun RecordingControlContent(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Red dot indicator
+        // Recording indicator dot — red when active, dimmed when paused
         Icon(
             painter = painterResource(R.drawable.ic_fiber_manual_record),
             contentDescription = null,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(12.dp),
             tint = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                    else Color.Red
         )
-        Spacer(Modifier.width(2.dp))
-        // Pause / Resume
+        Spacer(Modifier.width(3.dp))
+        // Live elapsed timer (MM:SS or HH:MM:SS)
+        Text(
+            text = elapsedMs.formatElapsedTime(),
+            style = MaterialTheme.typography.labelSmall,
+        )
+        // Pause / Resume toggle
         IconButton(
             onClick = if (isPaused) onResume else onPause,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(28.dp)
         ) {
             Icon(
                 painter = painterResource(
@@ -149,21 +155,34 @@ private fun RecordingControlContent(
                 contentDescription = stringResource(
                     if (isPaused) R.string.recorder_resume else R.string.recorder_pause
                 ),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
         // Stop & Save
         IconButton(
             onClick = onStop,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(28.dp)
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_stop_filled),
                 contentDescription = stringResource(R.string.recorder_stop_and_save),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.error
             )
         }
+    }
+}
+
+/** Formats elapsed milliseconds as MM:SS, or HH:MM:SS for recordings longer than an hour. */
+private fun Long.formatElapsedTime(): String {
+    val totalSeconds = this / 1000L
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%02d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
     }
 }
 
@@ -173,6 +192,12 @@ private fun GameBallContent(
     showMemory: Boolean,
     memoryDisplayMode: MemoryDisplayMode = MemoryDisplayMode.System,
     opened: Boolean,
+    isRecordingActive: Boolean = false,
+    isPaused: Boolean = false,
+    elapsedMs: Long = 0L,
+    onPauseRecording: () -> Unit = {},
+    onResumeRecording: () -> Unit = {},
+    onStopRecording: () -> Unit = {},
 ) {
     val showFps = remember(gameFps) {
         gameFps != null
@@ -182,6 +207,7 @@ private fun GameBallContent(
         modifier = Modifier.padding(all = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Menu icon — always visible and always opens the built-in Game Menu
         Box(
             modifier = Modifier.size(28.dp),
             contentAlignment = Alignment.Center
@@ -250,6 +276,23 @@ private fun GameBallContent(
             ) {
                 Spacer(Modifier.height(4.dp))
             }
+        }
+
+        // Recording controls expand to the right of the ball while recording is active.
+        // This mirrors how FPS and Memory displays expand horizontally from the ball.
+        // The ball's click target (Game Menu) remains fully functional during recording.
+        AnimatedVisibility(
+            visible = isRecordingActive,
+            enter = expandIn(expandFrom = Alignment.CenterStart) + fadeIn(),
+            exit = shrinkOut(shrinkTowards = Alignment.CenterStart) + fadeOut(),
+        ) {
+            RecordingControlContent(
+                isPaused = isPaused,
+                elapsedMs = elapsedMs,
+                onPause = onPauseRecording,
+                onResume = onResumeRecording,
+                onStop = onStopRecording,
+            )
         }
     }
 }
