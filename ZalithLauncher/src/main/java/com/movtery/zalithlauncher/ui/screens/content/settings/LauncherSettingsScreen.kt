@@ -110,6 +110,7 @@ import com.movtery.zalithlauncher.ui.components.verticalScrollWithBar
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.TitledNavKey
+import com.movtery.zalithlauncher.ui.screens.navigateTo
 import com.movtery.zalithlauncher.ui.screens.content.elements.DisabledAlpha
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.CardPosition
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.EnumSettingsCard
@@ -314,6 +315,23 @@ fun LauncherSettingsScreen(
                         unit = AllSettings.launcherFullScreen,
                         title = stringResource(R.string.settings_launcher_full_screen_title),
                         summary = stringResource(R.string.settings_launcher_full_screen_summary)
+                    )
+                }
+            }
+
+            AnimatedItem(scope) { yOffset ->
+                SettingsCardColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                ) {
+                    SettingsCard(
+                        position = CardPosition.Single,
+                        title = stringResource(R.string.settings_launcher_quick_access_title),
+                        summary = stringResource(R.string.settings_launcher_quick_access_summary),
+                        onClick = {
+                            key.backStack.navigateTo(NormalNavKey.Settings.QuickAccessCustomization)
+                        }
                     )
                 }
             }

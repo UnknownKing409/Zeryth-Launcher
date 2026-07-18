@@ -401,6 +401,15 @@ object AllSettings : SettingsRegistry() {
     val launcherFestivalEffects = boolSetting("launcherFestivalEffects", true)
 
     /**
+     * Quick Access 面板快捷方式（有序列表，存储快捷方式ID）
+     * 默认顺序：FPS、文件管理器、版本管理、控制布局
+     */
+    val quickAccessShortcuts = stringListSetting(
+        "quickAccessShortcuts",
+        listOf("fps", "file_manager", "versions", "controls")
+    )
+
+    /**
      * 动画倍速
      */
     val launcherAnimateSpeed = intSetting("launcherAnimateSpeed", 5, 0..10)

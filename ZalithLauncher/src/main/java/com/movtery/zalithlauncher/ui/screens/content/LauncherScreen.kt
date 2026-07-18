@@ -152,6 +152,7 @@ import com.movtery.zalithlauncher.ui.screens.TitledNavKey
 import com.movtery.zalithlauncher.ui.screens.content.elements.AccountAvatar
 import com.movtery.zalithlauncher.ui.screens.content.elements.CommonVersionInfoLayout
 import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
+import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcut
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionIconImage
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
@@ -232,6 +233,25 @@ fun LauncherScreen(
                 screenKey = backStackViewModel.settingsScreen
             )
         }
+        val onSettingsClick: () -> Unit = {
+            backStackViewModel.settingsScreen.clearWith(NormalNavKey.Settings.Launcher)
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.settingsScreen
+            )
+        }
+        val onJavaClick: () -> Unit = {
+            backStackViewModel.settingsScreen.clearWith(NormalNavKey.Settings.JavaManager)
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.settingsScreen
+            )
+        }
+        val onAccountsClick: () -> Unit = {
+            backStackViewModel.mainScreen.navigateTo(
+                screenKey = NormalNavKey.AccountManager(FirstLoginMenu.NONE)
+            )
+        }
 
         if (showAboutDialog) {
             AboutDialog(onDismissRequest = { showAboutDialog = false })
@@ -276,6 +296,9 @@ fun LauncherScreen(
                         onVersionsManageClick = onVersionsManageClick,
                         onInfoClick = onInfoClick,
                         onControlsClick = onControlsClick,
+                        onSettingsClick = onSettingsClick,
+                        onJavaClick = onJavaClick,
+                        onAccountsClick = onAccountsClick,
                         onCollapse = { navBarExpanded = false },
                     )
                 }
@@ -392,6 +415,9 @@ private fun ContentMenu(
     onVersionsManageClick: () -> Unit,
     onInfoClick: () -> Unit,
     onControlsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onJavaClick: () -> Unit,
+    onAccountsClick: () -> Unit,
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -634,6 +660,9 @@ private fun ContentMenu(
             onVersionsManageClick = onVersionsManageClick,
             onInfoClick = onInfoClick,
             onControlsClick = onControlsClick,
+            onSettingsClick = onSettingsClick,
+            onJavaClick = onJavaClick,
+            onAccountsClick = onAccountsClick,
             onSidebarStateChange = { expanded -> quickAccessExpanded = expanded }
         )
         }
@@ -671,6 +700,9 @@ private fun EmptyVersionsHint() {
       onVersionsManageClick: () -> Unit,
       onInfoClick: () -> Unit,
       onControlsClick: () -> Unit,
+      onSettingsClick: () -> Unit,
+      onJavaClick: () -> Unit,
+      onAccountsClick: () -> Unit,
       onSidebarStateChange: (Boolean) -> Unit = {},
       modifier: Modifier = Modifier
   ) {
@@ -765,52 +797,54 @@ private fun EmptyVersionsHint() {
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                   modifier = Modifier.padding(horizontal = 4.dp)
                               )
-                              // Shortcut grid
-                              Row(
+                              // Shortcut grid — driven by AllSettings.quickAccessShortcuts
+                              val shortcutIds = AllSettings.quickAccessShortcuts.state
+                              val resolvedShortcuts = shortcutIds
+                                  .mapNotNull { QuickAccessShortcut.fromId(it) }
+                                  .take(6)
+                                  .ifEmpty {
+                                      QuickAccessShortcut.DEFAULT_IDS
+                                          .mapNotNull { QuickAccessShortcut.fromId(it) }
+                                  }
+                              val shortcutRows = resolvedShortcuts.chunked(3)
+
+                              Column(
                                   modifier = Modifier.fillMaxWidth().weight(1f),
-                                  horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                  verticalAlignment = Alignment.CenterVertically
+                                  verticalArrangement = Arrangement.spacedBy(8.dp)
                               ) {
-                                  NavSidebarShortcut(
-                                      modifier = Modifier.weight(1f),
-                                      iconRes = R.drawable.ic_video_settings,
-                                      label = "FPS",
-                                      onClick = {
-                                          navSidebarExpanded = false
-                                          onFpsClick()
-                                          onNavInteraction()
+                                  shortcutRows.forEach { row ->
+                                      Row(
+                                          modifier = Modifier.fillMaxWidth().weight(1f),
+                                          horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                          verticalAlignment = Alignment.CenterVertically
+                                      ) {
+                                          row.forEach { shortcut ->
+                                              NavSidebarShortcut(
+                                                  modifier = Modifier.weight(1f),
+                                                  iconRes = shortcut.iconRes,
+                                                  label = stringResource(shortcut.labelRes),
+                                                  onClick = {
+                                                      navSidebarExpanded = false
+                                                      when (shortcut) {
+                                                          QuickAccessShortcut.FPS -> onFpsClick()
+                                                          QuickAccessShortcut.FILE_MANAGER -> onFileManagerClick()
+                                                          QuickAccessShortcut.VERSIONS -> onVersionsManageClick()
+                                                          QuickAccessShortcut.CONTROLS -> onControlsClick()
+                                                          QuickAccessShortcut.ABOUT -> onInfoClick()
+                                                          QuickAccessShortcut.SETTINGS -> onSettingsClick()
+                                                          QuickAccessShortcut.JAVA -> onJavaClick()
+                                                          QuickAccessShortcut.ACCOUNTS -> onAccountsClick()
+                                                      }
+                                                      onNavInteraction()
+                                                  }
+                                              )
+                                          }
+                                          // Fill empty slots in the last row so weights balance
+                                          repeat(3 - row.size) {
+                                              Spacer(modifier = Modifier.weight(1f))
+                                          }
                                       }
-                                  )
-                                  NavSidebarShortcut(
-                                      modifier = Modifier.weight(1f),
-                                      iconRes = R.drawable.ic_folder_outlined,
-                                      label = stringResource(R.string.page_title_file_manager),
-                                      onClick = {
-                                          navSidebarExpanded = false
-                                          onFileManagerClick()
-                                          onNavInteraction()
-                                      }
-                                  )
-                                  NavSidebarShortcut(
-                                      modifier = Modifier.weight(1f),
-                                      iconRes = R.drawable.ic_assignment_filled,
-                                      label = stringResource(R.string.launcher_dashboard_tab_versions),
-                                      onClick = {
-                                          navSidebarExpanded = false
-                                          onVersionsManageClick()
-                                          onNavInteraction()
-                                      }
-                                  )
-                                  NavSidebarShortcut(
-                                      modifier = Modifier.weight(1f),
-                                      iconRes = R.drawable.ic_videogame_asset_outlined,
-                                      label = "Controls",
-                                      onClick = {
-                                          navSidebarExpanded = false
-                                          onControlsClick()
-                                          onNavInteraction()
-                                      }
-                                  )
+                                  }
                               }
                               // Center back button
                               Box(
