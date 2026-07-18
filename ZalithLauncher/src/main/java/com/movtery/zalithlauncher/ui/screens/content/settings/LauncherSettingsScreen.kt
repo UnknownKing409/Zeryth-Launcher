@@ -763,6 +763,7 @@ fun LauncherSettingsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(
+                                            Pair(AllSettings.autoSelectModpacks, R.string.settings_launcher_auto_select_modpacks),
                                             Pair(AllSettings.autoSelectMods, R.string.settings_launcher_auto_select_mods),
                                             Pair(AllSettings.autoSelectResourcePacks, R.string.settings_launcher_auto_select_resource_packs),
                                             Pair(AllSettings.autoSelectShaderPacks, R.string.settings_launcher_auto_select_shader_packs),

@@ -503,6 +503,8 @@ object AllSettings : SettingsRegistry() {
      * 开启时，搜索下载内容时若只有一个已安装版本则自动预选游戏版本
      */
     val autoSelectDownloadContent = boolSetting("autoSelectDownloadContent", true)
+    /** 自动选择 — 整合包 */
+    val autoSelectModpacks = boolSetting("autoSelectModpacks", true)
     /** 自动选择 — 模组 */
     val autoSelectMods = boolSetting("autoSelectMods", true)
     /** 自动选择 — 资源包 */
@@ -511,6 +513,11 @@ object AllSettings : SettingsRegistry() {
     val autoSelectShaderPacks = boolSetting("autoSelectShaderPacks", true)
     /** 自动选择 — 存档 */
     val autoSelectSaves = boolSetting("autoSelectSaves", true)
+    /**
+     * Migration flag: true once the auto-select sub-settings have been reset to their defaults
+     * after the feature was repurposed from auto-scrolling to game-version auto-selection.
+     */
+    val autoSelectGameVersionMigrationDone = boolSetting("autoSelectGameVersionMigrationDone", false)
 
     //Control
     /**

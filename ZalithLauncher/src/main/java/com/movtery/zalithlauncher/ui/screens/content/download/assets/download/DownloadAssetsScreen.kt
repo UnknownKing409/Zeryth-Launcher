@@ -466,8 +466,20 @@ private fun Versions(
 
                 val scrollState = rememberLazyListState()
 
+                // Auto-select the current game version in the filter chips when entering the screen.
+                // Controlled by the "Auto Select Download Content" setting.
                 LaunchedEffect(Unit) {
                     if (!autoSelect) return@LaunchedEffect
+                    val currentMcVersion = VersionsManager.currentVersion.value
+                        ?.getVersionInfo()?.minecraftVersion ?: return@LaunchedEffect
+                    if (currentMcVersion in installedVersions && viewModel.selectedGameVersion == null) {
+                        viewModel.filterWith(currentMcVersion)
+                    }
+                }
+
+                // Auto-scroll to the first adapted content version — always enabled regardless
+                // of the Auto Select setting (restored to unconditional default behavior).
+                LaunchedEffect(Unit) {
                     delay(100L.milliseconds)
                     runCatching {
                         val result = versions.result

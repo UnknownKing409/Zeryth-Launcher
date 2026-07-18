@@ -1722,6 +1722,7 @@
     <string name="settings_launcher_auto_select_resource_packs">Resource Packs</string>
     <string name="settings_launcher_auto_select_shader_packs">Shader Packs</string>
     <string name="settings_launcher_auto_select_saves">Saves</string>
+    <string name="settings_launcher_auto_select_modpacks">Modpacks</string>
 
     <!-- Quick Access Panel Customization -->
     <string name="settings_launcher_quick_access_title">Quick Access Customization</string>
