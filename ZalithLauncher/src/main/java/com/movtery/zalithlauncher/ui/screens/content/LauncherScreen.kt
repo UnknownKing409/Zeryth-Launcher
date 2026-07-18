@@ -714,9 +714,18 @@ private fun EmptyVersionsHint() {
       LaunchedEffect(navSidebarExpanded) {
           onSidebarStateChange(navSidebarExpanded)
       }
-      // Animated bar height: taller when sidebar is open
+      // Resolve shortcuts here so navBarHeight can depend on row count
+      val resolvedShortcuts = AllSettings.quickAccessShortcuts.state
+          .mapNotNull { QuickAccessShortcut.fromId(it) }
+          .take(8)
+          .ifEmpty { QuickAccessShortcut.DEFAULT_IDS.mapNotNull { QuickAccessShortcut.fromId(it) } }
+      val shortcutRows = resolvedShortcuts.chunked(4)
+
+      // Animated bar height: taller when sidebar is open; extra height for 2 shortcut rows
       val navBarHeight by animateDpAsState(
-          targetValue = if (navSidebarExpanded) 240.dp else 80.dp,
+          targetValue = if (navSidebarExpanded) {
+              if (shortcutRows.size > 1) 320.dp else 240.dp
+          } else 80.dp,
           animationSpec = spring(
               dampingRatio = Spring.DampingRatioNoBouncy,
               stiffness = Spring.StiffnessMediumLow
@@ -797,17 +806,7 @@ private fun EmptyVersionsHint() {
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                   modifier = Modifier.padding(horizontal = 4.dp)
                               )
-                              // Shortcut grid — driven by AllSettings.quickAccessShortcuts
-                              val shortcutIds = AllSettings.quickAccessShortcuts.state
-                              val resolvedShortcuts = shortcutIds
-                                  .mapNotNull { QuickAccessShortcut.fromId(it) }
-                                  .take(6)
-                                  .ifEmpty {
-                                      QuickAccessShortcut.DEFAULT_IDS
-                                          .mapNotNull { QuickAccessShortcut.fromId(it) }
-                                  }
-                              val shortcutRows = resolvedShortcuts.chunked(3)
-
+                              // Shortcut grid — resolved at DashboardTabBar level (shortcutRows)
                               Column(
                                   modifier = Modifier.fillMaxWidth().weight(1f),
                                   verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -840,7 +839,7 @@ private fun EmptyVersionsHint() {
                                               )
                                           }
                                           // Fill empty slots in the last row so weights balance
-                                          repeat(3 - row.size) {
+                                          repeat(4 - row.size) {
                                               Spacer(modifier = Modifier.weight(1f))
                                           }
                                       }
