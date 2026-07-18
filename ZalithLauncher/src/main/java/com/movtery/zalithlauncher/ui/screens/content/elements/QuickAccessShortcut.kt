@@ -65,7 +65,9 @@ enum class QuickAccessShortcut(
 
     companion object {
         /** IDs used when no user configuration has been saved. */
-        val DEFAULT_IDS: List<String> = listOf(FPS.id, FILE_MANAGER.id, RECORDINGS.id, VERSIONS.id, CONTROLS.id)
+        // Recordings is placed immediately to the LEFT of File Manager so it appears
+        // before the folder shortcut in the quick-access panel reading order.
+        val DEFAULT_IDS: List<String> = listOf(FPS.id, RECORDINGS.id, FILE_MANAGER.id, VERSIONS.id, CONTROLS.id)
 
         fun fromId(id: String): QuickAccessShortcut? = entries.find { it.id == id }
     }

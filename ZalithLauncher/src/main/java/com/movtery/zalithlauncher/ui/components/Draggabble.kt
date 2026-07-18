@@ -114,7 +114,10 @@ fun FloatingBall(
                         val startPosition = down.position
                         var isDragging = false
 
-                        drag(down.id) { change ->
+                        // drag() returns true when the pointer is released normally inside this
+                        // gesture handler, or false when the pointer event was consumed/cancelled
+                        // by a child composable (e.g. an IconButton in the recording controls).
+                        val dragCompleted = drag(down.id) { change ->
                             val delta = change.positionChange()
                             val distanceFromStart = (change.position - startPosition).getDistance()
 
@@ -139,8 +142,12 @@ fun FloatingBall(
 
                         if (isDragging) {
                             currentOnSavePos()
-                        } else {
-                            //非拖动事件，判定为一次点击
+                        } else if (dragCompleted) {
+                            // Only treat as a click when drag() returned true (pointer released
+                            // normally here). If dragCompleted is false, a child composable
+                            // (e.g. an IconButton inside the ball's content) consumed the pointer
+                            // event, so we must NOT fire onClick — doing so would spuriously open
+                            // the Game Menu whenever a recording-control button is pressed.
                             currentOnClick()
                         }
                     }

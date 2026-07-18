@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.ui.base.BaseScreen
+import com.movtery.zalithlauncher.ui.components.RecordingPlayerOverlay
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
 import kotlinx.coroutines.Dispatchers
@@ -115,8 +116,10 @@ fun RecordingsScreen(backStackViewModel: ScreenBackStackViewModel) {
         // Thumbnail cache — mutableStateMapOf triggers recomposition on new entries
         val thumbnails = remember { mutableStateMapOf<Long, Bitmap>() }
 
-        var renameTarget by remember { mutableStateOf<RecordingEntry?>(null) }
-        var deleteTarget by remember { mutableStateOf<RecordingEntry?>(null) }
+        var renameTarget  by remember { mutableStateOf<RecordingEntry?>(null) }
+        var deleteTarget  by remember { mutableStateOf<RecordingEntry?>(null) }
+        // Built-in overlay player — null means no video is currently playing
+        var playingEntry  by remember { mutableStateOf<RecordingEntry?>(null) }
 
         fun reload() {
             scope.launch {
@@ -173,7 +176,8 @@ fun RecordingsScreen(backStackViewModel: ScreenBackStackViewModel) {
                         RecordingCard(
                             entry = entry,
                             thumbnail = thumbnails[entry.id],
-                            onPlay = { playRecording(context, entry.uri) },
+                            // Launch the built-in overlay player instead of an external intent
+                            onPlay = { playingEntry = entry },
                             onShare = { shareRecording(context, entry.uri) },
                             onRename = { renameTarget = entry },
                             onDelete = { deleteTarget = entry },
@@ -257,6 +261,18 @@ fun RecordingsScreen(backStackViewModel: ScreenBackStackViewModel) {
                         Text(stringResource(R.string.generic_cancel))
                     }
                 }
+            )
+        }
+
+        // ── Built-in overlay video player ─────────────────────────────────────
+        // Shown when the user taps a recording card.  The overlay is a Dialog so
+        // it renders above the page title bar and the entire launcher UI, which
+        // means the Dialog-based implementation avoids any layout-hierarchy clip.
+        playingEntry?.let { entry ->
+            RecordingPlayerOverlay(
+                uri   = entry.uri,
+                title = entry.displayName.removeSuffix(".mp4"),
+                onDismiss = { playingEntry = null }
             )
         }
     }
