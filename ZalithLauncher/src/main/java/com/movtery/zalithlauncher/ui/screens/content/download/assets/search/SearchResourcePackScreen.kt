@@ -41,11 +41,10 @@ fun SearchResourcePackScreen(
     val initialPlatform = remember {
         AllSettings.searchResourcePackPlatform.getValue()
     }
-    // 从持久化存储中恢复上次的过滤器配置
+    // 从持久化存储中恢复上次的过滤器配置（游戏版本为会话状态，不从持久化恢复）
     val initialFilter = remember {
         val platform = AllSettings.searchResourcePackPlatform.getValue()
         val sortField = AllSettings.searchResourcePackSortField.getValue()
-        val gameVersion = AllSettings.searchResourcePackGameVersion.getValue().takeIf { it.isNotEmpty() }
         val categoryStrings = AllSettings.searchResourcePackCategories.getValue()
         val categories = categoryStrings.mapNotNull { str ->
             when (platform) {
@@ -56,7 +55,7 @@ fun SearchResourcePackScreen(
         }
         PlatformSearchFilter(
             sortField = sortField,
-            gameVersion = gameVersion,
+            gameVersion = null, // Game Version is session-only; not loaded from preferences
             categories = categories
         )
     }
@@ -73,9 +72,10 @@ fun SearchResourcePackScreen(
             AllSettings.searchResourcePackPlatform.save(it)
         },
         initialFilter = initialFilter,
+        autoSelectEnabled = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectResourcePacks.getValue(),
         onFilterChange = { platform, filter ->
             AllSettings.searchResourcePackSortField.save(filter.sortField)
-            AllSettings.searchResourcePackGameVersion.save(filter.gameVersion ?: "")
+            // Game Version is session-only; not saved to preferences
             AllSettings.searchResourcePackCategories.save(
                 when (platform) {
                     Platform.MODRINTH -> filter.categories.mapNotNull { cat ->

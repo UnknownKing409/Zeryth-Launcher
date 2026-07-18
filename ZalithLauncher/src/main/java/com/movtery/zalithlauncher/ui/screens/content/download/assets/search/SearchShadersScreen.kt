@@ -41,11 +41,10 @@ fun SearchShadersScreen(
     val initialPlatform = remember {
         AllSettings.searchShadersPlatform.getValue()
     }
-    // 从持久化存储中恢复上次的过滤器配置
+    // 从持久化存储中恢复上次的过滤器配置（游戏版本为会话状态，不从持久化恢复）
     val initialFilter = remember {
         val platform = AllSettings.searchShadersPlatform.getValue()
         val sortField = AllSettings.searchShadersSortField.getValue()
-        val gameVersion = AllSettings.searchShadersGameVersion.getValue().takeIf { it.isNotEmpty() }
         val categoryStrings = AllSettings.searchShadersCategories.getValue()
         val categories = categoryStrings.mapNotNull { str ->
             when (platform) {
@@ -56,7 +55,7 @@ fun SearchShadersScreen(
         }
         PlatformSearchFilter(
             sortField = sortField,
-            gameVersion = gameVersion,
+            gameVersion = null, // Game Version is session-only; not loaded from preferences
             categories = categories
         )
     }
@@ -73,9 +72,10 @@ fun SearchShadersScreen(
             AllSettings.searchShadersPlatform.save(it)
         },
         initialFilter = initialFilter,
+        autoSelectEnabled = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectShaderPacks.getValue(),
         onFilterChange = { platform, filter ->
             AllSettings.searchShadersSortField.save(filter.sortField)
-            AllSettings.searchShadersGameVersion.save(filter.gameVersion ?: "")
+            // Game Version is session-only; not saved to preferences
             AllSettings.searchShadersCategories.save(
                 when (platform) {
                     Platform.MODRINTH -> filter.categories.mapNotNull { cat ->

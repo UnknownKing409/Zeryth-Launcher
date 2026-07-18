@@ -43,11 +43,10 @@ fun SearchModScreen(
     val initialPlatform = remember {
         AllSettings.searchModPlatform.getValue()
     }
-    // 从持久化存储中恢复上次的过滤器配置
+    // 从持久化存储中恢复上次的过滤器配置（游戏版本为会话状态，不从持久化恢复）
     val initialFilter = remember {
         val platform = AllSettings.searchModPlatform.getValue()
         val sortField = AllSettings.searchModSortField.getValue()
-        val gameVersion = AllSettings.searchModGameVersion.getValue().takeIf { it.isNotEmpty() }
         val categoryStrings = AllSettings.searchModCategories.getValue()
         val categories = categoryStrings.mapNotNull { str ->
             when (platform) {
@@ -65,7 +64,7 @@ fun SearchModScreen(
         } else null
         PlatformSearchFilter(
             sortField = sortField,
-            gameVersion = gameVersion,
+            gameVersion = null, // Game Version is session-only; not loaded from preferences
             categories = categories,
             modloader = modloader
         )
@@ -83,9 +82,10 @@ fun SearchModScreen(
             AllSettings.searchModPlatform.save(it)
         },
         initialFilter = initialFilter,
+        autoSelectEnabled = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectMods.getValue(),
         onFilterChange = { platform, filter ->
             AllSettings.searchModSortField.save(filter.sortField)
-            AllSettings.searchModGameVersion.save(filter.gameVersion ?: "")
+            // Game Version is session-only; not saved to preferences
             AllSettings.searchModCategories.save(
                 when (platform) {
                     Platform.MODRINTH -> filter.categories.mapNotNull { cat ->

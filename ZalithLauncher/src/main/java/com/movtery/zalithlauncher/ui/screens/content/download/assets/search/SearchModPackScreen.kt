@@ -98,11 +98,10 @@ fun SearchModPackScreen(
         AllSettings.searchModpackPlatform.getValue()
     }
 
-    // 从持久化存储中恢复上次的过滤器配置
+    // 从持久化存储中恢复上次的过滤器配置（游戏版本为会话状态，不从持久化恢复）
     val initialFilter = remember {
         val platform = AllSettings.searchModpackPlatform.getValue()
         val sortField = AllSettings.searchModpackSortField.getValue()
-        val gameVersion = AllSettings.searchModpackGameVersion.getValue().takeIf { it.isNotEmpty() }
         val categoryStrings = AllSettings.searchModpackCategories.getValue()
         val categories = categoryStrings.mapNotNull { str ->
             when (platform) {
@@ -120,7 +119,7 @@ fun SearchModPackScreen(
         } else null
         PlatformSearchFilter(
             sortField = sortField,
-            gameVersion = gameVersion,
+            gameVersion = null, // Game Version is session-only; not loaded from preferences
             categories = categories,
             modloader = modloader
         )
@@ -167,9 +166,10 @@ fun SearchModPackScreen(
             AllSettings.searchModpackPlatform.save(it)
         },
         initialFilter = initialFilter,
+        autoSelectEnabled = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectModpacks.getValue(),
         onFilterChange = { platform, filter ->
             AllSettings.searchModpackSortField.save(filter.sortField)
-            AllSettings.searchModpackGameVersion.save(filter.gameVersion ?: "")
+            // Game Version is session-only; not saved to preferences
             AllSettings.searchModpackCategories.save(
                 when (platform) {
                     Platform.MODRINTH -> filter.categories.mapNotNull { cat ->
