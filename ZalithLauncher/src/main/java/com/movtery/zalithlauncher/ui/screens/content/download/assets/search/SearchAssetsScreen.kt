@@ -87,7 +87,8 @@ private class SearchScreenViewModel(
     private val platformClasses: PlatformClasses,
     private val filterPersistenceKey: String? = null,
     private val getCategories: ((Platform) -> List<PlatformFilterCode>)? = null,
-    private val getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null
+    private val getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null,
+    private val autoSelect: Boolean = true
 ): ViewModel() {
     var searchResult by mutableStateOf<SearchAssetsState>(SearchAssetsState.Searching)
     val pages = mutableStateListOf<AssetsPage?>()
@@ -243,7 +244,8 @@ private class SearchScreenViewModel(
         }
 
         // Issue #9: 如果只有一个已安装版本，且用户未保存过版本偏好，则自动预选该版本
-        if (searchFilter.gameVersion == null && installedVersionIds.size == 1) {
+        // 仅当对应内容类型的 autoSelect 开关开启时才执行自动预选
+        if (autoSelect && searchFilter.gameVersion == null && installedVersionIds.size == 1) {
             searchFilter = searchFilter.copy(gameVersion = installedVersionIds.first())
         }
 
@@ -264,13 +266,14 @@ private fun rememberSearchAssetsViewModel(
     platformClasses: PlatformClasses,
     filterPersistenceKey: String? = null,
     getCategories: ((Platform) -> List<PlatformFilterCode>)? = null,
-    getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null
+    getModloaders: ((Platform) -> List<PlatformDisplayLabel>)? = null,
+    autoSelect: Boolean = true
 ): SearchScreenViewModel {
     val screenKey = navKey.toString()
     return viewModel(
         key = "${screenKey}_search"
     ) {
-        SearchScreenViewModel(initialPlatform, platformClasses, filterPersistenceKey, getCategories, getModloaders)
+        SearchScreenViewModel(initialPlatform, platformClasses, filterPersistenceKey, getCategories, getModloaders, autoSelect)
     }
 }
 
@@ -311,6 +314,7 @@ fun SearchAssetsScreen(
     getModloaders: (Platform) -> List<PlatformDisplayLabel> = { emptyList() },
     mapCategories: (Platform, String) -> PlatformFilterCode?,
     filterPersistenceKey: String? = null,
+    autoSelect: Boolean = true,
     swapToDownload: (Platform, projectId: String, iconUrl: String?) -> Unit = { _, _, _ -> },
     extraFilter: (LazyListScope.() -> Unit)? = null
 ) {
@@ -320,7 +324,8 @@ fun SearchAssetsScreen(
         platformClasses = platformClasses,
         filterPersistenceKey = filterPersistenceKey,
         getCategories = getCategories,
-        getModloaders = getModloaders
+        getModloaders = getModloaders,
+        autoSelect = autoSelect
     )
 
     // 每次重组时更新 ViewModel 的过滤器变更回调

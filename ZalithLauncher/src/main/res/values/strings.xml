@@ -1715,4 +1715,11 @@
     <string name="versions_manage_move_versions_moving">Moving %1$s…</string>
     <string name="versions_manage_move_versions_done">Move complete</string>
     <string name="versions_manage_move_versions_failed">Move failed</string>
+    <string name="settings_launcher_auto_select_title">Auto Select Download Content</string>
+    <string name="settings_launcher_auto_select_summary">When there is only one installed game version, automatically pre-select it as the game version filter when opening download screens</string>
+    <string name="settings_launcher_auto_select_content_types">Apply to:</string>
+    <string name="settings_launcher_auto_select_mods">Mods</string>
+    <string name="settings_launcher_auto_select_resource_packs">Resource Packs</string>
+    <string name="settings_launcher_auto_select_shader_packs">Shader Packs</string>
+    <string name="settings_launcher_auto_select_saves">Saves</string>
 </resources>

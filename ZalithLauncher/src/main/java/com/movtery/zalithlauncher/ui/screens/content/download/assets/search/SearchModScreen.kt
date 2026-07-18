@@ -43,6 +43,9 @@ fun SearchModScreen(
     val initialPlatform = remember {
         AllSettings.searchModPlatform.getValue()
     }
+    val autoSelect = remember {
+        AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectMods.getValue()
+    }
 
     // 从持久化存储中恢复上次的过滤器配置
     val initialFilter = remember {
@@ -125,6 +128,7 @@ fun SearchModScreen(
             }
         },
         filterPersistenceKey = AllSettings.searchModFilter.key,
+        autoSelect = autoSelect,
         swapToDownload = swapToDownload
     )
 }

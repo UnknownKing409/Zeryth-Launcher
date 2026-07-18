@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -713,6 +714,55 @@ fun LauncherSettingsScreen(
                                     }
                                 )
                             )
+                        }
+                    )
+                }
+            }
+
+            AnimatedItem(scope) { yOffset ->
+                SettingsCardColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                ) {
+                    val masterAutoSelect = AllSettings.autoSelectDownloadContent.state
+                    SwitchSettingsCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        position = CardPosition.Single,
+                        unit = AllSettings.autoSelectDownloadContent,
+                        title = stringResource(R.string.settings_launcher_auto_select_title),
+                        summary = stringResource(R.string.settings_launcher_auto_select_summary),
+                        columnLayout = {
+                            AnimatedVisibility(visible = masterAutoSelect) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp, bottom = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.settings_launcher_auto_select_content_types),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf(
+                                            Pair(AllSettings.autoSelectMods, R.string.settings_launcher_auto_select_mods),
+                                            Pair(AllSettings.autoSelectResourcePacks, R.string.settings_launcher_auto_select_resource_packs),
+                                            Pair(AllSettings.autoSelectShaderPacks, R.string.settings_launcher_auto_select_shader_packs),
+                                            Pair(AllSettings.autoSelectSaves, R.string.settings_launcher_auto_select_saves)
+                                        ).forEach { (unit, labelRes) ->
+                                            FilterChip(
+                                                selected = unit.state,
+                                                onClick = { unit.save(!unit.state) },
+                                                label = { Text(text = stringResource(labelRes)) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     )
                 }

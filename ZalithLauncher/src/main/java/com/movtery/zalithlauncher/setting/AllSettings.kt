@@ -489,6 +489,20 @@ object AllSettings : SettingsRegistry() {
      */
     val classicVersionPicker = boolSetting("classicVersionPicker", true)
 
+    /**
+     * 自动选择下载内容（主开关）
+     * 开启时，搜索下载内容时若只有一个已安装版本则自动预选游戏版本
+     */
+    val autoSelectDownloadContent = boolSetting("autoSelectDownloadContent", true)
+    /** 自动选择 — 模组 */
+    val autoSelectMods = boolSetting("autoSelectMods", true)
+    /** 自动选择 — 资源包 */
+    val autoSelectResourcePacks = boolSetting("autoSelectResourcePacks", true)
+    /** 自动选择 — 光影 */
+    val autoSelectShaderPacks = boolSetting("autoSelectShaderPacks", true)
+    /** 自动选择 — 存档 */
+    val autoSelectSaves = boolSetting("autoSelectSaves", true)
+
     //Control
     /**
      * 全局默认控制布局文件名
