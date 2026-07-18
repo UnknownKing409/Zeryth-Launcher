@@ -19,7 +19,6 @@
 package com.movtery.zalithlauncher.ui.screens.content.download.assets.search
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
 import com.movtery.zalithlauncher.game.download.assets.platform.curseforge.models.CurseForgeSavesCategory
@@ -35,9 +34,6 @@ fun SearchSavesScreen(
     downloadSavesScreenCurrentKey: TitledNavKey?,
     swapToDownload: (Platform, projectId: String, iconUrl: String?) -> Unit = { _, _, _ -> }
 ) {
-    val autoSelect = remember {
-        AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectSaves.getValue()
-    }
     SearchAssetsScreen(
         mainScreenKey = mainScreenKey,
         parentScreenKey = downloadSavesScreenKey,
@@ -52,7 +48,6 @@ fun SearchSavesScreen(
             CurseForgeSavesCategory.entries.find { it.describe() == string }
         },
         filterPersistenceKey = AllSettings.searchSavesFilter.key,
-        autoSelect = autoSelect,
         swapToDownload = swapToDownload
     )
 }

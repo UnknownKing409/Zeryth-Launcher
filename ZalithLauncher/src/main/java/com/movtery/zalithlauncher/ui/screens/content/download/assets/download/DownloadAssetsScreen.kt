@@ -299,6 +299,7 @@ fun DownloadAssetsScreen(
     nestedNavKeyClass: Class<out TitledNavKey>? = null,
     versionsUIWeight: Float = 6.5f,
     projectUIWeight: Float = 3.5f,
+    autoSelect: Boolean = true,
 ) {
     val viewModel: DownloadScreenViewModel = rememberDownloadAssetsViewModel(key)
 
@@ -319,6 +320,7 @@ fun DownloadAssetsScreen(
                     .fillMaxHeight()
                     .offset { IntOffset(x = 0, y = yOffset.roundToPx()) },
                 viewModel = viewModel,
+                autoSelect = autoSelect,
                 onReload = { viewModel.getVersions() },
                 onItemClicked = { version ->
                     val deps = version.platformDependencies().mapNotNull { dep ->
@@ -358,6 +360,7 @@ fun DownloadAssetsScreen(
 private fun Versions(
     modifier: Modifier = Modifier,
     viewModel: DownloadScreenViewModel,
+    autoSelect: Boolean = true,
     onReload: () -> Unit = {},
     onItemClicked: (PlatformVersion) -> Unit = {}
 ) {
@@ -464,6 +467,7 @@ private fun Versions(
                 val scrollState = rememberLazyListState()
 
                 LaunchedEffect(Unit) {
+                    if (!autoSelect) return@LaunchedEffect
                     delay(100L.milliseconds)
                     runCatching {
                         val result = versions.result

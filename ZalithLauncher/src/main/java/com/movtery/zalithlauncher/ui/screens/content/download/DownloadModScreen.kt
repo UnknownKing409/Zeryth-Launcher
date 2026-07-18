@@ -45,6 +45,7 @@ import com.movtery.zalithlauncher.ui.screens.content.download.assets.download.Do
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.elements.DownloadSingleOperation
 import com.movtery.zalithlauncher.ui.screens.content.download.assets.search.SearchModScreen
 import com.movtery.zalithlauncher.ui.screens.navigateTo
+import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.screens.onBack
 import com.movtery.zalithlauncher.ui.screens.rememberTransitionSpec
 import com.movtery.zalithlauncher.utils.network.isUsingMobileData
@@ -183,6 +184,7 @@ fun DownloadModScreen(
                         currentKey = downloadModScreenKey,
                         key = assetsKey,
                         eventViewModel = eventViewModel,
+                        autoSelect = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectMods.getValue(),
                         onItemClicked = { classes, version, _, deps ->
                             operation = if (isUsingMobileData(context)) {
                                 DownloadSingleOperation.WarningForMobileData(classes, version, deps)

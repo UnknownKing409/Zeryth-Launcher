@@ -41,10 +41,6 @@ fun SearchResourcePackScreen(
     val initialPlatform = remember {
         AllSettings.searchResourcePackPlatform.getValue()
     }
-    val autoSelect = remember {
-        AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectResourcePacks.getValue()
-    }
-
     // 从持久化存储中恢复上次的过滤器配置
     val initialFilter = remember {
         val platform = AllSettings.searchResourcePackPlatform.getValue()
@@ -110,7 +106,6 @@ fun SearchResourcePackScreen(
             }
         },
         filterPersistenceKey = AllSettings.searchResourcePackFilter.key,
-        autoSelect = autoSelect,
         swapToDownload = swapToDownload
     )
 }
