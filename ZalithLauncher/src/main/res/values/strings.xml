@@ -1729,7 +1729,7 @@
     <string name="settings_launcher_quick_access_advanced_only_message">Quick Access Customization is only available when using the Advanced Main Screen. Switch to Advanced mode in the launcher display settings to enable this feature.</string>
     <string name="quick_access_preview_title">Preview</string>
     <string name="settings_launcher_quick_access_title">Quick Access Customization</string>
-    <string name="settings_launcher_quick_access_summary">Customize the shortcuts shown in the Quick Access panel · Available in Advanced home screen mode only</string>
+    <string name="settings_launcher_quick_access_summary">Customize the shortcuts shown in the Quick Access panel · Available in Advanced main screen mode only</string>
     <string name="settings_launcher_quick_access_restore_confirm">Reset the Quick Access panel to its default shortcuts?</string>
     <string name="settings_launcher_quick_access_restore_summary">Restore the default shortcut layout</string>
     <string name="quick_access_section_active">Active Shortcuts</string>
