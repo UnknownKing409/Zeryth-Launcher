@@ -275,6 +275,8 @@
     <string name="download_game_addon_debug">Debug</string>
     <string name="download_game_addon_recommended">%s Recommended</string>
     <string name="download_game_addon_not_installable">Not installable automatically</string>
+    <string name="download_game_addon_show_all_forge_versions">Show All Forge Versions</string>
+    <string name="download_game_addon_compatible_forge">Compatible</string>
     <string name="download_game_addon_warning_api">%s is not selected. Without installing it, most mods will not work!</string>
     <string name="download_game_addon_skip_compatibility">Bypass compatibility check</string>
     <string name="download_game_addon_skip_compatibility_warning">Bypassing compatibility checks may cause the game to fail to start or crash. Please use with caution.</string>
