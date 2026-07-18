@@ -1081,9 +1081,7 @@ private fun EmptyVersionsHint() {
       }
   }
 
-  // Sidebar shortcut button used in expanded nav bar
   @Composable
-@Composable
 private fun DashboardTabItem(
     iconRes: Int,
     label: String,
