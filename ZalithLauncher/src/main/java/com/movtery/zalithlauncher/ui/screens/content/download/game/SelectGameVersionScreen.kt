@@ -543,7 +543,7 @@ private fun VersionItemLayout(
                     downloadSizeText?.let { sizeStr ->
                         Text(
                             modifier = Modifier.alpha(0.7f),
-                            text = stringResource(R.string.download_game_version_download_size, sizeStr),
+                            text = sizeStr,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
