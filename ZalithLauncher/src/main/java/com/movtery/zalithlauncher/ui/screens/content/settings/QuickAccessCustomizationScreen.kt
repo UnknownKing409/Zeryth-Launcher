@@ -58,7 +58,7 @@ import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.CardPositi
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SettingsCard
 import com.movtery.zalithlauncher.ui.screens.content.settings.layouts.SettingsCardColumn
 
-private const val MIN_SHORTCUTS = 4
+private const val MIN_SHORTCUTS = 3
 private const val MAX_SHORTCUTS = 8
 
 @Composable
