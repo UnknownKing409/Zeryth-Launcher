@@ -740,10 +740,6 @@ fun LauncherSettingsScreen(
                                         .padding(top = 8.dp, bottom = 4.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.settings_launcher_auto_select_content_types),
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
                                     FlowRow(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
