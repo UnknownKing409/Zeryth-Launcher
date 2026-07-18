@@ -153,6 +153,7 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.AccountAvatar
 import com.movtery.zalithlauncher.ui.screens.content.elements.CommonVersionInfoLayout
 import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcut
+import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcutGrid
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionIconImage
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
@@ -902,55 +903,37 @@ private fun EmptyVersionsHint() {
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                   modifier = Modifier.padding(horizontal = 4.dp)
                               )
-                              // Shortcut grid — resolved at DashboardTabBar level (shortcutRows)
-                              Column(
+                              // Shortcut grid — reuses the shared QuickAccessShortcutGrid
+                              // composable so the preview in QuickAccessCustomizationScreen
+                              // is always visually identical to this production panel.
+                              QuickAccessShortcutGrid(
                                   modifier = Modifier.fillMaxWidth().weight(1f),
-                                  verticalArrangement = Arrangement.spacedBy(8.dp)
-                              ) {
-                                  shortcutRows.forEach { row ->
-                                      Row(
-                                          modifier = Modifier.fillMaxWidth().weight(1f),
-                                          horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                          verticalAlignment = Alignment.CenterVertically
-                                      ) {
-                                          row.forEach { shortcut ->
-                                              NavSidebarShortcut(
-                                                  modifier = Modifier.weight(1f),
-                                                  iconRes = shortcut.iconRes,
-                                                  label = stringResource(shortcut.labelRes),
-                                                  onClick = {
-                                                      navSidebarExpanded = false
-                                                      when (shortcut) {
-                                                          QuickAccessShortcut.FPS -> onFpsClick()
-                                                          QuickAccessShortcut.FILE_MANAGER -> onFileManagerClick()
-                                                          QuickAccessShortcut.VERSIONS -> onVersionsManageClick()
-                                                          QuickAccessShortcut.CONTROLS -> onControlsClick()
-                                                          QuickAccessShortcut.ABOUT -> onInfoClick()
-                                                          QuickAccessShortcut.SETTINGS -> onSettingsClick()
-                                                          QuickAccessShortcut.JAVA -> onJavaClick()
-                                                          QuickAccessShortcut.ACCOUNTS -> onAccountsClick()
-                                                          QuickAccessShortcut.DOWNLOAD_GAME -> onDownloadGameClick()
-                                                          QuickAccessShortcut.DOWNLOAD_MODS -> onDownloadModsClick()
-                                                          QuickAccessShortcut.DOWNLOAD_MODPACKS -> onDownloadModpacksClick()
-                                                          QuickAccessShortcut.DOWNLOAD_RESOURCE_PACKS -> onDownloadResourcePacksClick()
-                                                          QuickAccessShortcut.DOWNLOAD_SAVES -> onDownloadSavesClick()
-                                                          QuickAccessShortcut.DOWNLOAD_SHADERS -> onDownloadShadersClick()
-                                                          QuickAccessShortcut.RENDERER_SETTINGS -> onRendererSettingsClick()
-                                                          QuickAccessShortcut.GAME_SETTINGS -> onGameSettingsClick()
-                                                          QuickAccessShortcut.STATS -> onStatsClick()
-                                                          QuickAccessShortcut.PLAY_TIME_STATS -> onPlayTimeStatsClick()
-                                                      }
-                                                      onNavInteraction()
-                                                  }
-                                              )
-                                          }
-                                          // Dynamic sizing: each shortcut uses weight(1f), so items in
-                                          // a row always share available width equally regardless of
-                                          // how many are present. No spacer fill — a row with 1 item
-                                          // expands to full width, 2 items share half each, etc.
+                                  shortcuts = resolvedShortcuts,
+                                  onShortcutClick = { shortcut ->
+                                      navSidebarExpanded = false
+                                      when (shortcut) {
+                                          QuickAccessShortcut.FPS -> onFpsClick()
+                                          QuickAccessShortcut.FILE_MANAGER -> onFileManagerClick()
+                                          QuickAccessShortcut.VERSIONS -> onVersionsManageClick()
+                                          QuickAccessShortcut.CONTROLS -> onControlsClick()
+                                          QuickAccessShortcut.ABOUT -> onInfoClick()
+                                          QuickAccessShortcut.SETTINGS -> onSettingsClick()
+                                          QuickAccessShortcut.JAVA -> onJavaClick()
+                                          QuickAccessShortcut.ACCOUNTS -> onAccountsClick()
+                                          QuickAccessShortcut.DOWNLOAD_GAME -> onDownloadGameClick()
+                                          QuickAccessShortcut.DOWNLOAD_MODS -> onDownloadModsClick()
+                                          QuickAccessShortcut.DOWNLOAD_MODPACKS -> onDownloadModpacksClick()
+                                          QuickAccessShortcut.DOWNLOAD_RESOURCE_PACKS -> onDownloadResourcePacksClick()
+                                          QuickAccessShortcut.DOWNLOAD_SAVES -> onDownloadSavesClick()
+                                          QuickAccessShortcut.DOWNLOAD_SHADERS -> onDownloadShadersClick()
+                                          QuickAccessShortcut.RENDERER_SETTINGS -> onRendererSettingsClick()
+                                          QuickAccessShortcut.GAME_SETTINGS -> onGameSettingsClick()
+                                          QuickAccessShortcut.STATS -> onStatsClick()
+                                          QuickAccessShortcut.PLAY_TIME_STATS -> onPlayTimeStatsClick()
                                       }
+                                      onNavInteraction()
                                   }
-                              }
+                              )
                               // Center back button
                               Box(
                                   modifier = Modifier.fillMaxWidth(),
@@ -1100,53 +1083,6 @@ private fun EmptyVersionsHint() {
 
   // Sidebar shortcut button used in expanded nav bar
   @Composable
-  private fun NavSidebarShortcut(
-      iconRes: Int,
-      label: String,
-      onClick: () -> Unit,
-      modifier: Modifier = Modifier
-  ) {
-      val interactionSource = remember { MutableInteractionSource() }
-      val isPressed by interactionSource.collectIsPressedAsState()
-      val bgColor by animateColorAsState(
-          targetValue = if (isPressed) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-          animationSpec = tween(150),
-          label = "shortcutBg"
-      )
-      val scale by animateFloatAsState(
-          targetValue = if (isPressed) 0.90f else 1f,
-          animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
-          label = "shortcutScale"
-      )
-      Column(
-          modifier = modifier
-              .fillMaxHeight()
-              .scale(scale)
-              .clip(MaterialTheme.shapes.large)
-              .background(bgColor)
-              .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-              .padding(horizontal = 6.dp, vertical = 10.dp),
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.Center
-      ) {
-          Icon(
-              painter = painterResource(iconRes),
-              contentDescription = label,
-              modifier = Modifier.size(24.dp),
-              tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-              text = label,
-              style = MaterialTheme.typography.labelSmall,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-          )
-      }
-  }
-
 @Composable
 private fun DashboardTabItem(
     iconRes: Int,

@@ -320,6 +320,17 @@ fun LauncherSettingsScreen(
             }
 
             AnimatedItem(scope) { yOffset ->
+                val isAdvancedMode = AllSettings.mainScreenMode.state == MainScreenMode.Advanced
+                var showAdvancedModeRequiredDialog by remember { mutableStateOf(false) }
+
+                if (showAdvancedModeRequiredDialog) {
+                    SimpleAlertDialog(
+                        title = stringResource(R.string.settings_launcher_quick_access_advanced_only_title),
+                        text = stringResource(R.string.settings_launcher_quick_access_advanced_only_message),
+                        onDismiss = { showAdvancedModeRequiredDialog = false }
+                    )
+                }
+
                 SettingsCardColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -329,8 +340,13 @@ fun LauncherSettingsScreen(
                         position = CardPosition.Single,
                         title = stringResource(R.string.settings_launcher_quick_access_title),
                         summary = stringResource(R.string.settings_launcher_quick_access_summary),
+                        enabled = isAdvancedMode,
                         onClick = {
-                            key.backStack.navigateTo(NormalNavKey.Settings.QuickAccessCustomization)
+                            if (isAdvancedMode) {
+                                key.backStack.navigateTo(NormalNavKey.Settings.QuickAccessCustomization)
+                            } else {
+                                showAdvancedModeRequiredDialog = true
+                            }
                         }
                     )
                 }
