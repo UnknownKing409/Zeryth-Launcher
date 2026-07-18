@@ -1739,4 +1739,14 @@
     <string name="quick_access_shortcut_settings">Settings</string>
     <string name="quick_access_shortcut_java">Java</string>
     <string name="quick_access_shortcut_accounts">Accounts</string>
+    <string name="quick_access_shortcut_download_game">Download Game</string>
+    <string name="quick_access_shortcut_download_mods">Download Mods</string>
+    <string name="quick_access_shortcut_download_modpacks">Download Modpacks</string>
+    <string name="quick_access_shortcut_download_resource_packs">Download Resource Packs</string>
+    <string name="quick_access_shortcut_download_saves">Download Saves</string>
+    <string name="quick_access_shortcut_download_shaders">Download Shaders</string>
+    <string name="quick_access_shortcut_renderer_settings">Renderer</string>
+    <string name="quick_access_shortcut_game_settings">Game Settings</string>
+    <string name="quick_access_shortcut_stats">Statistics</string>
+    <string name="quick_access_shortcut_play_time_stats">Play Time</string>
 </resources>

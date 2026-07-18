@@ -252,6 +252,62 @@ fun LauncherScreen(
                 screenKey = NormalNavKey.AccountManager(FirstLoginMenu.NONE)
             )
         }
+        val onDownloadGameClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadGameScreen
+            )
+        }
+        val onDownloadModsClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadModScreen
+            )
+        }
+        val onDownloadModpacksClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadModPackScreen
+            )
+        }
+        val onDownloadResourcePacksClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadResourcePackScreen
+            )
+        }
+        val onDownloadSavesClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadSavesScreen
+            )
+        }
+        val onDownloadShadersClick: () -> Unit = {
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.downloadShadersScreen
+            )
+        }
+        val onRendererSettingsClick: () -> Unit = {
+            backStackViewModel.settingsScreen.clearWith(NormalNavKey.Settings.Renderer)
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.settingsScreen
+            )
+        }
+        val onGameSettingsClick: () -> Unit = {
+            backStackViewModel.settingsScreen.clearWith(NormalNavKey.Settings.Game)
+            backStackViewModel.mainScreen.removeAndNavigateTo(
+                removes = backStackViewModel.clearBeforeNavKeys,
+                screenKey = backStackViewModel.settingsScreen
+            )
+        }
+        val onStatsClick: () -> Unit = {
+            backStackViewModel.mainScreen.navigateTo(screenKey = NormalNavKey.GameStats)
+        }
+        val onPlayTimeStatsClick: () -> Unit = {
+            backStackViewModel.mainScreen.navigateTo(screenKey = NormalNavKey.PlayTimeStats)
+        }
 
         if (showAboutDialog) {
             AboutDialog(onDismissRequest = { showAboutDialog = false })
@@ -299,6 +355,16 @@ fun LauncherScreen(
                         onSettingsClick = onSettingsClick,
                         onJavaClick = onJavaClick,
                         onAccountsClick = onAccountsClick,
+                        onDownloadGameClick = onDownloadGameClick,
+                        onDownloadModsClick = onDownloadModsClick,
+                        onDownloadModpacksClick = onDownloadModpacksClick,
+                        onDownloadResourcePacksClick = onDownloadResourcePacksClick,
+                        onDownloadSavesClick = onDownloadSavesClick,
+                        onDownloadShadersClick = onDownloadShadersClick,
+                        onRendererSettingsClick = onRendererSettingsClick,
+                        onGameSettingsClick = onGameSettingsClick,
+                        onStatsClick = onStatsClick,
+                        onPlayTimeStatsClick = onPlayTimeStatsClick,
                         onCollapse = { navBarExpanded = false },
                     )
                 }
@@ -418,6 +484,16 @@ private fun ContentMenu(
     onSettingsClick: () -> Unit,
     onJavaClick: () -> Unit,
     onAccountsClick: () -> Unit,
+    onDownloadGameClick: () -> Unit,
+    onDownloadModsClick: () -> Unit,
+    onDownloadModpacksClick: () -> Unit,
+    onDownloadResourcePacksClick: () -> Unit,
+    onDownloadSavesClick: () -> Unit,
+    onDownloadShadersClick: () -> Unit,
+    onRendererSettingsClick: () -> Unit,
+    onGameSettingsClick: () -> Unit,
+    onStatsClick: () -> Unit,
+    onPlayTimeStatsClick: () -> Unit,
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -663,6 +739,16 @@ private fun ContentMenu(
             onSettingsClick = onSettingsClick,
             onJavaClick = onJavaClick,
             onAccountsClick = onAccountsClick,
+            onDownloadGameClick = onDownloadGameClick,
+            onDownloadModsClick = onDownloadModsClick,
+            onDownloadModpacksClick = onDownloadModpacksClick,
+            onDownloadResourcePacksClick = onDownloadResourcePacksClick,
+            onDownloadSavesClick = onDownloadSavesClick,
+            onDownloadShadersClick = onDownloadShadersClick,
+            onRendererSettingsClick = onRendererSettingsClick,
+            onGameSettingsClick = onGameSettingsClick,
+            onStatsClick = onStatsClick,
+            onPlayTimeStatsClick = onPlayTimeStatsClick,
             onSidebarStateChange = { expanded -> quickAccessExpanded = expanded }
         )
         }
@@ -703,6 +789,16 @@ private fun EmptyVersionsHint() {
       onSettingsClick: () -> Unit,
       onJavaClick: () -> Unit,
       onAccountsClick: () -> Unit,
+      onDownloadGameClick: () -> Unit,
+      onDownloadModsClick: () -> Unit,
+      onDownloadModpacksClick: () -> Unit,
+      onDownloadResourcePacksClick: () -> Unit,
+      onDownloadSavesClick: () -> Unit,
+      onDownloadShadersClick: () -> Unit,
+      onRendererSettingsClick: () -> Unit,
+      onGameSettingsClick: () -> Unit,
+      onStatsClick: () -> Unit,
+      onPlayTimeStatsClick: () -> Unit,
       onSidebarStateChange: (Boolean) -> Unit = {},
       modifier: Modifier = Modifier
   ) {
@@ -833,15 +929,25 @@ private fun EmptyVersionsHint() {
                                                           QuickAccessShortcut.SETTINGS -> onSettingsClick()
                                                           QuickAccessShortcut.JAVA -> onJavaClick()
                                                           QuickAccessShortcut.ACCOUNTS -> onAccountsClick()
+                                                          QuickAccessShortcut.DOWNLOAD_GAME -> onDownloadGameClick()
+                                                          QuickAccessShortcut.DOWNLOAD_MODS -> onDownloadModsClick()
+                                                          QuickAccessShortcut.DOWNLOAD_MODPACKS -> onDownloadModpacksClick()
+                                                          QuickAccessShortcut.DOWNLOAD_RESOURCE_PACKS -> onDownloadResourcePacksClick()
+                                                          QuickAccessShortcut.DOWNLOAD_SAVES -> onDownloadSavesClick()
+                                                          QuickAccessShortcut.DOWNLOAD_SHADERS -> onDownloadShadersClick()
+                                                          QuickAccessShortcut.RENDERER_SETTINGS -> onRendererSettingsClick()
+                                                          QuickAccessShortcut.GAME_SETTINGS -> onGameSettingsClick()
+                                                          QuickAccessShortcut.STATS -> onStatsClick()
+                                                          QuickAccessShortcut.PLAY_TIME_STATS -> onPlayTimeStatsClick()
                                                       }
                                                       onNavInteraction()
                                                   }
                                               )
                                           }
-                                          // Fill empty slots in the last row so weights balance
-                                          repeat(4 - row.size) {
-                                              Spacer(modifier = Modifier.weight(1f))
-                                          }
+                                          // Dynamic sizing: each shortcut uses weight(1f), so items in
+                                          // a row always share available width equally regardless of
+                                          // how many are present. No spacer fill — a row with 1 item
+                                          // expands to full width, 2 items share half each, etc.
                                       }
                                   }
                               }
