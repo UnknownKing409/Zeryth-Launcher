@@ -22,7 +22,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import android.Manifest
+import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -568,15 +571,37 @@ fun GameScreen(
         val name = AllSettings.legacyControlLayout.getValue()
         if (name.isNotEmpty()) File(PathManager.DIR_LEGACY_CONTROL_LAYOUTS, name).takeIf { it.exists() } else null
     } else null
-    // Permission launcher for RECORD_AUDIO — triggers recording once the user grants it
+    // ── Recording launchers ───────────────────────────────────────────────────
+    // Flow: RECORD_AUDIO permission → MediaProjection consent dialog → start.
+    // RECORD_AUDIO is still required by AudioRecord even though no microphone is
+    // used — Android enforces it for AudioPlaybackCaptureConfiguration as well.
+    val mediaProjectionManager = remember {
+        context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+    }
     var pendingStartRecording by remember { mutableStateOf(false) }
+
+    // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
+    // On approval we get the MediaProjection token and hand it to GameRecorder.
+    val requestProjection = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        pendingStartRecording = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val projection = mediaProjectionManager
+                .getMediaProjection(result.resultCode, result.data!!)
+            GameRecorder.start(context, projection)
+            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+        }
+    }
+
+    // Step 1: request RECORD_AUDIO if not already granted, then proceed to Step 2.
     val requestAudioPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (pendingStartRecording) {
+        if (pendingStartRecording && granted) {
+            requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
+        } else {
             pendingStartRecording = false
-            GameRecorder.start(context, withMic = granted)
-            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
         }
     }
 
@@ -813,22 +838,24 @@ fun GameScreen(
                 eventViewModel.sendToast(text, duration)
             },
             onStartRecording = {
-                // Close the game menu, then start recording with mic if permission is granted.
-                // If RECORD_AUDIO hasn't been granted yet, request it — recording starts
-                // automatically in the permission-result callback above.
+                // Close the menu first, then drive the two-step recording flow:
+                //   1. Ensure RECORD_AUDIO is granted (required by AudioRecord even
+                //      though we capture internal audio, not the microphone).
+                //   2. Show the system MediaProjection consent dialog so we obtain
+                //      the token needed for AudioPlaybackCaptureConfiguration.
                 viewModel.gameMenuState = MenuState.HIDE
                 if (recordingState == RecordingState.IDLE) {
+                    pendingStartRecording = true
                     val hasAudio = ContextCompat.checkSelfPermission(
                         context, Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     if (hasAudio) {
-                        GameRecorder.start(context, withMic = true)
-                        eventViewModel.sendToast(
-                            androidText(R.string.recorder_started),
-                            Toast.LENGTH_SHORT
+                        // Permission already granted — go straight to Step 2.
+                        requestProjection.launch(
+                            mediaProjectionManager.createScreenCaptureIntent()
                         )
                     } else {
-                        pendingStartRecording = true
+                        // Step 1: request RECORD_AUDIO; Step 2 fires in the callback.
                         requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }
                 }

@@ -21,7 +21,14 @@ package com.movtery.zalithlauncher.game.recorder
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.media.MediaRecorder
+import android.media.AudioFormat
+import android.media.AudioPlaybackCaptureConfiguration
+import android.media.AudioRecord
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.media.MediaMuxer
+import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -49,86 +56,111 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "GameRecorder"
 private const val FRAME_RATE = 30
-private const val VIDEO_BIT_RATE = 6_000_000 // 6 Mbps
+private const val VIDEO_BIT_RATE = 6_000_000   // 6 Mbps
+private const val AUDIO_SAMPLE_RATE = 44_100
+private const val AUDIO_BIT_RATE = 128_000
+private const val AUDIO_CHANNELS = 2            // stereo
 
 /**
  * Singleton that manages a gameplay video recording session.
  *
- * ## Surface-capture strategy
+ * ## Surface-capture strategy (video — unchanged)
  * Frames are captured from the game's rendering [View] (a [SurfaceView] or
- * [TextureView]) using:
- *  - [PixelCopy.request] for [SurfaceView] — reads directly from the GPU
- *    surface buffer with no compositing step, so **all Compose overlay layers
- *    (controls, game-ball, FPS/RAM stats) are completely absent** from the capture.
- *  - [TextureView.getBitmap] for [TextureView] — similarly reads the raw texture
- *    content without overlays.
+ * [TextureView]) using [PixelCopy.request] / [TextureView.getBitmap], then drawn
+ * onto a [MediaCodec] H.264 encoder's input surface.  All Compose overlay layers
+ * are absent from the capture.
  *
- * Captured bitmaps are rendered onto [MediaRecorder]'s input Surface with
- * [android.view.Surface.lockCanvas] / [android.view.Surface.unlockCanvasAndPost],
- * and [MediaRecorder] handles all H.264 encoding and MP4 muxing internally.
+ * ## Audio — internal game audio via AudioPlaybackCapture
+ * Instead of [android.media.MediaRecorder.AudioSource.MIC], audio is captured from
+ * the device's internal playback stream using [AudioPlaybackCaptureConfiguration]
+ * backed by the caller-supplied [MediaProjection] token.  This records actual
+ * Minecraft sounds and music rather than ambient room noise.
  *
- * ## Audio recording
- * Microphone audio is recorded via [MediaRecorder.AudioSource.MIC] when the caller
- * passes [withMic] = true (which should happen whenever [android.Manifest.permission.RECORD_AUDIO]
- * is granted).  Internal game audio capture (via [android.media.AudioPlaybackCaptureConfiguration])
- * requires a [android.media.projection.MediaProjection] token and is not yet wired; the fallback
- * is microphone-only or silent, with the caller informed via the returned boolean.
+ * The raw PCM read from [AudioRecord] is encoded to AAC in real time by a second
+ * [MediaCodec] instance.  Both the H.264 video track and the AAC audio track are
+ * written to an MP4 container by [MediaMuxer].  The muxer is started only after
+ * both tracks have confirmed their output format, which avoids partial-header writes.
  *
  * ## Pause / Resume
- * Uses [MediaRecorder.pause] / [MediaRecorder.resume] (API 24+, within our
- * minSdk 26), so the encoder gap is seamless in the output file.
+ * [pause] freezes the frame-capture loop and stops reading from [AudioRecord].
+ * Wall-clock paused duration is accumulated in [totalPausedUs] and subtracted from
+ * every video presentation timestamp so the output file has no timestamp gap.
+ * Audio presentation timestamps are derived from the running sample count, which
+ * naturally skips paused periods.
  *
  * ## Elapsed timer
- * [elapsedMs] is a [StateFlow] that ticks every ~250 ms while recording is active
- * and pauses (accumulates) when the user pauses recording, giving the UI an accurate
- * live timer.  It resets to 0 when recording stops.
+ * [elapsedMs] is a [StateFlow] that ticks every ~250 ms, pauses when recording is
+ * paused, and resets to 0 on stop.
  *
  * ## Output
- * Files land in `Movies/Zeryth Recordings/` via [MediaStore], making them
- * immediately visible in the device gallery without extra permissions on API 29+.
+ * Files land in `Movies/Zeryth Recordings/` via [MediaStore].
  */
 object GameRecorder {
+
     private val _state = MutableStateFlow(RecordingState.IDLE)
     val state: StateFlow<RecordingState> = _state.asStateFlow()
 
-    // ── Elapsed recording timer ───────────────────────────────────────────────
+    // ── Elapsed timer ─────────────────────────────────────────────────────────
     private val _elapsedMs = MutableStateFlow(0L)
-    /** Elapsed recording time in milliseconds.  Pauses when recording is paused, resets on stop. */
     val elapsedMs: StateFlow<Long> = _elapsedMs.asStateFlow()
 
-    private val timerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private var timerJob: Job? = null
-    /** Milliseconds accumulated before the most recent pause. */
+    private val timerScope  = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val encodeScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private var timerJob:       Job? = null
+    private var videoEncodeJob: Job? = null
+    private var audioJob:       Job? = null
+
     @Volatile private var accumulatedMs = 0L
-    /** Wall-clock time (ms) at which the current recording/resume segment started. */
-    @Volatile private var resumeTimeMs = 0L
+    @Volatile private var resumeTimeMs  = 0L
 
-    // MediaRecorder and its input surface
-    @Volatile private var recorder: MediaRecorder? = null
+    // ── Video pipeline ────────────────────────────────────────────────────────
+    private var videoCodec:     MediaCodec? = null
     @Volatile private var inputSurface: android.view.Surface? = null
+    @Volatile private var videoTrackIndex = -1
 
-    // Capture background thread
-    private var captureThread: HandlerThread? = null
-    private var captureHandler: Handler? = null
+    // ── Audio pipeline ────────────────────────────────────────────────────────
+    private var audioRecord:    AudioRecord?  = null
+    private var audioCodec:     MediaCodec?   = null
+    @Volatile private var audioTrackIndex = -1
 
-    // Lifecycle flags
+    // ── Muxer ─────────────────────────────────────────────────────────────────
+    private var muxer:          MediaMuxer?   = null
+    @Volatile private var muxerStarted = false
+    private val muxerLock = Any()
+
+    // ── MediaProjection ───────────────────────────────────────────────────────
+    private var mediaProjection: MediaProjection? = null
+
+    // ── Capture thread ────────────────────────────────────────────────────────
+    private var captureThread:  HandlerThread? = null
+    private var captureHandler: Handler?       = null
     private val isCapturing = AtomicBoolean(false)
 
-    // Saved output info for MediaStore finalisation
-    @Volatile private var pendingUri: android.net.Uri? = null
-    @Volatile private var pendingFile: File? = null
+    // ── Timestamp tracking (for pause-gap removal) ────────────────────────────
+    @Volatile private var firstVideoTimestampUs = Long.MIN_VALUE
+    @Volatile private var totalPausedUs         = 0L
+    @Volatile private var pauseStartMs          = 0L
+
+    // ── MediaStore ────────────────────────────────────────────────────────────
+    @Volatile private var pendingUri:  android.net.Uri? = null
+    @Volatile private var pendingFile: File?            = null
 
     // ─────────────────────────────────────────────────────────────── API ──────
 
     /**
-     * Start a new recording.
+     * Start a new recording session.
      *
-     * @param context Android context (used for [MediaStore] and file creation).
-     * @param withMic If true, microphone audio is mixed in via [MediaRecorder.AudioSource.MIC].
-     *                The caller is responsible for confirming that [android.Manifest.permission.RECORD_AUDIO]
-     *                is granted before passing true.
+     * @param context    Android context (used for [MediaStore] and file creation).
+     * @param projection A [MediaProjection] token obtained from
+     *                   [android.media.projection.MediaProjectionManager.getMediaProjection].
+     *                   Used to configure [AudioPlaybackCaptureConfiguration] so that
+     *                   actual game audio is captured instead of microphone audio.
+     *                   The caller is responsible for releasing this projection when
+     *                   recording stops; [GameRecorder] calls [MediaProjection.stop]
+     *                   inside [cleanup].
      */
-    fun start(context: Context, withMic: Boolean = false) {
+    fun start(context: Context, projection: MediaProjection) {
         if (_state.value != RecordingState.IDLE) return
 
         val view = GameSurfaceRegistry.getView()
@@ -137,79 +169,89 @@ object GameRecorder {
             return
         }
 
-        // Even dimensions required by most encoders
-        val w = (view.width.coerceAtLeast(2) / 2) * 2
+        val w = (view.width.coerceAtLeast(2)  / 2) * 2
         val h = (view.height.coerceAtLeast(2) / 2) * 2
 
         try {
             val (uri, file) = createOutputEntry(context)
-            pendingUri = uri
+            pendingUri  = uri
             pendingFile = file
 
-            val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
+            mediaProjection = projection
+
+            // ── Reset shared state ────────────────────────────────────────────
+            muxerStarted          = false
+            videoTrackIndex       = -1
+            audioTrackIndex       = -1
+            firstVideoTimestampUs = Long.MIN_VALUE
+            totalPausedUs         = 0L
+
+            // ── MediaMuxer → MP4 ──────────────────────────────────────────────
+            val fd = context.contentResolver.openFileDescriptor(uri, "w")!!.fileDescriptor
+            muxer = MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+            // ── H.264 video codec (surface-based input) ───────────────────────
+            val videoFmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
+                setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+                setInteger(MediaFormat.KEY_BIT_RATE,    VIDEO_BIT_RATE)
+                setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1) // 1-s keyframe interval
             }
-            rec.apply {
-                // Audio source MUST be set before video source and output format
-                if (withMic) setAudioSource(MediaRecorder.AudioSource.MIC)
-                setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                if (withMic) {
-                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                    setAudioEncodingBitRate(128_000)
-                    setAudioSamplingRate(44_100)
-                }
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                setVideoSize(w, h)
-                setVideoFrameRate(FRAME_RATE)
-                setVideoEncodingBitRate(VIDEO_BIT_RATE)
-                setOutputFile(
-                    context.contentResolver.openFileDescriptor(uri, "w")!!.fileDescriptor
-                )
-                setOnErrorListener { _, what, extra ->
-                    Log.e(TAG, "MediaRecorder error what=$what extra=$extra")
-                    cleanup()
-                }
-                prepare()
+            videoCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also { c ->
+                c.configure(videoFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                inputSurface = c.createInputSurface()
+                c.start()
             }
 
-            inputSurface = rec.surface
-            recorder = rec
-            rec.start()
+            // ── AAC audio codec ───────────────────────────────────────────────
+            val audioFmt = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_AAC, AUDIO_SAMPLE_RATE, AUDIO_CHANNELS
+            ).apply {
+                setInteger(MediaFormat.KEY_AAC_PROFILE,
+                    MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+                setInteger(MediaFormat.KEY_BIT_RATE,       AUDIO_BIT_RATE)
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioBufferSize())
+            }
+            audioCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).also { c ->
+                c.configure(audioFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                c.start()
+            }
 
-            captureThread = HandlerThread("GameRecorder-Capture").also { it.start() }
+            // ── AudioRecord via AudioPlaybackCapture ──────────────────────────
+            audioRecord = buildAudioRecord(projection)
+
+            // ── Capture thread (PixelCopy callbacks) ──────────────────────────
+            captureThread  = HandlerThread("GameRecorder-Capture").also { it.start() }
             captureHandler = Handler(captureThread!!.looper)
 
             isCapturing.set(true)
             _state.value = RecordingState.RECORDING
 
-            // Start the elapsed timer from zero
             accumulatedMs = 0L
-            resumeTimeMs = System.currentTimeMillis()
+            resumeTimeMs  = System.currentTimeMillis()
             _elapsedMs.value = 0L
             startTimerTick()
 
+            startVideoEncodeJob()
+            startAudioJob()
             scheduleNextFrame()
 
-            Log.i(TAG, "Recording started ${w}x${h} mic=$withMic")
+            Log.i(TAG, "Recording started ${w}x${h} — audio via AudioPlaybackCapture")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording: ${e.message}")
             cleanup()
         }
     }
 
-    /** Pause the recording (encoder gap is seamless). */
+    /** Pause the active recording (frame loop and audio read both freeze). */
     fun pause() {
         if (_state.value != RecordingState.RECORDING) return
         try {
-            recorder?.pause()
-            // Freeze timer: accumulate elapsed time up to this moment
+            isCapturing.set(false)
+            pauseStartMs   = System.currentTimeMillis()
             accumulatedMs += System.currentTimeMillis() - resumeTimeMs
-            timerJob?.cancel()
-            timerJob = null
+            timerJob?.cancel(); timerJob = null
             _state.value = RecordingState.PAUSED
             Log.i(TAG, "Recording paused at ${accumulatedMs}ms")
         } catch (e: Exception) {
@@ -221,12 +263,13 @@ object GameRecorder {
     fun resume() {
         if (_state.value != RecordingState.PAUSED) return
         try {
-            recorder?.resume()
-            // Resume timer from where it left off
+            // Accumulate pause wall-clock duration for video timestamp correction.
+            totalPausedUs += (System.currentTimeMillis() - pauseStartMs) * 1_000L
+            isCapturing.set(true)
             resumeTimeMs = System.currentTimeMillis()
             startTimerTick()
             _state.value = RecordingState.RECORDING
-            scheduleNextFrame()   // restart the frame loop
+            scheduleNextFrame()
             Log.i(TAG, "Recording resumed")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to resume: ${e.message}")
@@ -235,7 +278,7 @@ object GameRecorder {
 
     /**
      * Stop the recording, finalise the MP4, and publish it via MediaStore so it
-     * appears in the system gallery.
+     * appears in the device gallery.
      *
      * @param context Android context required for MediaStore update.
      */
@@ -244,28 +287,184 @@ object GameRecorder {
         if (current == RecordingState.IDLE || current == RecordingState.STOPPING) return
         _state.value = RecordingState.STOPPING
         isCapturing.set(false)
-
-        // Stop timer immediately
-        timerJob?.cancel()
-        timerJob = null
-
-        // Finalise on the capture thread so any in-flight PixelCopy callback completes first.
+        timerJob?.cancel(); timerJob = null
+        // Drain and mux on the capture thread so any in-flight PixelCopy completes first.
         captureHandler?.post { finalise(context) }
-            ?: run { finalise(context) }     // no thread? finalise inline
+            ?: run { finalise(context) }
     }
 
-    // ──────────────────────────────────────────────────────── Frame capture ───
+    // ──────────────────────────────────────── Video encoder drain job ─────────
+
+    private fun startVideoEncodeJob() {
+        videoEncodeJob = encodeScope.launch {
+            val bufInfo = MediaCodec.BufferInfo()
+            val codec   = videoCodec ?: return@launch
+            while (isActive) {
+                val idx = codec.dequeueOutputBuffer(bufInfo, 10_000L)
+                when {
+                    idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        synchronized(muxerLock) {
+                            videoTrackIndex = muxer!!.addTrack(codec.outputFormat)
+                            tryStartMuxerLocked()
+                        }
+                    }
+                    idx >= 0 -> {
+                        val isConfig = bufInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                        val isEos    = bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM  != 0
+                        if (!isConfig && bufInfo.size > 0) {
+                            val adjusted = adjustVideoTimestampUs(bufInfo.presentationTimeUs)
+                            if (adjusted >= 0) {
+                                val buf = codec.getOutputBuffer(idx)!!
+                                bufInfo.presentationTimeUs = adjusted
+                                synchronized(muxerLock) {
+                                    if (muxerStarted)
+                                        muxer!!.writeSampleData(videoTrackIndex, buf, bufInfo)
+                                }
+                            }
+                        }
+                        codec.releaseOutputBuffer(idx, false)
+                        if (isEos) break
+                    }
+                }
+            }
+        }
+    }
+
+    // ────────────────────────────────────── Audio capture + encode job ────────
+
+    private fun startAudioJob() {
+        audioJob = encodeScope.launch {
+            val ar      = audioRecord  ?: return@launch
+            val ac      = audioCodec   ?: return@launch
+            val bufSize = audioBufferSize()
+            val pcmBuf  = ByteArray(bufSize)
+            var sampleCount = 0L    // running sample-frame count for PTS generation
+
+            ar.startRecording()
+            try {
+                while (isActive &&
+                    _state.value != RecordingState.STOPPING &&
+                    _state.value != RecordingState.IDLE
+                ) {
+                    if (_state.value == RecordingState.PAUSED) {
+                        delay(30L)
+                        continue
+                    }
+
+                    val read = ar.read(pcmBuf, 0, bufSize)
+                    if (read <= 0) continue
+
+                    // Feed raw PCM to AAC encoder
+                    val inputIdx = ac.dequeueInputBuffer(5_000L)
+                    if (inputIdx >= 0) {
+                        val inBuf = ac.getInputBuffer(inputIdx)!!
+                        inBuf.clear()
+                        inBuf.put(pcmBuf, 0, read)
+                        // PTS in µs derived from the running sample count (always monotonic,
+                        // skips paused periods naturally because we don't increment while paused).
+                        val pts = sampleCount * 1_000_000L / AUDIO_SAMPLE_RATE
+                        ac.queueInputBuffer(inputIdx, 0, read, pts, 0)
+                        // 16-bit stereo PCM: 4 bytes per sample-frame
+                        sampleCount += read.toLong() / (2 * AUDIO_CHANNELS)
+                    }
+
+                    drainAudioCodec(ac, endOfStream = false)
+                }
+            } finally {
+                // Signal EOS to the AAC encoder and flush its remaining output
+                val eosIdx = ac.dequeueInputBuffer(5_000L)
+                if (eosIdx >= 0) {
+                    ac.queueInputBuffer(eosIdx, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                }
+                drainAudioCodec(ac, endOfStream = true)
+                runCatching { ar.stop() }
+            }
+        }
+    }
+
+    /**
+     * Drain encoded AAC output from the audio [MediaCodec] and write it to the muxer.
+     *
+     * When [endOfStream] is false the drain is non-blocking (timeout 0) and returns
+     * after at most one buffer so the capture loop stays responsive.  When [endOfStream]
+     * is true it blocks until the EOS buffer arrives.
+     */
+    private fun drainAudioCodec(ac: MediaCodec, endOfStream: Boolean) {
+        val bufInfo = MediaCodec.BufferInfo()
+        while (true) {
+            val idx = ac.dequeueOutputBuffer(bufInfo, if (endOfStream) 10_000L else 0L)
+            when {
+                idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    synchronized(muxerLock) {
+                        audioTrackIndex = muxer!!.addTrack(ac.outputFormat)
+                        tryStartMuxerLocked()
+                    }
+                }
+                idx >= 0 -> {
+                    val isConfig = bufInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                    val isEos    = bufInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM  != 0
+                    if (!isConfig && bufInfo.size > 0) {
+                        val buf = ac.getOutputBuffer(idx)!!
+                        synchronized(muxerLock) {
+                            if (muxerStarted)
+                                muxer!!.writeSampleData(audioTrackIndex, buf, bufInfo)
+                        }
+                    }
+                    ac.releaseOutputBuffer(idx, false)
+                    // In non-EOS drain: process one buffer then yield back to caller.
+                    // In EOS drain: keep looping until the EOS sentinel arrives.
+                    if (isEos || !endOfStream) return
+                }
+                else -> return  // INFO_TRY_AGAIN_LATER or no more output
+            }
+        }
+    }
+
+    // ───────────────────────────────── Muxer start (call under muxerLock) ─────
+
+    /**
+     * Start the [MediaMuxer] once both the video and audio tracks have reported their
+     * output format.  Must be called while holding [muxerLock].
+     */
+    private fun tryStartMuxerLocked() {
+        if (videoTrackIndex >= 0 && audioTrackIndex >= 0 && !muxerStarted) {
+            muxer!!.start()
+            muxerStarted = true
+            Log.i(TAG, "MediaMuxer started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+        }
+    }
+
+    // ──────────────────────────────────── Video timestamp normalisation ────────
+
+    /**
+     * Normalise a raw presentation timestamp from the video [MediaCodec] surface.
+     *
+     * Raw timestamps correspond to the wall-clock time at which each frame was
+     * drawn ([System.nanoTime] / 1000).  We subtract:
+     *  - the first frame's timestamp so that the output starts at 0, and
+     *  - the accumulated paused duration so that gaps in the frame stream do not
+     *    produce timestamp jumps in the output file.
+     *
+     * Returns a negative value for frames that arrive before both tracks are ready
+     * (the caller must discard those).
+     */
+    private fun adjustVideoTimestampUs(rawUs: Long): Long {
+        if (firstVideoTimestampUs == Long.MIN_VALUE) firstVideoTimestampUs = rawUs
+        return rawUs - firstVideoTimestampUs - totalPausedUs
+    }
+
+    // ──────────────────────────────────────────── Frame capture loop ──────────
 
     private fun scheduleNextFrame() {
         if (!isCapturing.get() || _state.value != RecordingState.RECORDING) return
-        captureHandler?.postDelayed({ captureFrame() }, (1000L / FRAME_RATE))
+        captureHandler?.postDelayed({ captureFrame() }, 1000L / FRAME_RATE)
     }
 
     private fun captureFrame() {
         if (!isCapturing.get()) return
-        if (_state.value != RecordingState.RECORDING) return   // paused or stopping
+        if (_state.value != RecordingState.RECORDING) return
 
-        val view = GameSurfaceRegistry.getView()
+        val view    = GameSurfaceRegistry.getView()
         val surface = inputSurface
         if (view == null || surface == null) { scheduleNextFrame(); return }
 
@@ -277,9 +476,8 @@ object GameRecorder {
     }
 
     private fun captureFromSurfaceView(sv: SurfaceView, out: android.view.Surface) {
-        val w = sv.width.coerceAtLeast(1)
-        val h = sv.height.coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = Bitmap.createBitmap(sv.width.coerceAtLeast(1), sv.height.coerceAtLeast(1),
+            Bitmap.Config.ARGB_8888)
         PixelCopy.request(sv, bmp, { result ->
             if (result == PixelCopy.SUCCESS) drawToSurface(bmp, out)
             bmp.recycle()
@@ -293,27 +491,20 @@ object GameRecorder {
         scheduleNextFrame()
     }
 
-    /** Draw a bitmap frame onto the MediaRecorder's input surface. */
     @Suppress("DEPRECATION")
     private fun drawToSurface(bmp: Bitmap, surface: android.view.Surface) {
         runCatching {
             val canvas = try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) surface.lockHardwareCanvas()
                 else surface.lockCanvas(null)
-            } catch (_: Exception) {
-                surface.lockCanvas(null)
-            }
+            } catch (_: Exception) { surface.lockCanvas(null) }
             canvas.drawBitmap(bmp, 0f, 0f, null)
             surface.unlockCanvasAndPost(canvas)
         }.onFailure { Log.w(TAG, "drawToSurface failed: ${it.message}") }
     }
 
-    // ──────────────────────────────────────────────────────────── Timer ───────
+    // ────────────────────────────────────────────────────────── Timer ─────────
 
-    /**
-     * Starts (or restarts) the background coroutine that updates [elapsedMs] roughly
-     * every 250 ms.  The ticker respects [accumulatedMs] so that paused time is not counted.
-     */
     private fun startTimerTick() {
         timerJob?.cancel()
         timerJob = timerScope.launch {
@@ -324,88 +515,160 @@ object GameRecorder {
         }
     }
 
-    // ─────────────────────────────────────────────────────── Finalisation ────
+    // ──────────────────────────────────── AudioRecord construction ────────────
+
+    /**
+     * Build an [AudioRecord] configured to capture internal device audio playback
+     * (game sounds, music) via [AudioPlaybackCaptureConfiguration].
+     *
+     * We match USAGE_GAME, USAGE_MEDIA, and USAGE_UNKNOWN to maximise the chance
+     * of capturing Minecraft's OpenAL output regardless of how the JVM process
+     * reports its audio usage attribute.
+     *
+     * Note: [android.Manifest.permission.RECORD_AUDIO] is still required by the
+     * [AudioRecord] constructor even though no microphone is accessed.
+     */
+    @Suppress("MissingPermission")
+    private fun buildAudioRecord(projection: MediaProjection): AudioRecord {
+        val config = AudioPlaybackCaptureConfiguration.Builder(projection)
+            .addMatchingUsage(android.media.AudioAttributes.USAGE_GAME)
+            .addMatchingUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .addMatchingUsage(android.media.AudioAttributes.USAGE_UNKNOWN)
+            .build()
+
+        return AudioRecord.Builder()
+            .setAudioPlaybackCaptureConfig(config)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(AUDIO_SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
+                    .build()
+            )
+            .setBufferSizeInBytes(audioBufferSize())
+            .build()
+    }
+
+    private fun audioBufferSize(): Int = maxOf(
+        AudioRecord.getMinBufferSize(
+            AUDIO_SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_STEREO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ),
+        8192
+    )
+
+    // ──────────────────────────────────────────────────────── Finalise ─────────
 
     private fun finalise(context: Context) {
         try {
-            recorder?.stop()
-            recorder?.release()
-            recorder = null
-            inputSurface?.release()
-            inputSurface = null
+            // Signal EOS to the video codec through its input surface; the
+            // videoEncodeJob will drain the remaining frames then exit.
+            runCatching { videoCodec?.signalEndOfInputStream() }
 
-            // Mark the MediaStore entry as no longer pending
+            // Cancel the audio job — its finally block will flush the AAC encoder.
+            audioJob?.cancel()
+
+            // Wait up to 5 s for both encode jobs to finish draining.
+            val deadline = System.currentTimeMillis() + 5_000L
+            while ((videoEncodeJob?.isActive == true || audioJob?.isActive == true)
+                && System.currentTimeMillis() < deadline
+            ) {
+                Thread.sleep(50L)
+            }
+
+            // Stop and release the muxer.
+            synchronized(muxerLock) {
+                if (muxerStarted) {
+                    runCatching { muxer?.stop() }
+                    muxerStarted = false
+                }
+                runCatching { muxer?.release() }
+                muxer = null
+            }
+
+            // Publish the MediaStore entry (clear IS_PENDING).
             pendingUri?.let { uri ->
                 val values = ContentValues().apply {
                     put(MediaStore.Video.Media.IS_PENDING, 0)
                 }
-                try {
-                    context.contentResolver.update(uri, values, null, null)
-                    Log.i(TAG, "Recording saved: $uri")
-                } catch (e: Exception) {
-                    Log.e(TAG, "MediaStore update failed: ${e.message}")
-                }
+                runCatching { context.contentResolver.update(uri, values, null, null) }
+                Log.i(TAG, "Recording saved: $uri")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Finalise error: ${e.message}")
         } finally {
-            captureThread?.quit()
-            captureThread = null
-            captureHandler = null
-            pendingUri = null
-            pendingFile = null
-            // Reset timer
-            timerJob?.cancel()
-            timerJob = null
-            _elapsedMs.value = 0L
-            accumulatedMs = 0L
-            _state.value = RecordingState.IDLE
+            cleanup()
         }
     }
 
     private fun cleanup() {
         isCapturing.set(false)
-        runCatching { recorder?.stop() }
-        runCatching { recorder?.release() }
-        recorder = null
+
+        videoEncodeJob?.cancel(); videoEncodeJob = null
+        audioJob?.cancel();       audioJob       = null
+
+        runCatching { videoCodec?.stop()    }
+        runCatching { videoCodec?.release() }
+        videoCodec = null
+
         runCatching { inputSurface?.release() }
         inputSurface = null
+
+        runCatching { audioRecord?.stop()    }
+        runCatching { audioRecord?.release() }
+        audioRecord = null
+
+        runCatching { audioCodec?.stop()    }
+        runCatching { audioCodec?.release() }
+        audioCodec = null
+
+        synchronized(muxerLock) {
+            if (muxerStarted) { runCatching { muxer?.stop() }; muxerStarted = false }
+            runCatching { muxer?.release() }
+            muxer = null
+        }
+
+        mediaProjection?.stop()
+        mediaProjection = null
+
         captureThread?.quit()
-        captureThread = null
+        captureThread  = null
         captureHandler = null
-        // Reset timer
-        timerJob?.cancel()
-        timerJob = null
-        _elapsedMs.value = 0L
-        accumulatedMs = 0L
+
+        timerJob?.cancel(); timerJob = null
+        _elapsedMs.value  = 0L
+        accumulatedMs     = 0L
+        videoTrackIndex   = -1
+        audioTrackIndex   = -1
+        firstVideoTimestampUs = Long.MIN_VALUE
+        totalPausedUs     = 0L
+        pendingUri        = null
+        pendingFile       = null
+
         _state.value = RecordingState.IDLE
     }
 
-    // ───────────────────────────────────────────────────── MediaStore output ─
+    // ──────────────────────────────────────────────── MediaStore output ────────
 
-    /**
-     * Creates a pending MediaStore video entry and returns its [android.net.Uri]
-     * plus a [File] handle (for display in [com.movtery.zalithlauncher.ui.screens.content.RecordingsScreen]).
-     */
     private fun createOutputEntry(context: Context): Pair<android.net.Uri, File> {
-        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val ts       = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val fileName = "ZerythRec_$ts.mp4"
-        val relPath = "Movies/Zeryth Recordings"
+        val relPath  = "Movies/Zeryth Recordings"
 
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.MIME_TYPE,    "video/mp4")
             put(MediaStore.Video.Media.RELATIVE_PATH, relPath)
-            put(MediaStore.Video.Media.IS_PENDING, 1)
+            put(MediaStore.Video.Media.IS_PENDING,   1)
         }
-        val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-            ?: throw IOException("Failed to create MediaStore entry for recording")
+        val uri = context.contentResolver.insert(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values
+        ) ?: throw IOException("Failed to create MediaStore entry for recording")
 
-        // Best-effort File reference for size queries in RecordingsScreen
         val publicMovies = android.os.Environment.getExternalStoragePublicDirectory(
             android.os.Environment.DIRECTORY_MOVIES
         )
-        val file = File(publicMovies, "Zeryth Recordings/$fileName")
-        return Pair(uri, file)
+        return Pair(uri, File(publicMovies, "Zeryth Recordings/$fileName"))
     }
 }
