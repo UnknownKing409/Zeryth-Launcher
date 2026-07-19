@@ -19,6 +19,7 @@
 package com.movtery.zalithlauncher.ui.components
 
 import android.app.Activity
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.view.ViewGroup
 import androidx.annotation.OptIn
@@ -54,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -178,18 +181,22 @@ fun RecordingPlayerOverlay(
         }
     }
 
-    // ── Full-screen: hide / restore Activity system bars ─────────────────────
+    // ── Full-screen: hide Activity system bars only when entering immersive mode ─
+    // IMPORTANT: do NOT touch system bars when isFullScreen = false (overlay mode).
+    // Calling ctrl.show() on initial composition would forcibly surface the status
+    // bar even when the launcher was running without it, and it would stay visible
+    // after the player is dismissed (the onDispose below runs on every key change).
     DisposableEffect(isFullScreen) {
+        if (!isFullScreen) return@DisposableEffect onDispose { /* nothing to restore */ }
         val window = activity?.window ?: return@DisposableEffect onDispose {}
         val ctrl = WindowCompat.getInsetsController(window, activityView)
-        if (isFullScreen) {
-            ctrl.hide(WindowInsetsCompat.Type.systemBars())
-            ctrl.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        } else {
+        ctrl.hide(WindowInsetsCompat.Type.systemBars())
+        ctrl.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        onDispose {
+            // Restore bars only when leaving full-screen (key changed to false) or on dispose
             ctrl.show(WindowInsetsCompat.Type.systemBars())
         }
-        onDispose { ctrl.show(WindowInsetsCompat.Type.systemBars()) }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -242,6 +249,17 @@ fun RecordingPlayerOverlay(
             decorFitsSystemWindows = true
         )
     ) {
+        // Make the Dialog window itself fully transparent so its default themed
+        // surface colour (the purple/blue band visible at the top in screenshots)
+        // does not bleed through.  Also zero out the platform dim-amount because
+        // we draw our own scrim below.
+        val dialogView = LocalView.current
+        SideEffect {
+            val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
+            dialogWindow?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            dialogWindow?.setDimAmount(0f)
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
 
             // Scrim — only visible in overlay (non-full-screen) mode
@@ -259,8 +277,12 @@ fun RecordingPlayerOverlay(
                 Modifier
                     .fillMaxSize()
             } else {
+                // 72 % of screen width keeps the card comfortably smaller than the
+                // screen on both phones and tablets, capped at 500 dp for very wide
+                // displays.
                 Modifier
-                    .fillMaxWidth(0.92f)
+                    .fillMaxWidth(0.72f)
+                    .widthIn(max = 500.dp)
                     .aspectRatio(16f / 9f)
                     .align(Alignment.Center)
                     .clip(RoundedCornerShape(12.dp))
