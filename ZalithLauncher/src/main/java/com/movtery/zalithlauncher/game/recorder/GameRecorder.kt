@@ -158,6 +158,14 @@ object GameRecorder {
     // normalised against THIS anchor so that the first frame written to the muxer
     // always has PTS ≈ 0, regardless of how long the fallback startup took.
     @Volatile private var muxerStartedNs        = 0L
+    // captureStartNs — wall-clock captured immediately before scheduleNextFrame() is
+    // called, i.e. the moment the first PixelCopy request is about to be dispatched.
+    // AudioRecord.startRecording() was called earlier (before codec priming and
+    // discardVideoOutput), so raw audio PTS starts from muxerStartedNs while video
+    // PTS starts from captureStartNs.  We close this gap by adding
+    // (captureStartNs − muxerStartedNs) to every audio PTS in drainAudioCodec,
+    // delaying audio to start at the same wall-clock origin as the first video frame.
+    @Volatile private var captureStartNs        = 0L
     // audioStartOffsetUs — (System.nanoTime after ar.startRecording) − recordingStartNs,
     // in microseconds.  Acts as the fixed PTS offset for the first audio sample.
     @Volatile private var audioStartOffsetUs    = 0L
@@ -212,6 +220,7 @@ object GameRecorder {
             audioTrackIndex    = -1
             recordingStartNs   = 0L
             muxerStartedNs     = 0L
+            captureStartNs     = 0L
             audioStartOffsetUs = 0L
             totalPausedUs      = 0L
 
@@ -333,6 +342,12 @@ object GameRecorder {
                 // already running when the first PixelCopy frame is drawn to the surface.
                 startVideoEncodeJob()
                 startAudioJob()
+
+                // Snapshot the wall-clock immediately before the first PixelCopy request
+                // is dispatched.  This becomes the A/V sync anchor: audio PTS is shifted
+                // forward by (captureStartNs − muxerStartedNs) in drainAudioCodec so
+                // that both streams share the same effective time-zero.
+                captureStartNs = System.nanoTime()
 
                 // Enable frame capture and schedule the first PixelCopy request.  The
                 // encode job is active by this point, so no frames can be lost to an
@@ -638,17 +653,29 @@ object GameRecorder {
                         val buf = ac.getOutputBuffer(idx)!!
                         synchronized(muxerLock) {
                             if (muxerStarted) {
-                                // Correct audio PTS so it is relative to muxerStartedNs
-                                // rather than recordingStartNs.  In the happy-path
-                                // (priming succeeded) the two timestamps differ by only a
-                                // few ms, so this is essentially a no-op.  In the fallback
-                                // path (muxer started seconds after recording began) this
-                                // subtracts the startup gap, bringing the first written
-                                // audio PTS to ≈ 0 and aligning it with the first video
-                                // frame — eliminating the 1–2 second A/V sync offset.
+                                // Step 1 — normalise audio PTS to muxerStartedNs, just as
+                                // video PTS is.  In the happy-path (priming succeeded) the
+                                // muxerDelta is only a few ms; in the fallback path it can
+                                // be seconds, but the subtraction brings the first written
+                                // audio PTS to ≈ 0 in both cases.
                                 val muxerDeltaUs = (muxerStartedNs - recordingStartNs) / 1_000L
+
+                                // Step 2 — A/V sync correction.
+                                // AudioRecord.startRecording() is called before codec
+                                // priming and discardVideoOutput(), so raw audio accumulates
+                                // from muxerStartedNs while the first PixelCopy frame only
+                                // arrives at captureStartNs + 33 ms + PixelCopy latency.
+                                // Without correction, audio leads video by
+                                // (captureStartNs − muxerStartedNs), which grows whenever
+                                // discardVideoOutput() has work to do.
+                                // We delay audio PTS by exactly that gap so both streams
+                                // share the same effective time-zero (captureStartNs).
+                                val captureShiftUs = ((captureStartNs - muxerStartedNs) / 1_000L)
+                                    .coerceAtLeast(0L)
+
                                 bufInfo.presentationTimeUs =
-                                    (bufInfo.presentationTimeUs - muxerDeltaUs).coerceAtLeast(0L)
+                                    (bufInfo.presentationTimeUs - muxerDeltaUs + captureShiftUs)
+                                        .coerceAtLeast(0L)
                                 muxer!!.writeSampleData(audioTrackIndex, buf, bufInfo)
                             }
                         }
@@ -940,6 +967,7 @@ object GameRecorder {
         audioTrackIndex    = -1
         recordingStartNs   = 0L
         muxerStartedNs     = 0L
+        captureStartNs     = 0L
         audioStartOffsetUs = 0L
         totalPausedUs      = 0L
         pendingUri         = null
