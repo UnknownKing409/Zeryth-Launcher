@@ -582,10 +582,12 @@ fun GameScreen(
     }
     var pendingStartRecording by remember { mutableStateOf(false) }
 
-    // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
-    // The foreground service is already running at this point (started in launchProjectionConsent).
-    // On approval we get the MediaProjection token and hand it to GameRecorder.
-    // On denial/cancel we stop the service immediately — it has no reason to keep running.
+    // stopProjectionService has no dependency on any val below, so it is safe here.
+    fun stopProjectionService() {
+        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
+    }
+
+    // Step 2: consent dialog result — stopProjectionService is already in scope above.
     val requestProjection = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -597,18 +599,11 @@ fun GameScreen(
             GameRecorder.start(context, projection)
             eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
         } else {
-            // User denied the consent dialog — release the service we started.
             stopProjectionService()
         }
     }
 
-    // Helpers — defined after requestProjection so the val is in scope.
-    /** Stop the MediaProjection foreground service (called when user cancels/denies). */
-    fun stopProjectionService() {
-        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
-    }
-
-    /** Start the MediaProjection foreground service then show the system consent dialog. */
+    // launchProjectionConsent references requestProjection, so it must come after it.
     fun launchProjectionConsent() {
         context.startForegroundService(
             Intent(context, MediaProjectionForegroundService::class.java)
@@ -616,7 +611,7 @@ fun GameScreen(
         requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 
-    // Step 1: request RECORD_AUDIO if not already granted, then proceed to Step 2.
+    // Step 1: RECORD_AUDIO permission — launchProjectionConsent is in scope above.
     val requestAudioPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
