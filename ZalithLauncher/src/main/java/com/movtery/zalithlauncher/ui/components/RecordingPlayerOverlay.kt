@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,6 +47,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -250,9 +250,8 @@ fun RecordingPlayerOverlay(
         )
     ) {
         // Make the Dialog window itself fully transparent so its default themed
-        // surface colour (the purple/blue band visible at the top in screenshots)
-        // does not bleed through.  Also zero out the platform dim-amount because
-        // we draw our own scrim below.
+        // surface colour does not bleed through, and zero out the platform dim
+        // because we draw our own scrim.
         val dialogView = LocalView.current
         SideEffect {
             val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
@@ -262,225 +261,340 @@ fun RecordingPlayerOverlay(
 
         Box(modifier = Modifier.fillMaxSize()) {
 
-            // Scrim — only visible in overlay (non-full-screen) mode
-            if (!isFullScreen) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.78f))
-                        .clickable(onClick = ::dismissWithCleanup)
-                )
-            }
-
-            // ── Player container ──────────────────────────────────────────────
-            val playerModifier = if (isFullScreen) {
-                Modifier
-                    .fillMaxSize()
-            } else {
-                // 72 % of screen width keeps the card comfortably smaller than the
-                // screen on both phones and tablets, capped at 500 dp for very wide
-                // displays.
-                Modifier
-                    .fillMaxWidth(0.72f)
-                    .widthIn(max = 500.dp)
-                    .aspectRatio(16f / 9f)
-                    .align(Alignment.Center)
-                    .clip(RoundedCornerShape(12.dp))
-            }
-
-            Box(modifier = playerModifier.background(Color.Black)) {
-
-                // Video surface (ExoPlayer PlayerView, controller disabled)
-                AndroidPlayerView(player = player, modifier = Modifier.fillMaxSize())
-
-                // ── Gesture detection ─────────────────────────────────────────
-                // Single tap  → toggle controls
-                // Double tap  → seek ±5 s (left half = rewind, right half = forward)
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(isPlaying) {
-                            detectTapGestures(
-                                onTap = { controlsVisible = !controlsVisible },
-                                onDoubleTap = { offset ->
-                                    val isLeft = offset.x < size.width / 2f
-                                    seek(if (isLeft) -5 else 5)
-                                    controlsVisible = true  // briefly show controls after seek
+            if (isFullScreen) {
+                // ── FULL-SCREEN mode ──────────────────────────────────────────
+                // Black video surface with a semi-transparent gradient overlay
+                // that auto-hides after 3 s of playback.
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    AndroidPlayerView(player = player, modifier = Modifier.fillMaxSize())
+                    VideoGestureLayer(
+                        onTap = { controlsVisible = !controlsVisible },
+                        onDoubleTap = { offset, width ->
+                            seek(if (offset < width / 2f) -5 else 5)
+                            controlsVisible = true
+                        }
+                    )
+                    SeekIndicator(seekVisible = seekVisible, seekAccumSec = seekAccumSec)
+                    AnimatedVisibility(
+                        visible = controlsVisible,
+                        enter = fadeIn(tween(200)),
+                        exit  = fadeOut(tween(300)),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        0.00f to Color.Black.copy(alpha = 0.65f),
+                                        0.28f to Color.Transparent,
+                                        0.72f to Color.Transparent,
+                                        1.00f to Color.Black.copy(alpha = 0.65f)
+                                    )
+                                )
+                        ) {
+                            // Top bar
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .align(Alignment.TopStart),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = ::dismissWithCleanup) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_close),
+                                        contentDescription = "Close player",
+                                        tint = Color.White
+                                    )
                                 }
+                                Text(
+                                    text = title,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                IconButton(onClick = { isFullScreen = false }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_fullscreen_exit),
+                                        contentDescription = "Exit full screen",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                            // Centre button
+                            CentrePlayButton(
+                                isBuffering = isBuffering,
+                                isEnded = isEnded,
+                                isPlaying = isPlaying,
+                                tint = Color.White,
+                                modifier = Modifier.align(Alignment.Center),
+                                onClick = ::togglePlayback
+                            )
+                            // Bottom progress
+                            ProgressRow(
+                                positionMs = positionMs,
+                                durationMs = durationMs,
+                                textColor = Color.White,
+                                secondaryTextColor = Color.White.copy(alpha = 0.70f),
+                                sliderColors = SliderDefaults.colors(
+                                    thumbColor         = Color.White,
+                                    activeTrackColor   = Color.White,
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.35f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                onScrub = { fraction ->
+                                    isScrubbing = true
+                                    positionMs = (fraction * durationMs).toLong()
+                                    player.seekTo(positionMs)
+                                },
+                                onScrubFinished = { isScrubbing = false },
+                                formatTime = ::formatTime
                             )
                         }
-                ) { /* measure-only, no children */ }
-
-                // ── Seek indicator ────────────────────────────────────────────
-                AnimatedVisibility(
-                    visible = seekVisible,
-                    enter = fadeIn() + scaleIn(initialScale = 0.80f),
-                    exit  = fadeOut(tween(250)),
-                    modifier = Modifier.align(Alignment.Center)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black.copy(alpha = 0.72f))
-                            .padding(horizontal = 18.dp, vertical = 10.dp)
-                    ) {
-                        Text(
-                            text = if (seekAccumSec >= 0) "+${seekAccumSec}s" else "${seekAccumSec}s",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
                     }
                 }
 
-                // ── Controls overlay ──────────────────────────────────────────
-                AnimatedVisibility(
-                    visible = controlsVisible,
-                    enter = fadeIn(tween(200)),
-                    exit  = fadeOut(tween(300)),
-                    modifier = Modifier.fillMaxSize()
+            } else {
+                // ── OVERLAY (card) mode ───────────────────────────────────────
+                // Scrim behind the card — tapping it dismisses the player.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.72f))
+                        .clickable(onClick = ::dismissWithCleanup)
+                )
+
+                // Card container — matches the launcher's BackgroundCard style.
+                BackgroundCard(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .widthIn(max = 560.dp)
+                        .align(Alignment.Center)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    0.00f to Color.Black.copy(alpha = 0.65f),
-                                    0.28f to Color.Transparent,
-                                    0.72f to Color.Transparent,
-                                    1.00f to Color.Black.copy(alpha = 0.65f)
-                                )
-                            )
-                    ) {
-                        // ── Top bar: close | title | full-screen toggle ────────
+                    // ── Title bar (separated by a divider, launcher-style) ────
+                    CardTitleLayout {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .align(Alignment.TopStart),
+                                .padding(start = 4.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = ::dismissWithCleanup) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_close),
-                                    contentDescription = "Close player",
-                                    tint = Color.White
+                                    contentDescription = "Close player"
                                 )
                             }
                             Text(
                                 text = title,
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(horizontal = 4.dp),
+                                    .padding(horizontal = 6.dp),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            IconButton(onClick = { isFullScreen = !isFullScreen }) {
+                            IconButton(onClick = { isFullScreen = true }) {
                                 Icon(
-                                    painter = painterResource(
-                                        if (isFullScreen) R.drawable.ic_fullscreen_exit
-                                        else R.drawable.ic_fullscreen
-                                    ),
-                                    contentDescription = if (isFullScreen) "Exit full screen"
-                                                         else "Enter full screen",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-
-                        // ── Centre: play / pause / replay / buffering indicator ─
-                        Box(
-                            modifier = Modifier.align(Alignment.Center),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isBuffering && !isEnded) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black.copy(alpha = 0.45f))
-                                        .clickable { togglePlayback() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(
-                                            when {
-                                                isEnded   -> R.drawable.ic_replay
-                                                isPlaying -> R.drawable.ic_pause_filled
-                                                else      -> R.drawable.ic_play_arrow_filled
-                                            }
-                                        ),
-                                        contentDescription = when {
-                                            isEnded   -> "Replay"
-                                            isPlaying -> "Pause"
-                                            else      -> "Play"
-                                        },
-                                        tint = Color.White,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // ── Bottom: position | progress slider | duration ──────
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                // Current position
-                                Text(
-                                    text = formatTime(positionMs),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.widthIn(min = 40.dp)
-                                )
-
-                                // Progress slider with scrubbing support
-                                Slider(
-                                    value = if (durationMs > 0L)
-                                        (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-                                    else 0f,
-                                    onValueChange = { fraction ->
-                                        isScrubbing = true
-                                        positionMs = (fraction * durationMs).toLong()
-                                        player.seekTo(positionMs)
-                                    },
-                                    onValueChangeFinished = { isScrubbing = false },
-                                    modifier = Modifier.weight(1f),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor         = Color.White,
-                                        activeTrackColor   = Color.White,
-                                        inactiveTrackColor = Color.White.copy(alpha = 0.35f)
-                                    )
-                                )
-
-                                // Total duration
-                                Text(
-                                    text = formatTime(durationMs),
-                                    color = Color.White.copy(alpha = 0.70f),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.widthIn(min = 40.dp)
+                                    painter = painterResource(R.drawable.ic_fullscreen),
+                                    contentDescription = "Enter full screen"
                                 )
                             }
                         }
                     }
+
+                    // ── Video surface (fills card width, clips to card shape) ─
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .background(Color.Black)
+                    ) {
+                        AndroidPlayerView(
+                            player = player,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        VideoGestureLayer(
+                            onTap = { /* controls always visible in card mode */ },
+                            onDoubleTap = { offset, width ->
+                                seek(if (offset < width / 2f) -5 else 5)
+                            }
+                        )
+                        SeekIndicator(seekVisible = seekVisible, seekAccumSec = seekAccumSec)
+                        // Centre play/pause/replay — always visible in card mode
+                        CentrePlayButton(
+                            isBuffering = isBuffering,
+                            isEnded = isEnded,
+                            isPlaying = isPlaying,
+                            tint = Color.White,
+                            modifier = Modifier.align(Alignment.Center),
+                            onClick = ::togglePlayback
+                        )
+                    }
+
+                    // ── Progress row — inside card body, uses theme colours ───
+                    ProgressRow(
+                        positionMs = positionMs,
+                        durationMs = durationMs,
+                        textColor = LocalContentColor.current,
+                        secondaryTextColor = LocalContentColor.current.copy(alpha = 0.55f),
+                        sliderColors = SliderDefaults.colors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        onScrub = { fraction ->
+                            isScrubbing = true
+                            positionMs = (fraction * durationMs).toLong()
+                            player.seekTo(positionMs)
+                        },
+                        onScrubFinished = { isScrubbing = false },
+                        formatTime = ::formatTime
+                    )
                 }
             }
         }
+    }
+}
+
+// ── Extracted private helpers ─────────────────────────────────────────────────
+
+/** Transparent gesture-capture layer covering the video surface. */
+@Composable
+private fun VideoGestureLayer(
+    onTap: () -> Unit,
+    onDoubleTap: (offset: Float, width: Float) -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onDoubleTap = { offset ->
+                        onDoubleTap(offset.x, size.width.toFloat())
+                    }
+                )
+            }
+    ) { /* measure only */ }
+}
+
+/** Animated ±Ns seek amount indicator centred over the video. */
+@Composable
+private fun SeekIndicator(seekVisible: Boolean, seekAccumSec: Int) {
+    AnimatedVisibility(
+        visible = seekVisible,
+        enter = fadeIn() + scaleIn(initialScale = 0.80f),
+        exit  = fadeOut(tween(250)),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = if (seekAccumSec >= 0) "+${seekAccumSec}s" else "${seekAccumSec}s",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+    }
+}
+
+/** Circular play / pause / replay / buffering button centred over the video. */
+@Composable
+private fun CentrePlayButton(
+    isBuffering: Boolean,
+    isEnded: Boolean,
+    isPlaying: Boolean,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        if (isBuffering && !isEnded) {
+            CircularProgressIndicator(color = tint, modifier = Modifier.size(48.dp))
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable(onClick = onClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(
+                        when {
+                            isEnded   -> R.drawable.ic_replay
+                            isPlaying -> R.drawable.ic_pause_filled
+                            else      -> R.drawable.ic_play_arrow_filled
+                        }
+                    ),
+                    contentDescription = when {
+                        isEnded   -> "Replay"
+                        isPlaying -> "Pause"
+                        else      -> "Play"
+                    },
+                    tint = tint,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+    }
+}
+
+/** Position label + scrubable Slider + duration label. */
+@Composable
+private fun ProgressRow(
+    positionMs: Long,
+    durationMs: Long,
+    textColor: Color,
+    secondaryTextColor: Color,
+    sliderColors: androidx.compose.material3.SliderColors,
+    modifier: Modifier = Modifier,
+    onScrub: (Float) -> Unit,
+    onScrubFinished: () -> Unit,
+    formatTime: (Long) -> String
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = formatTime(positionMs),
+            color = textColor,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.widthIn(min = 40.dp)
+        )
+        Slider(
+            value = if (durationMs > 0L)
+                (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+            else 0f,
+            onValueChange = onScrub,
+            onValueChangeFinished = onScrubFinished,
+            modifier = Modifier.weight(1f),
+            colors = sliderColors
+        )
+        Text(
+            text = formatTime(durationMs),
+            color = secondaryTextColor,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.widthIn(min = 40.dp)
+        )
     }
 }
 
