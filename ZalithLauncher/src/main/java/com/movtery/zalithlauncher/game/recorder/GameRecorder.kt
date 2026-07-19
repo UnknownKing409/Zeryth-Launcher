@@ -148,9 +148,12 @@ object GameRecorder {
 
     // ── Timestamp tracking ────────────────────────────────────────────────────
     // recordingStartNs — wall-clock (System.nanoTime) captured immediately after
-    // both codecs are started.  Used as the shared anchor for both audio and video
-    // timestamps so they are always in sync regardless of encoder startup latency.
+    // the muxer is pre-started (both codec tracks already added).  Both audio and
+    // video timestamps are normalised against this single origin.
     @Volatile private var recordingStartNs      = 0L
+    // audioStartOffsetUs — (System.nanoTime after ar.startRecording) − recordingStartNs,
+    // in microseconds.  Acts as the fixed PTS offset for the first audio sample.
+    @Volatile private var audioStartOffsetUs    = 0L
     @Volatile private var totalPausedUs         = 0L
     @Volatile private var pauseStartMs          = 0L
 
@@ -238,9 +241,41 @@ object GameRecorder {
             captureThread  = HandlerThread("GameRecorder-Capture").also { it.start() }
             captureHandler = Handler(captureThread!!.looper)
 
-            // Shared wall-clock anchor — captured once after both codecs are started
-            // so that both audio and video timestamps reference the same origin.
+            // ── Pre-prime both codecs synchronously and start the muxer ───────
+            //
+            // Problem this solves: MediaMuxer cannot start until BOTH track formats
+            // are known.  The video codec emits INFO_OUTPUT_FORMAT_CHANGED almost
+            // instantly (surface encoders output it before any frames arrive), but
+            // the audio codec needs at least one queued input buffer on many
+            // Android implementations.  If we start the muxer asynchronously
+            // (inside coroutines), every video frame produced while waiting for
+            // the audio format change is silently dropped.  With a slow coroutine
+            // dispatch or a sluggish audio codec this gap can easily be 1–2 s,
+            // making audio lead video by exactly that amount.
+            //
+            // Fix: block here until both FORMAT_CHANGED events are received, then
+            // call muxer.start() BEFORE setting recordingStartNs or starting the
+            // audio read loop.  No video frames are ever missed.
+            primeVideoTrack()
+            primeAudioTrack()
+            if (videoTrackIndex < 0 || audioTrackIndex < 0) {
+                Log.e(TAG, "Codec priming failed (video=$videoTrackIndex audio=$audioTrackIndex)")
+                cleanup(); return
+            }
+            synchronized(muxerLock) {
+                muxer!!.start()
+                muxerStarted = true
+                Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+            }
+
+            // ── Set anchor and start audio capture ────────────────────────────
+            // recordingStartNs is set AFTER the muxer is running so every
+            // video frame drawn after this point can be written immediately.
+            // ar.startRecording() is called on this thread (not inside a
+            // coroutine) so we know the exact wall-clock offset.
             recordingStartNs = System.nanoTime()
+            audioRecord!!.startRecording()
+            audioStartOffsetUs = (System.nanoTime() - recordingStartNs) / 1_000L
 
             isCapturing.set(true)
             _state.value = RecordingState.RECORDING
@@ -310,6 +345,73 @@ object GameRecorder {
             ?: run { finalise(context) }
     }
 
+    // ─────────────────────────── Codec priming (synchronous, pre-recording) ──
+
+    /**
+     * Block until the video [MediaCodec] emits `INFO_OUTPUT_FORMAT_CHANGED` and
+     * register the track with the muxer.
+     *
+     * Surface-based H.264 encoders always emit this event before the first encoded
+     * frame, so we only need to drain a few output polls — no input is required.
+     */
+    private fun primeVideoTrack() {
+        val codec = videoCodec ?: return
+        val info  = MediaCodec.BufferInfo()
+        repeat(100) {  // up to 100 × 10 ms = 1 s
+            when (val idx = codec.dequeueOutputBuffer(info, 10_000L)) {
+                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    videoTrackIndex = muxer!!.addTrack(codec.outputFormat)
+                    Log.i(TAG, "Video track primed (index=$videoTrackIndex)")
+                    return
+                }
+                else -> if (idx >= 0) codec.releaseOutputBuffer(idx, false)
+            }
+        }
+        Log.w(TAG, "Video codec did not emit FORMAT_CHANGED during priming")
+    }
+
+    /**
+     * Prime the audio [MediaCodec] by feeding one silent PCM buffer so that the
+     * codec emits `INFO_OUTPUT_FORMAT_CHANGED`, then register the track with the
+     * muxer and discard any encoded output produced by the silent primer.
+     *
+     * AAC encoders may not emit format change until they receive their first input.
+     */
+    private fun primeAudioTrack() {
+        val ac    = audioCodec ?: return
+        val info  = MediaCodec.BufferInfo()
+        val chunkSize = audioReadChunkSize()
+        // Feed one zero-filled (silent) buffer to trigger format emission.
+        val inputIdx = ac.dequeueInputBuffer(200_000L)
+        if (inputIdx >= 0) {
+            ac.getInputBuffer(inputIdx)!!.apply { clear(); put(ByteArray(chunkSize)) }
+            ac.queueInputBuffer(inputIdx, 0, chunkSize, 0L, 0)
+        }
+        repeat(100) {  // up to 100 × 10 ms = 1 s
+            when (val idx = ac.dequeueOutputBuffer(info, 10_000L)) {
+                MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    audioTrackIndex = muxer!!.addTrack(ac.outputFormat)
+                    Log.i(TAG, "Audio track primed (index=$audioTrackIndex)")
+                    // Drain and discard any encoded frames from the silent primer
+                    // so the audio job starts with an empty output queue.
+                    discardAudioOutput(ac)
+                    return
+                }
+                else -> if (idx >= 0) ac.releaseOutputBuffer(idx, false)  // discard silent frame
+            }
+        }
+        Log.w(TAG, "Audio codec did not emit FORMAT_CHANGED during priming")
+    }
+
+    /** Drain and discard all currently-available audio codec output buffers. */
+    private fun discardAudioOutput(ac: MediaCodec) {
+        val info = MediaCodec.BufferInfo()
+        while (true) {
+            val idx = ac.dequeueOutputBuffer(info, 0L)
+            if (idx >= 0) ac.releaseOutputBuffer(idx, false) else return
+        }
+    }
+
     // ──────────────────────────────────────── Video encoder drain job ─────────
 
     private fun startVideoEncodeJob() {
@@ -320,9 +422,13 @@ object GameRecorder {
                 val idx = codec.dequeueOutputBuffer(bufInfo, 10_000L)
                 when {
                     idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        // Guard: priming already added the track and started the muxer.
+                        // Only enter this path if priming failed (fallback).
                         synchronized(muxerLock) {
-                            videoTrackIndex = muxer!!.addTrack(codec.outputFormat)
-                            tryStartMuxerLocked()
+                            if (!muxerStarted) {
+                                videoTrackIndex = muxer!!.addTrack(codec.outputFormat)
+                                tryStartMuxerLocked()
+                            }
                         }
                     }
                     idx >= 0 -> {
@@ -356,31 +462,23 @@ object GameRecorder {
             val chunkSize = audioReadChunkSize()
             val pcmBuf    = ByteArray(chunkSize)
 
-            // ── Audio PTS strategy ────────────────────────────────────────────
+            // ── Audio PTS ─────────────────────────────────────────────────────
             //
-            // We use AudioRecord.getTimestamp(AudioTimestamp, TIMEBASE_MONOTONIC)
-            // (API 24+, always available since AudioPlaybackCapture requires 29+)
-            // to obtain a hardware-accurate (framePosition, nanoTime) anchor on the
-            // very first read.  All subsequent PTS are:
+            // ar.startRecording() was already called on the main thread in start(),
+            // immediately after recordingStartNs was set.  audioStartOffsetUs holds
+            // (nanoTime_after_startRecording − recordingStartNs) / 1000 — typically
+            // just a few µs.
             //
-            //   batchStartNs = anchorNs + (totalFramesRead - anchorFrame) * 1e9 / SAMPLE_RATE
-            //   pts_µs       = (batchStartNs - recordingStartNs) / 1000
+            // PTS for each batch:
+            //   pts = audioStartOffsetUs + totalFrames * 1_000_000 / SAMPLE_RATE
             //
-            // This approach is immune to:
-            //  • ar.read() blocking latency (~chunkDuration ms on first call)
-            //  • OS scheduling jitter between reads
-            //  • Dropped encoder-input batches (totalFramesRead still advances,
-            //    so PTS stays consistent with the hardware timeline even when we
-            //    cannot immediately queue a batch into the encoder)
-            //
-            // Fallback (getTimestamp fails): approximate anchorNs by subtracting
-            // one chunk-duration from System.nanoTime() after the first read.
-            val hwTimestamp   = android.media.AudioTimestamp()
-            var anchorNs      = 0L          // System.nanoTime() of anchorFrame
-            var anchorFrame   = 0L          // frame index reported by hardware
-            var totalFrames   = 0L          // running count of frames fed to encoder
+            // totalFrames is a running count of PCM frames fed to the encoder.
+            // It is advanced BEFORE the encoder check so PTS stays correct even
+            // when a batch is momentarily dropped (AudioRecord's read pointer
+            // already advanced; we account for those samples in the PTS timeline).
+            var totalFrames = 0L
 
-            ar.startRecording()
+            // ar is already recording — jump straight into the read loop.
             try {
                 while (isActive &&
                     _state.value != RecordingState.STOPPING &&
@@ -396,34 +494,14 @@ object GameRecorder {
 
                     val framesInBatch = read.toLong() / BYTES_PER_FRAME
 
-                    // Acquire hardware timestamp anchor once (on first successful read).
-                    if (anchorNs == 0L) {
-                        if (ar.getTimestamp(hwTimestamp,
-                                android.media.AudioTimestamp.TIMEBASE_MONOTONIC)
-                            == AudioRecord.SUCCESS
-                        ) {
-                            anchorFrame = hwTimestamp.framePosition
-                            anchorNs    = hwTimestamp.nanoTime
-                        } else {
-                            // Fallback: nanoTime() corrected backwards by one chunk latency.
-                            anchorFrame = 0L
-                            anchorNs    = System.nanoTime() -
-                                framesInBatch * 1_000_000_000L / AUDIO_SAMPLE_RATE
-                        }
-                    }
+                    // PTS of the first frame in this batch.
+                    val pts = audioStartOffsetUs + totalFrames * 1_000_000L / AUDIO_SAMPLE_RATE
 
-                    // Compute PTS for the first frame of this batch.
-                    val batchStartNs = anchorNs +
-                        (totalFrames - anchorFrame) * 1_000_000_000L / AUDIO_SAMPLE_RATE
-                    val pts = (batchStartNs - recordingStartNs) / 1_000L
-
-                    // Advance frame counter BEFORE the encoder check so PTS stays
-                    // correct even if this batch cannot be queued and is dropped.
+                    // Advance BEFORE the encoder check — see comment above.
                     totalFrames += framesInBatch
 
-                    // Feed to AAC encoder.  If the input queue is momentarily full,
-                    // drain the output side first (which frees input slots) then retry
-                    // once rather than silently dropping the batch.
+                    // Feed to AAC encoder.  Retry once after draining output (which
+                    // frees input slots) rather than silently dropping the batch.
                     var inputIdx = ac.dequeueInputBuffer(5_000L)
                     if (inputIdx < 0) {
                         drainAudioCodec(ac, endOfStream = false)
@@ -433,7 +511,7 @@ object GameRecorder {
                         ac.getInputBuffer(inputIdx)!!.apply { clear(); put(pcmBuf, 0, read) }
                         ac.queueInputBuffer(inputIdx, 0, read, pts.coerceAtLeast(0L), 0)
                     } else {
-                        Log.w(TAG, "Audio encoder input buffer unavailable — batch dropped (${framesInBatch} frames)")
+                        Log.w(TAG, "Audio encoder input buffer unavailable — batch dropped ($framesInBatch frames)")
                     }
 
                     drainAudioCodec(ac, endOfStream = false)
@@ -466,9 +544,13 @@ object GameRecorder {
             val idx = ac.dequeueOutputBuffer(bufInfo, timeout)
             when {
                 idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    // Guard: priming already added the track and started the muxer.
+                    // Only enter this path if priming failed (fallback).
                     synchronized(muxerLock) {
-                        audioTrackIndex = muxer!!.addTrack(ac.outputFormat)
-                        tryStartMuxerLocked()
+                        if (!muxerStarted) {
+                            audioTrackIndex = muxer!!.addTrack(ac.outputFormat)
+                            tryStartMuxerLocked()
+                        }
                     }
                 }
                 idx >= 0 -> {
@@ -755,6 +837,7 @@ object GameRecorder {
         videoTrackIndex   = -1
         audioTrackIndex   = -1
         recordingStartNs  = 0L
+        audioStartOffsetUs = 0L
         totalPausedUs     = 0L
         pendingUri        = null
         pendingFile       = null
