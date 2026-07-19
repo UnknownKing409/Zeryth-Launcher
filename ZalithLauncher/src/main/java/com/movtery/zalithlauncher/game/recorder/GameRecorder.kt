@@ -21,15 +21,15 @@ package com.movtery.zalithlauncher.game.recorder
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
+import android.media.AudioTrack
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
-import android.media.ToneGenerator
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Handler
@@ -356,11 +356,9 @@ object GameRecorder {
                 scheduleNextFrame()
 
                 // Recording is now fully active — play the start confirmation sound.
-                // ToneGenerator on STREAM_NOTIFICATION (USAGE_NOTIFICATION) is NOT
-                // captured by AudioPlaybackCaptureConfiguration (we only match
-                // USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so this tone never
-                // appears in the recorded audio.  Played only here — after a confirmed
-                // successful start — never on init failure or cancellation.
+                // AudioTrack on USAGE_ASSISTANCE_SONIFICATION is NOT captured by
+                // AudioPlaybackCaptureConfiguration (we only match USAGE_GAME /
+                // USAGE_MEDIA / USAGE_UNKNOWN), so it never appears in the recording.
                 playRecordingStartSound()
 
                 Log.i(TAG, "Recording started ${w}x${h} — audio via AudioPlaybackCapture")
@@ -997,13 +995,20 @@ object GameRecorder {
     // ──────────────────────────────────────── Recording status sounds ─────────
 
     /**
-     * Play a short single-beep confirmation tone indicating that recording has
+     * Play a short rising two-tone confirmation indicating that recording has
      * successfully started.
      *
-     * The tone is emitted on [AudioManager.STREAM_NOTIFICATION] (USAGE_NOTIFICATION),
-     * which is **not** matched by our [AudioPlaybackCaptureConfiguration] (we only
-     * capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN).  The sound therefore never
-     * appears in the recorded audio.
+     * Tones are generated directly via [AudioTrack] with
+     * [AudioAttributes.USAGE_ASSISTANCE_SONIFICATION] + [AudioAttributes.CONTENT_TYPE_SONIFICATION].
+     * This is the same audio path used by Android system-UI feedback sounds (keyboard
+     * clicks, camera shutter, etc.).  It is routed through the system-sound volume
+     * rather than the notification or media volume, so it remains audible in gaming
+     * mode, DND, and silent-notification profiles where [android.media.ToneGenerator]
+     * on [android.media.AudioManager.STREAM_NOTIFICATION] would be silenced.
+     *
+     * USAGE_ASSISTANCE_SONIFICATION is **not** matched by our
+     * [AudioPlaybackCaptureConfiguration] (we only capture USAGE_GAME / USAGE_MEDIA /
+     * USAGE_UNKNOWN), so neither tone ever appears in the recorded audio.
      *
      * Called only on the confirmed-active recording path — never on init failure,
      * permission denial, or cancellation.
@@ -1011,12 +1016,9 @@ object GameRecorder {
     private fun playRecordingStartSound() {
         encodeScope.launch {
             runCatching {
-                // Volume 70 out of 100 — audible but not intrusive.
-                // TONE_PROP_BEEP: one short 400 Hz beep ≈ 160 ms — clean start cue.
-                val tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70)
-                tg.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
-                delay(220L)   // outlast the tone before releasing
-                tg.release()
+                playTone(880f, 110)   // high beep  ↑
+                delay(60L)
+                playTone(1320f, 130)  // higher beep ↑↑  — rising = "on"
             }.onFailure { e ->
                 Log.w(TAG, "Recording start sound failed: ${e.message}")
             }
@@ -1024,24 +1026,79 @@ object GameRecorder {
     }
 
     /**
-     * Play a double-beep confirmation tone indicating that recording has stopped and
-     * the output file has been fully finalized and saved to MediaStore.
+     * Play a short falling two-tone confirmation indicating that recording has stopped
+     * and the output file has been fully finalized and saved to MediaStore.
      *
-     * Same stream as [playRecordingStartSound]; two beeps distinguish "stopped" from
-     * "started."  Called only after a successful [MediaStore] commit.
+     * Same audio path as [playRecordingStartSound]; descending pitch distinguishes
+     * "stopped" from "started."  Called only after a successful [MediaStore] commit.
      */
     private fun playRecordingStopSound() {
         encodeScope.launch {
             runCatching {
-                // TONE_PROP_BEEP2: two short 400 Hz beeps ≈ 400 ms — distinct "done" cue.
-                val tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70)
-                tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
-                delay(480L)   // outlast the tone before releasing
-                tg.release()
+                playTone(1320f, 110)  // high beep  ↓
+                delay(60L)
+                playTone(880f, 130)   // lower beep  ↓↓  — falling = "off"
             }.onFailure { e ->
                 Log.w(TAG, "Recording stop sound failed: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Synthesise and play a pure sine-wave tone at [freqHz] for [durationMs] milliseconds.
+     *
+     * Uses [AudioTrack] in static mode so the entire PCM buffer is uploaded before
+     * playback begins — no underruns, no threading complexity.  A short linear
+     * fade-in and fade-out envelope (15 ms each, capped at ¼ of the tone duration)
+     * prevents audible clicks at the boundaries.
+     *
+     * Blocks the calling coroutine for [durationMs] + 30 ms to let the hardware
+     * drain before [AudioTrack.release] is called.
+     */
+    private fun playTone(freqHz: Float, durationMs: Int, amplitude: Float = 0.45f) {
+        val sampleRate = 44_100
+        val numSamples = sampleRate * durationMs / 1_000
+        val fadeSamps  = minOf(sampleRate * 15 / 1_000, numSamples / 4)
+
+        val pcm = ShortArray(numSamples)
+        for (i in 0 until numSamples) {
+            val envelope = when {
+                i < fadeSamps                -> i.toDouble() / fadeSamps
+                i > numSamples - fadeSamps   -> (numSamples - i).toDouble() / fadeSamps
+                else                         -> 1.0
+            }
+            val raw = amplitude * envelope *
+                kotlin.math.sin(2.0 * Math.PI * freqHz * i / sampleRate)
+            pcm[i] = (raw * Short.MAX_VALUE)
+                .toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                .toShort()
+        }
+
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val fmt = AudioFormat.Builder()
+            .setSampleRate(sampleRate)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+            .build()
+        val minBuf   = AudioTrack.getMinBufferSize(
+            sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val bufBytes = maxOf(numSamples * Short.SIZE_BYTES, minBuf)
+
+        val track = AudioTrack.Builder()
+            .setAudioAttributes(attrs)
+            .setAudioFormat(fmt)
+            .setBufferSizeInBytes(bufBytes)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .build()
+        track.write(pcm, 0, numSamples)
+        track.play()
+        Thread.sleep((durationMs + 30).toLong())  // wait for hardware drain
+        runCatching { track.stop() }
+        track.release()
     }
 
     // ──────────────────────────────────────────────── MediaStore output ────────
