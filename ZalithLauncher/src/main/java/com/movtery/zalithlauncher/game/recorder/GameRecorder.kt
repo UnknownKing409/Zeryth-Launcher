@@ -147,10 +147,15 @@ object GameRecorder {
     private var captureBitmap: Bitmap? = null
 
     // ── Timestamp tracking ────────────────────────────────────────────────────
-    // recordingStartNs — wall-clock (System.nanoTime) captured immediately after
-    // the muxer is pre-started (both codec tracks already added).  Both audio and
-    // video timestamps are normalised against this single origin.
+    // recordingStartNs — wall-clock (System.nanoTime) captured immediately before
+    // the muxer is started (both codec tracks already added).  Used as the audio
+    // PTS origin (via audioStartOffsetUs) and as a reference for muxerStartedNs.
     @Volatile private var recordingStartNs      = 0L
+    // muxerStartedNs — wall-clock captured immediately after muxer.start() returns,
+    // in both the pre-start and fallback paths.  Both audio and video PTS are
+    // normalised against THIS anchor so that the first frame written to the muxer
+    // always has PTS ≈ 0, regardless of how long the fallback startup took.
+    @Volatile private var muxerStartedNs        = 0L
     // audioStartOffsetUs — (System.nanoTime after ar.startRecording) − recordingStartNs,
     // in microseconds.  Acts as the fixed PTS offset for the first audio sample.
     @Volatile private var audioStartOffsetUs    = 0L
@@ -200,12 +205,13 @@ object GameRecorder {
             mediaProjection = projection
             appContext      = context.applicationContext
 
-            muxerStarted     = false
-            videoTrackIndex  = -1
-            audioTrackIndex  = -1
-            recordingStartNs = 0L
+            muxerStarted       = false
+            videoTrackIndex    = -1
+            audioTrackIndex    = -1
+            recordingStartNs   = 0L
+            muxerStartedNs     = 0L
             audioStartOffsetUs = 0L
-            totalPausedUs    = 0L
+            totalPausedUs      = 0L
 
             val fd = context.contentResolver.openFileDescriptor(uri, "w")!!.fileDescriptor
             muxer = MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
@@ -255,25 +261,18 @@ object GameRecorder {
             return
         }
 
-        // ── Phase 2: blocking codec priming on an IO thread ───────────────────
-        //
-        // MediaMuxer cannot start until BOTH tracks are registered.  The video
-        // codec emits INFO_OUTPUT_FORMAT_CHANGED almost instantly, but the audio
-        // codec needs at least one queued PCM buffer first — which can only
-        // happen on a background thread.  Blocking the main thread here would
-        // freeze the UI and risk ANR.
-        //
-        // We run priming on encodeScope (Dispatchers.IO).  isCapturing is still
-        // false, so scheduleNextFrame() and the audio loop are not yet active.
-        // Once the muxer is open we flip isCapturing and start all the jobs.
         // ── Phase 2: codec priming + muxer start on an IO thread ─────────────
         //
-        // Priming is best-effort.  If a codec does not emit FORMAT_CHANGED within
-        // its timeout (common on devices that need a rendered frame first), the
-        // track index stays -1.  We do NOT abort — the encode jobs already contain
-        // tryStartMuxerLocked() fallback paths that register the remaining track(s)
-        // and start the muxer as soon as each codec emits FORMAT_CHANGED during
-        // normal encoding.
+        // MediaMuxer cannot start until BOTH tracks are registered.  We run
+        // priming on encodeScope (Dispatchers.IO) so the main thread stays
+        // responsive while we wait for INFO_OUTPUT_FORMAT_CHANGED.
+        //
+        // Priming is best-effort.  If a codec does not emit FORMAT_CHANGED
+        // within its timeout (e.g. on devices that require a rendered frame
+        // first), the track index stays -1.  In that case we do NOT abort —
+        // the encode jobs already have tryStartMuxerLocked() fallback paths
+        // that register the remaining tracks and start the muxer as soon as
+        // each codec emits its FORMAT_CHANGED event during normal operation.
         encodeScope.launch {
             try {
                 primeVideoTrack()
@@ -284,24 +283,40 @@ object GameRecorder {
                     cleanup(); return@launch
                 }
 
-                // If both tracks were primed, start the muxer now for zero-gap
-                // A/V alignment.  If either track is still pending, the encode
-                // jobs will complete registration via tryStartMuxerLocked().
+                // Both streams share the same wall-clock origin.
+                //
+                // ORDERING MATTERS:
+                //   1. Set recordingStartNs BEFORE muxer.start() so that
+                //      muxerStartedNs ≥ recordingStartNs always holds — even in
+                //      the pre-start path.
+                //   2. Start AudioRecord immediately after recordingStartNs is
+                //      captured so the audio hardware latency is minimised and
+                //      audioStartOffsetUs stays close to 0.
+                //   3. Call muxer.start() and record muxerStartedNs — both audio
+                //      and video PTS are normalised to this anchor, not to
+                //      recordingStartNs.  In the pre-start path these two values
+                //      differ by only a few ms; in the fallback path the encode
+                //      jobs set muxerStartedNs when INFO_OUTPUT_FORMAT_CHANGED
+                //      finally fires, correctly offsetting both streams.
+                recordingStartNs = System.nanoTime()
+                audioRecord!!.startRecording()
+                audioStartOffsetUs = (System.nanoTime() - recordingStartNs) / 1_000L
+
+                // If both tracks were primed successfully, start the muxer now
+                // and record the anchor time.  If either track is still pending,
+                // the encode jobs' tryStartMuxerLocked() calls will start it once
+                // the lagging codec emits INFO_OUTPUT_FORMAT_CHANGED and will
+                // capture muxerStartedNs at that moment.
                 if (videoTrackIndex >= 0 && audioTrackIndex >= 0) {
                     synchronized(muxerLock) {
                         muxer!!.start()
-                        muxerStarted = true
+                        muxerStarted  = true
+                        muxerStartedNs = System.nanoTime()
                         Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
                     }
                 } else {
                     Log.w(TAG, "Priming incomplete (video=$videoTrackIndex audio=$audioTrackIndex) — encode jobs will register remaining tracks")
                 }
-
-                // Both streams share the same wall-clock origin.  ar.startRecording()
-                // is called right after recordingStartNs so the offset is ~µs.
-                recordingStartNs = System.nanoTime()
-                audioRecord!!.startRecording()
-                audioStartOffsetUs = (System.nanoTime() - recordingStartNs) / 1_000L
 
                 isCapturing.set(true)
                 startVideoEncodeJob()
@@ -371,11 +386,11 @@ object GameRecorder {
      * Block until the video [MediaCodec] emits `INFO_OUTPUT_FORMAT_CHANGED` and
      * register the track with the muxer.
      *
-     * On Android 12+ (and many OEM codecs on older versions) a surface-based
-     * H.264 encoder will NOT emit `INFO_OUTPUT_FORMAT_CHANGED` until it has
-     * processed at least one frame from its input surface.  We therefore render
-     * a single black frame to [inputSurface] before polling, which reliably
-     * triggers the event on all known devices.
+     * On Android 12+ (and many OEM codecs on older versions) a surface-based H.264
+     * encoder will NOT emit `INFO_OUTPUT_FORMAT_CHANGED` until it has processed at
+     * least one frame from its input surface.  We therefore render a single black
+     * frame to [inputSurface] before polling, which reliably triggers the event on
+     * all known devices.
      */
     @Suppress("DEPRECATION")
     private fun primeVideoTrack() {
@@ -597,8 +612,20 @@ object GameRecorder {
                     if (!isConfig && bufInfo.size > 0) {
                         val buf = ac.getOutputBuffer(idx)!!
                         synchronized(muxerLock) {
-                            if (muxerStarted)
+                            if (muxerStarted) {
+                                // Correct audio PTS so it is relative to muxerStartedNs
+                                // rather than recordingStartNs.  In the happy-path
+                                // (priming succeeded) the two timestamps differ by only a
+                                // few ms, so this is essentially a no-op.  In the fallback
+                                // path (muxer started seconds after recording began) this
+                                // subtracts the startup gap, bringing the first written
+                                // audio PTS to ≈ 0 and aligning it with the first video
+                                // frame — eliminating the 1–2 second A/V sync offset.
+                                val muxerDeltaUs = (muxerStartedNs - recordingStartNs) / 1_000L
+                                bufInfo.presentationTimeUs =
+                                    (bufInfo.presentationTimeUs - muxerDeltaUs).coerceAtLeast(0L)
                                 muxer!!.writeSampleData(audioTrackIndex, buf, bufInfo)
+                            }
                         }
                     }
                     ac.releaseOutputBuffer(idx, false)
@@ -621,8 +648,9 @@ object GameRecorder {
     private fun tryStartMuxerLocked() {
         if (videoTrackIndex >= 0 && audioTrackIndex >= 0 && !muxerStarted) {
             muxer!!.start()
-            muxerStarted = true
-            Log.i(TAG, "MediaMuxer started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+            muxerStarted   = true
+            muxerStartedNs = System.nanoTime()
+            Log.i(TAG, "MediaMuxer started (fallback) (video=$videoTrackIndex, audio=$audioTrackIndex)")
         }
     }
 
@@ -633,19 +661,27 @@ object GameRecorder {
      *
      * Raw timestamps come from the MediaCodec surface, which uses [System.nanoTime]
      * internally (values in nanoseconds, divided by 1000 to produce microseconds).
-     * We subtract [recordingStartNs]/1000 — the same wall-clock origin used for
-     * audio timestamps — so both streams share a common reference point and remain
-     * perfectly synchronised regardless of encoder startup latency.
+     * We subtract [muxerStartedNs]/1000 so that the first video frame written to
+     * the muxer always has PTS ≈ 0, matching the corrected audio PTS origin.
+     *
+     * Using [muxerStartedNs] (set at the moment [MediaMuxer.start] returns, in
+     * BOTH the pre-start and fallback paths) rather than [recordingStartNs]
+     * eliminates the 1–2 second gap that appeared when the muxer started late via
+     * the fallback path: in that case [recordingStartNs] was seconds in the past,
+     * producing large positive video timestamps while audio PTS started near 0.
+     *
+     * In the pre-start path [muxerStartedNs] ≈ [recordingStartNs] + a few ms, so
+     * there is no practical difference for the common success case.
      *
      * We also subtract [totalPausedUs] so that gaps introduced by pause/resume do
      * not produce timestamp jumps in the output file.
      *
-     * Early frames whose raw timestamp predates the shared start anchor (e.g. stale
-     * frames flushed by the codec on the first dequeue) return a negative adjusted
+     * Frames whose raw timestamp predates [muxerStartedNs] (priming frames, or
+     * frames rendered before the fallback muxer start) return a negative adjusted
      * value; the caller discards those.
      */
     private fun adjustVideoTimestampUs(rawUs: Long): Long {
-        val startUs = recordingStartNs / 1_000L
+        val startUs = muxerStartedNs / 1_000L
         return rawUs - startUs - totalPausedUs
     }
 
@@ -870,15 +906,16 @@ object GameRecorder {
         captureBitmap = null
 
         timerJob?.cancel(); timerJob = null
-        _elapsedMs.value  = 0L
-        accumulatedMs     = 0L
-        videoTrackIndex   = -1
-        audioTrackIndex   = -1
-        recordingStartNs  = 0L
+        _elapsedMs.value   = 0L
+        accumulatedMs      = 0L
+        videoTrackIndex    = -1
+        audioTrackIndex    = -1
+        recordingStartNs   = 0L
+        muxerStartedNs     = 0L
         audioStartOffsetUs = 0L
-        totalPausedUs     = 0L
-        pendingUri        = null
-        pendingFile       = null
+        totalPausedUs      = 0L
+        pendingUri         = null
+        pendingFile        = null
 
         _state.value = RecordingState.IDLE
     }
