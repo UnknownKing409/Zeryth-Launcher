@@ -187,32 +187,35 @@ object GameRecorder {
         val w = (view.width.coerceAtLeast(2)  / 2) * 2
         val h = (view.height.coerceAtLeast(2) / 2) * 2
 
+        // ── Phase 1: fast object setup on the calling (main) thread ───────────
+        // Codec/muxer creation is quick.  We set RECORDING here so the UI
+        // responds instantly and a second tap is rejected by the guard above.
+        // isCapturing stays false until Phase 2 completes, so no frame is
+        // captured before the muxer is open.
         try {
             val (uri, file) = createOutputEntry(context)
             pendingUri  = uri
             pendingFile = file
 
             mediaProjection = projection
-        appContext     = context.applicationContext
+            appContext      = context.applicationContext
 
-            // ── Reset shared state ────────────────────────────────────────────
-            muxerStarted    = false
-            videoTrackIndex = -1
-            audioTrackIndex = -1
+            muxerStarted     = false
+            videoTrackIndex  = -1
+            audioTrackIndex  = -1
             recordingStartNs = 0L
-            totalPausedUs   = 0L
+            audioStartOffsetUs = 0L
+            totalPausedUs    = 0L
 
-            // ── MediaMuxer → MP4 ──────────────────────────────────────────────
             val fd = context.contentResolver.openFileDescriptor(uri, "w")!!.fileDescriptor
             muxer = MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
-            // ── H.264 video codec (surface-based input) ───────────────────────
             val videoFmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                 setInteger(MediaFormat.KEY_BIT_RATE,    VIDEO_BIT_RATE)
                 setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1) // 1-s keyframe interval
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             }
             videoCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).also { c ->
                 c.configure(videoFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -220,7 +223,6 @@ object GameRecorder {
                 c.start()
             }
 
-            // ── AAC audio codec ───────────────────────────────────────────────
             val audioFmt = MediaFormat.createAudioFormat(
                 MediaFormat.MIMETYPE_AUDIO_AAC, AUDIO_SAMPLE_RATE, AUDIO_CHANNELS
             ).apply {
@@ -234,65 +236,73 @@ object GameRecorder {
                 c.start()
             }
 
-            // ── AudioRecord via AudioPlaybackCapture ──────────────────────────
             audioRecord = buildAudioRecord(projection)
 
-            // ── Capture thread (PixelCopy callbacks) ──────────────────────────
             captureThread  = HandlerThread("GameRecorder-Capture").also { it.start() }
             captureHandler = Handler(captureThread!!.looper)
 
-            // ── Pre-prime both codecs synchronously and start the muxer ───────
-            //
-            // Problem this solves: MediaMuxer cannot start until BOTH track formats
-            // are known.  The video codec emits INFO_OUTPUT_FORMAT_CHANGED almost
-            // instantly (surface encoders output it before any frames arrive), but
-            // the audio codec needs at least one queued input buffer on many
-            // Android implementations.  If we start the muxer asynchronously
-            // (inside coroutines), every video frame produced while waiting for
-            // the audio format change is silently dropped.  With a slow coroutine
-            // dispatch or a sluggish audio codec this gap can easily be 1–2 s,
-            // making audio lead video by exactly that amount.
-            //
-            // Fix: block here until both FORMAT_CHANGED events are received, then
-            // call muxer.start() BEFORE setting recordingStartNs or starting the
-            // audio read loop.  No video frames are ever missed.
-            primeVideoTrack()
-            primeAudioTrack()
-            if (videoTrackIndex < 0 || audioTrackIndex < 0) {
-                Log.e(TAG, "Codec priming failed (video=$videoTrackIndex audio=$audioTrackIndex)")
-                cleanup(); return
-            }
-            synchronized(muxerLock) {
-                muxer!!.start()
-                muxerStarted = true
-                Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
-            }
-
-            // ── Set anchor and start audio capture ────────────────────────────
-            // recordingStartNs is set AFTER the muxer is running so every
-            // video frame drawn after this point can be written immediately.
-            // ar.startRecording() is called on this thread (not inside a
-            // coroutine) so we know the exact wall-clock offset.
-            recordingStartNs = System.nanoTime()
-            audioRecord!!.startRecording()
-            audioStartOffsetUs = (System.nanoTime() - recordingStartNs) / 1_000L
-
-            isCapturing.set(true)
-            _state.value = RecordingState.RECORDING
-
-            accumulatedMs = 0L
-            resumeTimeMs  = System.currentTimeMillis()
+            // State → RECORDING now: UI shows indicator and the guard at the top
+            // of start() prevents re-entry during the async priming below.
+            accumulatedMs    = 0L
+            resumeTimeMs     = System.currentTimeMillis()
             _elapsedMs.value = 0L
+            _state.value = RecordingState.RECORDING
             startTimerTick()
 
-            startVideoEncodeJob()
-            startAudioJob()
-            scheduleNextFrame()
-
-            Log.i(TAG, "Recording started ${w}x${h} — audio via AudioPlaybackCapture")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording: ${e.message}")
             cleanup()
+            return
+        }
+
+        // ── Phase 2: blocking codec priming on an IO thread ───────────────────
+        //
+        // MediaMuxer cannot start until BOTH tracks are registered.  The video
+        // codec emits INFO_OUTPUT_FORMAT_CHANGED almost instantly, but the audio
+        // codec needs at least one queued PCM buffer first — which can only
+        // happen on a background thread.  Blocking the main thread here would
+        // freeze the UI and risk ANR.
+        //
+        // We run priming on encodeScope (Dispatchers.IO).  isCapturing is still
+        // false, so scheduleNextFrame() and the audio loop are not yet active.
+        // Once the muxer is open we flip isCapturing and start all the jobs.
+        encodeScope.launch {
+            try {
+                primeVideoTrack()
+                primeAudioTrack()
+
+                if (videoTrackIndex < 0 || audioTrackIndex < 0) {
+                    Log.e(TAG, "Codec priming failed (video=$videoTrackIndex audio=$audioTrackIndex)")
+                    cleanup(); return@launch
+                }
+
+                // Bail out cleanly if the user stopped recording while we were priming.
+                if (_state.value != RecordingState.RECORDING) {
+                    cleanup(); return@launch
+                }
+
+                synchronized(muxerLock) {
+                    muxer!!.start()
+                    muxerStarted = true
+                    Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+                }
+
+                // Both streams share the same wall-clock origin.  ar.startRecording()
+                // is called right after recordingStartNs so the offset is ~µs.
+                recordingStartNs = System.nanoTime()
+                audioRecord!!.startRecording()
+                audioStartOffsetUs = (System.nanoTime() - recordingStartNs) / 1_000L
+
+                isCapturing.set(true)
+                startVideoEncodeJob()
+                startAudioJob()
+                scheduleNextFrame()
+
+                Log.i(TAG, "Recording started ${w}x${h} — audio via AudioPlaybackCapture")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed during codec priming: ${e.message}")
+                cleanup()
+            }
         }
     }
 
