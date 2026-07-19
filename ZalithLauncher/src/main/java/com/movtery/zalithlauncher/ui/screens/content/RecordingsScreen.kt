@@ -268,12 +268,17 @@ fun RecordingsScreen(backStackViewModel: ScreenBackStackViewModel) {
         // Shown when the user taps a recording card.  The overlay is a Dialog so
         // it renders above the page title bar and the entire launcher UI, which
         // means the Dialog-based implementation avoids any layout-hierarchy clip.
+        // key(entry.uri) forces a fresh composition (and a fresh ExoPlayer instance)
+        // whenever the selected recording changes, preventing stale state from a
+        // previous playback session from leaking into the new one.
         playingEntry?.let { entry ->
-            RecordingPlayerOverlay(
-                uri   = entry.uri,
-                title = entry.displayName.removeSuffix(".mp4"),
-                onDismiss = { playingEntry = null }
-            )
+            androidx.compose.runtime.key(entry.uri) {
+                RecordingPlayerOverlay(
+                    uri   = entry.uri,
+                    title = entry.displayName.removeSuffix(".mp4"),
+                    onDismiss = { playingEntry = null }
+                )
+            }
         }
     }
 }

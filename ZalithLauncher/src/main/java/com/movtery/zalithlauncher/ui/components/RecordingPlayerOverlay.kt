@@ -22,6 +22,7 @@ import android.app.Activity
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -36,17 +37,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -94,15 +100,17 @@ import kotlinx.coroutines.launch
 /**
  * Built-in video player overlay for recording playback.
  *
- * Presents as a centred 16:9 card over a semi-transparent scrim so the launcher
- * remains visible in the background.  A Full Screen button expands the player to
- * fill the entire screen in an immersive (system-bars-hidden) mode.  Exiting full
- * screen restores the overlay card and the system bars.
+ * In **overlay (card) mode** the player sits in a themed [BackgroundCard]/[CardTitleLayout]
+ * centred over a full-screen semi-transparent scrim that extends edge-to-edge behind the
+ * notch and status-bar area.  Tapping the scrim dismisses the player.
  *
- * Controls auto-hide after 3 s of playback inactivity and reappear on a single tap.
- * Double-tapping the left half rewinds 5 s; double-tapping the right half
- * fast-forwards 5 s.  Consecutive double taps accumulate the seek amount and display
- * the running total (e.g. "+10 s", "+15 s") in an animated indicator.
+ * In **full-screen mode** the player fills the entire display with auto-hiding gradient
+ * controls.  System bars are hidden while in full-screen and are restored exactly as they
+ * were when the player is dismissed or the user exits full-screen — the player never forces
+ * bars visible when it was not responsible for hiding them.
+ *
+ * Controls auto-hide after 3 s of active playback and reappear on a single tap.
+ * Double-tapping rewinds / fast-forwards 5 s with accumulating indicator (+5 s, +10 s …).
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -111,10 +119,10 @@ fun RecordingPlayerOverlay(
     title: String,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val activityView = LocalView.current          // captured outside Dialog — refers to Activity view
-    val activity = context as? Activity
-    val scope = rememberCoroutineScope()
+    val context     = LocalContext.current
+    val activityView = LocalView.current   // outside Dialog → refers to the Activity window
+    val activity    = context as? Activity
+    val scope       = rememberCoroutineScope()
 
     // ── ExoPlayer ─────────────────────────────────────────────────────────────
     val player = remember {
@@ -138,9 +146,9 @@ fun RecordingPlayerOverlay(
     var isFullScreen    by remember { mutableStateOf(false) }
 
     // ── Seek accumulation ─────────────────────────────────────────────────────
-    var seekAccumSec    by remember { mutableIntStateOf(0) }
-    var seekVisible     by remember { mutableStateOf(false) }
-    var seekJob: Job?   by remember { mutableStateOf(null) }
+    var seekAccumSec  by remember { mutableIntStateOf(0) }
+    var seekVisible   by remember { mutableStateOf(false) }
+    var seekJob: Job? by remember { mutableStateOf(null) }
 
     // ── Player listener ───────────────────────────────────────────────────────
     DisposableEffect(player) {
@@ -149,20 +157,17 @@ fun RecordingPlayerOverlay(
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) {
-                    isEnded = true
-                    isPlaying = false
-                    controlsVisible = true   // always show controls when video ends
+                    isEnded         = true
+                    isPlaying       = false
+                    controlsVisible = true
                 }
             }
         }
         player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
+        onDispose { player.removeListener(listener); player.release() }
     }
 
-    // ── Position polling (200 ms interval) ───────────────────────────────────
+    // ── Position polling (200 ms) ─────────────────────────────────────────────
     LaunchedEffect(player) {
         while (true) {
             if (!isScrubbing) {
@@ -173,7 +178,7 @@ fun RecordingPlayerOverlay(
         }
     }
 
-    // ── Controls auto-hide after 3 s during active playback ──────────────────
+    // ── Controls auto-hide ────────────────────────────────────────────────────
     LaunchedEffect(controlsVisible, isPlaying) {
         if (controlsVisible && isPlaying && !isEnded) {
             delay(3_000)
@@ -181,92 +186,98 @@ fun RecordingPlayerOverlay(
         }
     }
 
-    // ── Full-screen: hide Activity system bars only when entering immersive mode ─
-    // IMPORTANT: do NOT touch system bars when isFullScreen = false (overlay mode).
-    // Calling ctrl.show() on initial composition would forcibly surface the status
-    // bar even when the launcher was running without it, and it would stay visible
-    // after the player is dismissed (the onDispose below runs on every key change).
+    // ── Full-screen: hide system bars ONLY while in immersive mode ────────────
+    //
+    // Key design constraint: we ONLY touch system-bar visibility when entering
+    // full-screen. The player never calls ctrl.show() outside the DisposableEffect
+    // so it cannot accidentally surface bars that the launcher was hiding before
+    // the player was opened.
+    //
+    // When isFullScreen flips false → true  : the effect body runs (bars hidden).
+    // When isFullScreen flips true  → false : onDispose runs (bars restored).
+    // When the composable leaves the tree while isFullScreen = true : onDispose runs.
+    // When the composable leaves the tree while isFullScreen = false: onDispose is
+    //   a no-op (early return guard).
     DisposableEffect(isFullScreen) {
-        if (!isFullScreen) return@DisposableEffect onDispose { /* nothing to restore */ }
+        if (!isFullScreen) return@DisposableEffect onDispose { /* no-op */ }
         val window = activity?.window ?: return@DisposableEffect onDispose {}
         val ctrl = WindowCompat.getInsetsController(window, activityView)
         ctrl.hide(WindowInsetsCompat.Type.systemBars())
         ctrl.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        onDispose {
-            // Restore bars only when leaving full-screen (key changed to false) or on dispose
-            ctrl.show(WindowInsetsCompat.Type.systemBars())
-        }
+        onDispose { ctrl.show(WindowInsetsCompat.Type.systemBars()) }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** Apply an incremental seek of [deltaSec] seconds from the current position. */
     fun seek(deltaSec: Int) {
         val safeDuration = durationMs.takeIf { it > 0L } ?: Long.MAX_VALUE
-        val newPos = (player.currentPosition + deltaSec * 1_000L).coerceIn(0L, safeDuration)
-        player.seekTo(newPos)
+        player.seekTo((player.currentPosition + deltaSec * 1_000L).coerceIn(0L, safeDuration))
         seekAccumSec += deltaSec
         seekVisible = true
         seekJob?.cancel()
-        seekJob = scope.launch {
-            delay(800)
-            seekVisible = false
-            seekAccumSec = 0
-        }
+        seekJob = scope.launch { delay(800); seekVisible = false; seekAccumSec = 0 }
     }
 
-    /** Toggle play / pause, or replay from the beginning if the video has ended. */
     fun togglePlayback() {
         when {
-            isEnded  -> { player.seekTo(0); player.play(); isEnded = false }
+            isEnded   -> { player.seekTo(0); player.play(); isEnded = false }
             isPlaying -> player.pause()
             else      -> player.play()
         }
     }
 
-    /** Format milliseconds as M:SS or H:MM:SS. */
     fun formatTime(ms: Long): String {
-        val s = (ms / 1_000L).coerceAtLeast(0L)
-        val h = s / 3_600; val m = (s % 3_600) / 60; val sec = s % 60
+        val s   = (ms / 1_000L).coerceAtLeast(0L)
+        val h   = s / 3_600; val m = (s % 3_600) / 60; val sec = s % 60
         return if (h > 0L) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
     }
 
-    // ── Restore system bars on dismis (e.g. back-press) ──────────────────────
-    fun dismissWithCleanup() {
-        activity?.window?.let { w ->
-            WindowCompat.getInsetsController(w, activityView)
-                .show(WindowInsetsCompat.Type.systemBars())
-        }
-        onDismiss()
-    }
+    // Dismissal — just propagate to the caller; all bar-restoration is handled by
+    // the DisposableEffect above so we never accidentally show bars we didn't hide.
+    fun dismissWithCleanup() = onDismiss()
 
-    // ── Dialog overlay ────────────────────────────────────────────────────────
+    // ── Dialog ────────────────────────────────────────────────────────────────
     Dialog(
         onDismissRequest = ::dismissWithCleanup,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = true
+            // false = the dialog window may draw behind the status bar and notch.
+            // We handle insets ourselves, which lets the scrim cover the full display.
+            decorFitsSystemWindows = false
         )
     ) {
-        // Make the Dialog window itself fully transparent so its default themed
-        // surface colour does not bleed through, and zero out the platform dim
-        // because we draw our own scrim.
+        // Configure the dialog window to be fully transparent and edge-to-edge so
+        // our scrim and card are the only visible surfaces.
         val dialogView = LocalView.current
         SideEffect {
             val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
-            dialogWindow?.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+            dialogWindow?.setBackgroundDrawable(
+                ColorDrawable(android.graphics.Color.TRANSPARENT)
+            )
             dialogWindow?.setDimAmount(0f)
+            dialogWindow?.let { w ->
+                // Allow the dialog to draw behind system bars (notch, status bar,
+                // navigation bar) so the scrim covers the entire physical display.
+                WindowCompat.setDecorFitsSystemWindows(w, false)
+                w.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT
+                )
+            }
         }
+
+        // Safe-area insets for full-screen controls (padding so controls are not
+        // obscured by the notch or navigation bar while in immersive mode).
+        val sysBarsInsets = WindowInsets.systemBars.asPaddingValues()
 
         Box(modifier = Modifier.fillMaxSize()) {
 
             if (isFullScreen) {
                 // ── FULL-SCREEN mode ──────────────────────────────────────────
-                // Black video surface with a semi-transparent gradient overlay
-                // that auto-hides after 3 s of playback.
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                     AndroidPlayerView(player = player, modifier = Modifier.fillMaxSize())
+
                     VideoGestureLayer(
                         onTap = { controlsVisible = !controlsVisible },
                         onDoubleTap = { offset, width ->
@@ -274,87 +285,106 @@ fun RecordingPlayerOverlay(
                             controlsVisible = true
                         }
                     )
+
                     SeekIndicator(seekVisible = seekVisible, seekAccumSec = seekAccumSec)
+
                     AnimatedVisibility(
-                        visible = controlsVisible,
-                        enter = fadeIn(tween(200)),
-                        exit  = fadeOut(tween(300)),
-                        modifier = Modifier.fillMaxSize()
+                        visible       = controlsVisible,
+                        enter         = fadeIn(tween(200)),
+                        exit          = fadeOut(tween(300)),
+                        modifier      = Modifier.fillMaxSize()
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
                                     Brush.verticalGradient(
-                                        0.00f to Color.Black.copy(alpha = 0.65f),
-                                        0.28f to Color.Transparent,
-                                        0.72f to Color.Transparent,
-                                        1.00f to Color.Black.copy(alpha = 0.65f)
+                                        0.00f to Color.Black.copy(alpha = 0.75f),
+                                        0.22f to Color.Transparent,
+                                        0.78f to Color.Transparent,
+                                        1.00f to Color.Black.copy(alpha = 0.80f)
                                     )
                                 )
                         ) {
-                            // Top bar
+                            // ── Top bar (respects status-bar safe area) ───────
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .padding(
+                                        top   = sysBarsInsets.calculateTopPadding(),
+                                        start = 4.dp,
+                                        end   = 4.dp
+                                    )
                                     .align(Alignment.TopStart),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = ::dismissWithCleanup) {
                                     Icon(
-                                        painter = painterResource(R.drawable.ic_close),
+                                        painter            = painterResource(R.drawable.ic_close),
                                         contentDescription = "Close player",
-                                        tint = Color.White
+                                        tint               = Color.White
                                     )
                                 }
                                 Text(
-                                    text = title,
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                    text     = title,
+                                    color    = Color.White,
+                                    style    = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 4.dp),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 IconButton(onClick = { isFullScreen = false }) {
                                     Icon(
-                                        painter = painterResource(R.drawable.ic_fullscreen_exit),
+                                        painter            = painterResource(R.drawable.ic_fullscreen_exit),
                                         contentDescription = "Exit full screen",
-                                        tint = Color.White
+                                        tint               = Color.White
                                     )
                                 }
                             }
-                            // Centre button
+
+                            // ── Centre play button ────────────────────────────
                             CentrePlayButton(
                                 isBuffering = isBuffering,
-                                isEnded = isEnded,
-                                isPlaying = isPlaying,
-                                tint = Color.White,
-                                modifier = Modifier.align(Alignment.Center),
-                                onClick = ::togglePlayback
+                                isEnded     = isEnded,
+                                isPlaying   = isPlaying,
+                                tint        = Color.White,
+                                size        = 68.dp,
+                                iconSize    = 40.dp,
+                                modifier    = Modifier.align(Alignment.Center),
+                                onClick     = ::togglePlayback
                             )
-                            // Bottom progress
+
+                            // ── Bottom progress (respects nav-bar safe area) ──
                             ProgressRow(
-                                positionMs = positionMs,
-                                durationMs = durationMs,
-                                textColor = Color.White,
-                                secondaryTextColor = Color.White.copy(alpha = 0.70f),
-                                sliderColors = SliderDefaults.colors(
+                                positionMs         = positionMs,
+                                durationMs         = durationMs,
+                                textColor          = Color.White,
+                                secondaryTextColor = Color.White.copy(alpha = 0.65f),
+                                sliderColors       = SliderDefaults.colors(
                                     thumbColor         = Color.White,
                                     activeTrackColor   = Color.White,
                                     inactiveTrackColor = Color.White.copy(alpha = 0.35f)
                                 ),
-                                modifier = Modifier
+                                modifier           = Modifier
                                     .fillMaxWidth()
                                     .align(Alignment.BottomCenter)
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                onScrub = { fraction ->
+                                    .padding(
+                                        bottom = sysBarsInsets.calculateBottomPadding() + 4.dp,
+                                        start  = 12.dp,
+                                        end    = 12.dp,
+                                        top    = 4.dp
+                                    ),
+                                onScrub            = { fraction ->
                                     isScrubbing = true
-                                    positionMs = (fraction * durationMs).toLong()
+                                    positionMs  = (fraction * durationMs).toLong()
                                     player.seekTo(positionMs)
                                 },
-                                onScrubFinished = { isScrubbing = false },
-                                formatTime = ::formatTime
+                                onScrubFinished    = { isScrubbing = false },
+                                formatTime         = ::formatTime
                             )
                         }
                     }
@@ -362,23 +392,26 @@ fun RecordingPlayerOverlay(
 
             } else {
                 // ── OVERLAY (card) mode ───────────────────────────────────────
-                // Scrim behind the card — tapping it dismisses the player.
+
+                // Full-screen scrim — extends behind the notch because the dialog
+                // window draws edge-to-edge (decorFitsSystemWindows = false above).
+                // Tapping the scrim dismisses the player.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.72f))
+                        .background(Color.Black.copy(alpha = 0.68f))
                         .clickable(onClick = ::dismissWithCleanup)
                 )
 
-                // Card container — matches the launcher's BackgroundCard style.
+                // ── Player card ───────────────────────────────────────────────
                 BackgroundCard(
-                    shape = MaterialTheme.shapes.extraLarge,
+                    shape    = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .widthIn(max = 560.dp)
+                        .fillMaxWidth(0.88f)
+                        .widthIn(max = 620.dp)
                         .align(Alignment.Center)
                 ) {
-                    // ── Title bar (separated by a divider, launcher-style) ────
+                    // ── Title bar ─────────────────────────────────────────────
                     CardTitleLayout {
                         Row(
                             modifier = Modifier
@@ -388,13 +421,13 @@ fun RecordingPlayerOverlay(
                         ) {
                             IconButton(onClick = ::dismissWithCleanup) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_close),
+                                    painter            = painterResource(R.drawable.ic_close),
                                     contentDescription = "Close player"
                                 )
                             }
                             Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleSmall,
+                                text     = title,
+                                style    = MaterialTheme.typography.titleSmall,
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(horizontal = 6.dp),
@@ -403,14 +436,14 @@ fun RecordingPlayerOverlay(
                             )
                             IconButton(onClick = { isFullScreen = true }) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_fullscreen),
+                                    painter            = painterResource(R.drawable.ic_fullscreen),
                                     contentDescription = "Enter full screen"
                                 )
                             }
                         }
                     }
 
-                    // ── Video surface (fills card width, clips to card shape) ─
+                    // ── Video surface ─────────────────────────────────────────
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -418,11 +451,23 @@ fun RecordingPlayerOverlay(
                             .background(Color.Black)
                     ) {
                         AndroidPlayerView(
-                            player = player,
+                            player   = player,
                             modifier = Modifier.fillMaxSize()
                         )
+                        // Subtle bottom vignette to ease the cut into the controls row
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(8f)
+                                .align(Alignment.BottomCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.30f))
+                                    )
+                                )
+                        )
                         VideoGestureLayer(
-                            onTap = { /* controls always visible in card mode */ },
+                            onTap      = { /* controls always visible in card mode */ },
                             onDoubleTap = { offset, width ->
                                 seek(if (offset < width / 2f) -5 else 5)
                             }
@@ -431,31 +476,39 @@ fun RecordingPlayerOverlay(
                         // Centre play/pause/replay — always visible in card mode
                         CentrePlayButton(
                             isBuffering = isBuffering,
-                            isEnded = isEnded,
-                            isPlaying = isPlaying,
-                            tint = Color.White,
-                            modifier = Modifier.align(Alignment.Center),
-                            onClick = ::togglePlayback
+                            isEnded     = isEnded,
+                            isPlaying   = isPlaying,
+                            tint        = Color.White,
+                            size        = 60.dp,
+                            iconSize    = 34.dp,
+                            modifier    = Modifier.align(Alignment.Center),
+                            onClick     = ::togglePlayback
                         )
                     }
 
-                    // ── Progress row — inside card body, uses theme colours ───
+                    // ── Thin divider between video and progress row ───────────
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth(),
+                        color    = LocalContentColor.current.copy(alpha = 0.08f)
+                    )
+
+                    // ── Progress row ──────────────────────────────────────────
                     ProgressRow(
-                        positionMs = positionMs,
-                        durationMs = durationMs,
-                        textColor = LocalContentColor.current,
+                        positionMs         = positionMs,
+                        durationMs         = durationMs,
+                        textColor          = LocalContentColor.current,
                         secondaryTextColor = LocalContentColor.current.copy(alpha = 0.55f),
-                        sliderColors = SliderDefaults.colors(),
-                        modifier = Modifier
+                        sliderColors       = SliderDefaults.colors(),
+                        modifier           = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        onScrub = { fraction ->
+                            .padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
+                        onScrub            = { fraction ->
                             isScrubbing = true
-                            positionMs = (fraction * durationMs).toLong()
+                            positionMs  = (fraction * durationMs).toLong()
                             player.seekTo(positionMs)
                         },
-                        onScrubFinished = { isScrubbing = false },
-                        formatTime = ::formatTime
+                        onScrubFinished    = { isScrubbing = false },
+                        formatTime         = ::formatTime
                     )
                 }
             }
@@ -463,9 +516,9 @@ fun RecordingPlayerOverlay(
     }
 }
 
-// ── Extracted private helpers ─────────────────────────────────────────────────
+// ── Private helpers ───────────────────────────────────────────────────────────
 
-/** Transparent gesture-capture layer covering the video surface. */
+/** Transparent gesture-capture layer that covers the video surface. */
 @Composable
 private fun VideoGestureLayer(
     onTap: () -> Unit,
@@ -476,35 +529,33 @@ private fun VideoGestureLayer(
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { onTap() },
-                    onDoubleTap = { offset ->
-                        onDoubleTap(offset.x, size.width.toFloat())
-                    }
+                    onTap       = { onTap() },
+                    onDoubleTap = { offset -> onDoubleTap(offset.x, size.width.toFloat()) }
                 )
             }
-    ) { /* measure only */ }
+    ) {}
 }
 
-/** Animated ±Ns seek amount indicator centred over the video. */
+/** Animated ±Ns seek indicator centred over the video. */
 @Composable
 private fun SeekIndicator(seekVisible: Boolean, seekAccumSec: Int) {
     AnimatedVisibility(
-        visible = seekVisible,
-        enter = fadeIn() + scaleIn(initialScale = 0.80f),
-        exit  = fadeOut(tween(250)),
+        visible  = seekVisible,
+        enter    = fadeIn() + scaleIn(initialScale = 0.80f),
+        exit     = fadeOut(tween(250)),
         modifier = Modifier.fillMaxSize()
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.72f))
-                    .padding(horizontal = 18.dp, vertical = 10.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.70f))
+                    .padding(horizontal = 22.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = if (seekAccumSec >= 0) "+${seekAccumSec}s" else "${seekAccumSec}s",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        color = Color.White,
+                    text  = if (seekAccumSec >= 0) "+${seekAccumSec}s" else "${seekAccumSec}s",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color      = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -513,30 +564,38 @@ private fun SeekIndicator(seekVisible: Boolean, seekAccumSec: Int) {
     }
 }
 
-/** Circular play / pause / replay / buffering button centred over the video. */
+/**
+ * Circular play / pause / replay / buffering button.
+ * [size] controls the tappable circle diameter; [iconSize] controls the inner icon.
+ */
 @Composable
 private fun CentrePlayButton(
     isBuffering: Boolean,
     isEnded: Boolean,
     isPlaying: Boolean,
     tint: Color,
+    size: androidx.compose.ui.unit.Dp,
+    iconSize: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         if (isBuffering && !isEnded) {
-            CircularProgressIndicator(color = tint, modifier = Modifier.size(48.dp))
+            CircularProgressIndicator(
+                color    = tint,
+                modifier = Modifier.size(size * 0.72f)
+            )
         } else {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(size)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f))
+                    .background(Color.Black.copy(alpha = 0.48f))
                     .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(
+                    painter            = painterResource(
                         when {
                             isEnded   -> R.drawable.ic_replay
                             isPlaying -> R.drawable.ic_pause_filled
@@ -548,15 +607,15 @@ private fun CentrePlayButton(
                         isPlaying -> "Pause"
                         else      -> "Play"
                     },
-                    tint = tint,
-                    modifier = Modifier.size(36.dp)
+                    tint     = tint,
+                    modifier = Modifier.size(iconSize)
                 )
             }
         }
     }
 }
 
-/** Position label + scrubable Slider + duration label. */
+/** Position label + scrubbable Slider + duration label in a single row. */
 @Composable
 private fun ProgressRow(
     positionMs: Long,
@@ -570,36 +629,35 @@ private fun ProgressRow(
     formatTime: (Long) -> String
 ) {
     Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
+        modifier            = modifier,
+        verticalAlignment   = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = formatTime(positionMs),
-            color = textColor,
-            style = MaterialTheme.typography.labelMedium,
+            text     = formatTime(positionMs),
+            color    = textColor,
+            style    = MaterialTheme.typography.labelMedium,
             modifier = Modifier.widthIn(min = 40.dp)
         )
         Slider(
-            value = if (durationMs > 0L)
+            value           = if (durationMs > 0L)
                 (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
             else 0f,
-            onValueChange = onScrub,
+            onValueChange         = onScrub,
             onValueChangeFinished = onScrubFinished,
-            modifier = Modifier.weight(1f),
-            colors = sliderColors
+            modifier              = Modifier.weight(1f),
+            colors                = sliderColors
         )
         Text(
-            text = formatTime(durationMs),
-            color = secondaryTextColor,
-            style = MaterialTheme.typography.labelMedium,
+            text     = formatTime(durationMs),
+            color    = secondaryTextColor,
+            style    = MaterialTheme.typography.labelMedium,
             modifier = Modifier.widthIn(min = 40.dp)
         )
     }
 }
 
-// ── Private helper: ExoPlayer surface inside an AndroidView ──────────────────
-
+/** ExoPlayer [PlayerView] wrapped in an [AndroidView]. */
 @OptIn(UnstableApi::class)
 @Composable
 private fun AndroidPlayerView(
@@ -609,10 +667,10 @@ private fun AndroidPlayerView(
     androidx.compose.ui.viewinterop.AndroidView(
         factory = { ctx ->
             PlayerView(ctx).apply {
-                this.player = player
+                this.player  = player
                 useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                layoutParams = ViewGroup.LayoutParams(
+                resizeMode    = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                layoutParams  = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
