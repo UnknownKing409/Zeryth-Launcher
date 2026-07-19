@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:viewportHeight="960"
+    android:viewportWidth="960"
+    android:width="24dp">
+
+    <!-- Camera body — rounded rectangle -->
+    <path
+        android:fillColor="#1f1f1f"
+        android:pathData="M318,318 H552 Q622,318 622,388 V572 Q622,642 552,642 H318 Q248,642 248,572 V388 Q248,318 318,318 Z" />
+
+    <!-- Viewfinder — right-pointing triangle with rounded left corners -->
+    <path
+        android:fillColor="#1f1f1f"
+        android:pathData="M646,382 Q646,366 661,366 L700,476 Q714,480 700,484 L661,594 Q646,594 646,578 Z" />
+
+</vector>
