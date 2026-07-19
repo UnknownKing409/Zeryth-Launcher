@@ -591,7 +591,7 @@ private fun <E: TitledNavKey> TopBar(
 
                 TopBarRailItem(
                     selected = inRecordingsScreen,
-                    painter = painterResource(R.drawable.ic_videocam_outlined),
+                    painter = painterResource(R.drawable.ic_video_camera),
                     text = stringResource(R.string.page_title_recordings),
                     onClick = {
                         if (!inRecordingsScreen) toRecordingsScreen()
