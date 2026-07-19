@@ -407,8 +407,8 @@ fun RecordingPlayerOverlay(
                 BackgroundCard(
                     shape    = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier
-                        .fillMaxWidth(0.88f)
-                        .widthIn(max = 620.dp)
+                        .fillMaxWidth(0.62f)
+                        .widthIn(max = 460.dp)
                         .align(Alignment.Center)
                 ) {
                     // ── Title bar ─────────────────────────────────────────────
