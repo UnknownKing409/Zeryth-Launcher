@@ -10,3 +10,4 @@
 - [Quick Access panel customization pattern](quick-access-customization.md) — DashboardTabBar callbacks thread through ContentMenu; new shortcut actions require adding params to both composables and a new callback in LauncherScreen.
 - [Screen Recorder & Player fullscreen/sync fixes](recorder-player-fullscreen-sync.md) — full-screen exit needs legacy systemUiVisibility restore (not ctrl.show); audio/video sync needs a shared recordingStartNs anchor for both streams.
 - [Screen Recorder codec priming](recorder-codec-priming.md) — Android 12+ surface encoders need a seeding black frame before FORMAT_CHANGED fires; priming must be non-fatal (don't cleanup on timeout, let encode-job fallbacks register tracks).
+- [Recorder frozen-first-frame fix](recorder-frozen-first-frame.md) — drain all residual priming output before enabling PixelCopy capture; start encode jobs before isCapturing=true.
