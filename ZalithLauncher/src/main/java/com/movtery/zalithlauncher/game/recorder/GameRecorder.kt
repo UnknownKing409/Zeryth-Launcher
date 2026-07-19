@@ -140,6 +140,11 @@ object GameRecorder {
     private var captureHandler: Handler?       = null
     private val isCapturing = AtomicBoolean(false)
 
+    // ── Reusable capture bitmap (avoids per-frame allocation / GC pressure) ───
+    // Dimensions are checked on each frame; if the view is resized the bitmap
+    // is recreated.  Access is confined to captureHandler thread only.
+    private var captureBitmap: Bitmap? = null
+
     // ── Timestamp tracking ────────────────────────────────────────────────────
     // recordingStartNs — wall-clock (System.nanoTime) captured immediately after
     // both codecs are started.  Used as the shared anchor for both audio and video
@@ -514,11 +519,14 @@ object GameRecorder {
     }
 
     private fun captureFromSurfaceView(sv: SurfaceView, out: android.view.Surface) {
-        val bmp = Bitmap.createBitmap(sv.width.coerceAtLeast(1), sv.height.coerceAtLeast(1),
-            Bitmap.Config.ARGB_8888)
+        val w = sv.width.coerceAtLeast(1)
+        val h = sv.height.coerceAtLeast(1)
+        // Reuse the existing bitmap if dimensions match; recreate only on resize.
+        val bmp = captureBitmap?.takeIf { !it.isRecycled && it.width == w && it.height == h }
+            ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { captureBitmap = it }
         PixelCopy.request(sv, bmp, { result ->
             if (result == PixelCopy.SUCCESS) drawToSurface(bmp, out)
-            bmp.recycle()
+            // Do NOT recycle — the bitmap is reused next frame.
             scheduleNextFrame()
         }, captureHandler!!)
     }
@@ -679,6 +687,10 @@ object GameRecorder {
         captureThread?.quit()
         captureThread  = null
         captureHandler = null
+
+        // Release the reusable capture bitmap to free native memory.
+        runCatching { captureBitmap?.recycle() }
+        captureBitmap = null
 
         timerJob?.cancel(); timerJob = null
         _elapsedMs.value  = 0L
