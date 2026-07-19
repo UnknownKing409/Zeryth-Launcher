@@ -140,8 +140,11 @@ object GameRecorder {
     private var captureHandler: Handler?       = null
     private val isCapturing = AtomicBoolean(false)
 
-    // ── Timestamp tracking (for pause-gap removal) ────────────────────────────
-    @Volatile private var firstVideoTimestampUs = Long.MIN_VALUE
+    // ── Timestamp tracking ────────────────────────────────────────────────────
+    // recordingStartNs — wall-clock (System.nanoTime) captured immediately after
+    // both codecs are started.  Used as the shared anchor for both audio and video
+    // timestamps so they are always in sync regardless of encoder startup latency.
+    @Volatile private var recordingStartNs      = 0L
     @Volatile private var totalPausedUs         = 0L
     @Volatile private var pauseStartMs          = 0L
 
@@ -184,11 +187,11 @@ object GameRecorder {
         appContext     = context.applicationContext
 
             // ── Reset shared state ────────────────────────────────────────────
-            muxerStarted          = false
-            videoTrackIndex       = -1
-            audioTrackIndex       = -1
-            firstVideoTimestampUs = Long.MIN_VALUE
-            totalPausedUs         = 0L
+            muxerStarted    = false
+            videoTrackIndex = -1
+            audioTrackIndex = -1
+            recordingStartNs = 0L
+            totalPausedUs   = 0L
 
             // ── MediaMuxer → MP4 ──────────────────────────────────────────────
             val fd = context.contentResolver.openFileDescriptor(uri, "w")!!.fileDescriptor
@@ -228,6 +231,10 @@ object GameRecorder {
             // ── Capture thread (PixelCopy callbacks) ──────────────────────────
             captureThread  = HandlerThread("GameRecorder-Capture").also { it.start() }
             captureHandler = Handler(captureThread!!.looper)
+
+            // Shared wall-clock anchor — captured once after both codecs are started
+            // so that both audio and video timestamps reference the same origin.
+            recordingStartNs = System.nanoTime()
 
             isCapturing.set(true)
             _state.value = RecordingState.RECORDING
@@ -342,7 +349,25 @@ object GameRecorder {
             val ac      = audioCodec   ?: return@launch
             val bufSize = audioBufferSize()
             val pcmBuf  = ByteArray(bufSize)
-            var sampleCount = 0L    // running sample-frame count for PTS generation
+
+            // Audio PTS strategy — synchronized with video via a shared wall-clock anchor:
+            //
+            // 1. On the very first PCM read we capture audioStartNs (System.nanoTime()).
+            //    This tells us the wall-clock offset of the first audio sample relative to
+            //    recordingStartNs (the anchor set in start(), identical clock domain).
+            //
+            // 2. All subsequent PTS are computed as:
+            //      pts = (audioStartNs - recordingStartNs) / 1000   [start-offset, µs]
+            //            + sampleCount * 1_000_000 / SAMPLE_RATE     [sample-count drift, µs]
+            //
+            //    The sample-count term is more accurate than wall-clock for intra-batch
+            //    timing (no scheduling jitter), while the start-offset term aligns the audio
+            //    stream to the same origin as the video stream.
+            //
+            // 3. While paused, sampleCount is not incremented (no audio is read), so paused
+            //    gaps are skipped naturally — matching the video side's totalPausedUs logic.
+            var audioStartNs  = 0L
+            var sampleCount   = 0L
 
             ar.startRecording()
             try {
@@ -358,15 +383,20 @@ object GameRecorder {
                     val read = ar.read(pcmBuf, 0, bufSize)
                     if (read <= 0) continue
 
-                    // Feed raw PCM to AAC encoder
+                    // Capture the wall-clock offset of the very first audio batch.
+                    if (audioStartNs == 0L) audioStartNs = System.nanoTime()
+
+                    // Feed raw PCM to AAC encoder.
                     val inputIdx = ac.dequeueInputBuffer(5_000L)
                     if (inputIdx >= 0) {
                         val inBuf = ac.getInputBuffer(inputIdx)!!
                         inBuf.clear()
                         inBuf.put(pcmBuf, 0, read)
-                        // PTS in µs derived from the running sample count (always monotonic,
-                        // skips paused periods naturally because we don't increment while paused).
-                        val pts = sampleCount * 1_000_000L / AUDIO_SAMPLE_RATE
+
+                        // PTS in µs: offset from the shared recording-start anchor
+                        // plus the running sample count for drift-free accuracy.
+                        val startOffsetUs = (audioStartNs - recordingStartNs) / 1_000L
+                        val pts = startOffsetUs + sampleCount * 1_000_000L / AUDIO_SAMPLE_RATE
                         ac.queueInputBuffer(inputIdx, 0, read, pts, 0)
                         // 16-bit stereo PCM: 4 bytes per sample-frame
                         sampleCount += read.toLong() / (2 * AUDIO_CHANNELS)
@@ -375,7 +405,7 @@ object GameRecorder {
                     drainAudioCodec(ac, endOfStream = false)
                 }
             } finally {
-                // Signal EOS to the AAC encoder and flush its remaining output
+                // Signal EOS to the AAC encoder and flush its remaining output.
                 val eosIdx = ac.dequeueInputBuffer(5_000L)
                 if (eosIdx >= 0) {
                     ac.queueInputBuffer(eosIdx, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
@@ -443,18 +473,22 @@ object GameRecorder {
     /**
      * Normalise a raw presentation timestamp from the video [MediaCodec] surface.
      *
-     * Raw timestamps correspond to the wall-clock time at which each frame was
-     * drawn ([System.nanoTime] / 1000).  We subtract:
-     *  - the first frame's timestamp so that the output starts at 0, and
-     *  - the accumulated paused duration so that gaps in the frame stream do not
-     *    produce timestamp jumps in the output file.
+     * Raw timestamps come from the MediaCodec surface, which uses [System.nanoTime]
+     * internally (values in nanoseconds, divided by 1000 to produce microseconds).
+     * We subtract [recordingStartNs]/1000 — the same wall-clock origin used for
+     * audio timestamps — so both streams share a common reference point and remain
+     * perfectly synchronised regardless of encoder startup latency.
      *
-     * Returns a negative value for frames that arrive before both tracks are ready
-     * (the caller must discard those).
+     * We also subtract [totalPausedUs] so that gaps introduced by pause/resume do
+     * not produce timestamp jumps in the output file.
+     *
+     * Early frames whose raw timestamp predates the shared start anchor (e.g. stale
+     * frames flushed by the codec on the first dequeue) return a negative adjusted
+     * value; the caller discards those.
      */
     private fun adjustVideoTimestampUs(rawUs: Long): Long {
-        if (firstVideoTimestampUs == Long.MIN_VALUE) firstVideoTimestampUs = rawUs
-        return rawUs - firstVideoTimestampUs - totalPausedUs
+        val startUs = recordingStartNs / 1_000L
+        return rawUs - startUs - totalPausedUs
     }
 
     // ──────────────────────────────────────────── Frame capture loop ──────────
@@ -651,7 +685,7 @@ object GameRecorder {
         accumulatedMs     = 0L
         videoTrackIndex   = -1
         audioTrackIndex   = -1
-        firstVideoTimestampUs = Long.MIN_VALUE
+        recordingStartNs  = 0L
         totalPausedUs     = 0L
         pendingUri        = null
         pendingFile       = null
