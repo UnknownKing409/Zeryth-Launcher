@@ -583,21 +583,6 @@ fun GameScreen(
     var pendingStartRecording by remember { mutableStateOf(false) }
 
     // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
-    // On approval we get the MediaProjection token and hand it to GameRecorder.
-    /** Start the MediaProjection foreground service then show the system consent dialog. */
-    fun launchProjectionConsent() {
-        context.startForegroundService(
-            Intent(context, MediaProjectionForegroundService::class.java)
-        )
-        requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
-    }
-
-    /** Stop the MediaProjection foreground service (called when user cancels/denies). */
-    fun stopProjectionService() {
-        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
-    }
-
-    // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
     // The foreground service is already running at this point (started in launchProjectionConsent).
     // On approval we get the MediaProjection token and hand it to GameRecorder.
     // On denial/cancel we stop the service immediately — it has no reason to keep running.
@@ -615,6 +600,20 @@ fun GameScreen(
             // User denied the consent dialog — release the service we started.
             stopProjectionService()
         }
+    }
+
+    // Helpers — defined after requestProjection so the val is in scope.
+    /** Stop the MediaProjection foreground service (called when user cancels/denies). */
+    fun stopProjectionService() {
+        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
+    }
+
+    /** Start the MediaProjection foreground service then show the system consent dialog. */
+    fun launchProjectionConsent() {
+        context.startForegroundService(
+            Intent(context, MediaProjectionForegroundService::class.java)
+        )
+        requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 
     // Step 1: request RECORD_AUDIO if not already granted, then proceed to Step 2.
