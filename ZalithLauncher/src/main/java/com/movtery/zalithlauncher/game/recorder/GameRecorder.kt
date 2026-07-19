@@ -998,17 +998,14 @@ object GameRecorder {
      * Play a short rising two-tone confirmation indicating that recording has
      * successfully started.
      *
-     * Tones are generated directly via [AudioTrack] with
-     * [AudioAttributes.USAGE_ASSISTANCE_SONIFICATION] + [AudioAttributes.CONTENT_TYPE_SONIFICATION].
-     * This is the same audio path used by Android system-UI feedback sounds (keyboard
-     * clicks, camera shutter, etc.).  It is routed through the system-sound volume
-     * rather than the notification or media volume, so it remains audible in gaming
-     * mode, DND, and silent-notification profiles where [android.media.ToneGenerator]
-     * on [android.media.AudioManager.STREAM_NOTIFICATION] would be silenced.
+     * Tones are generated directly via [AudioTrack] with [AudioAttributes.USAGE_ALARM].
+     * USAGE_ALARM routes through [android.media.AudioManager.STREAM_ALARM] — the only
+     * Android audio stream guaranteed to play through ringer-silent and vibrate modes,
+     * for the same reason alarm clocks still sound when the phone is on silent.
      *
-     * USAGE_ASSISTANCE_SONIFICATION is **not** matched by our
-     * [AudioPlaybackCaptureConfiguration] (we only capture USAGE_GAME / USAGE_MEDIA /
-     * USAGE_UNKNOWN), so neither tone ever appears in the recorded audio.
+     * USAGE_ALARM is **not** matched by our [AudioPlaybackCaptureConfiguration] (we only
+     * capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so neither tone ever appears
+     * in the recorded audio.
      *
      * Called only on the confirmed-active recording path — never on init failure,
      * permission denial, or cancellation.
@@ -1075,8 +1072,13 @@ object GameRecorder {
                 .toShort()
         }
 
+        // USAGE_ALARM routes through STREAM_ALARM, the only Android audio stream
+        // that is guaranteed to play through silent mode (ringer-silent / vibrate).
+        // USAGE_ALARM is NOT matched by AudioPlaybackCaptureConfiguration (we only
+        // capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so these tones never
+        // appear in the recorded audio.
         val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         val fmt = AudioFormat.Builder()
