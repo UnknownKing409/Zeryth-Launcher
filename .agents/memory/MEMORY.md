@@ -9,3 +9,4 @@
 - [ViewModel snapshot vs reactive StateFlow fields](viewmodel-snapshot-vs-reactive.md) — a `val x: T = someFlow.value` field only reads the flow once at construction; watch for this when a "live update" requirement is involved.
 - [Quick Access panel customization pattern](quick-access-customization.md) — DashboardTabBar callbacks thread through ContentMenu; new shortcut actions require adding params to both composables and a new callback in LauncherScreen.
 - [Screen Recorder & Player fullscreen/sync fixes](recorder-player-fullscreen-sync.md) — full-screen exit needs legacy systemUiVisibility restore (not ctrl.show); audio/video sync needs a shared recordingStartNs anchor for both streams.
+- [Screen Recorder codec priming](recorder-codec-priming.md) — Android 12+ surface encoders need a seeding black frame before FORMAT_CHANGED fires; priming must be non-fatal (don't cleanup on timeout, let encode-job fallbacks register tracks).
