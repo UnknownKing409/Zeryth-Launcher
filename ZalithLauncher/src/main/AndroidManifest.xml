@@ -145,6 +145,12 @@
         </service>
 
         <service
+            android:name=".game.recorder.MediaProjectionForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
             android:name=".game.launch.GameService"
             android:enabled="true"
             android:foregroundServiceType="specialUse"

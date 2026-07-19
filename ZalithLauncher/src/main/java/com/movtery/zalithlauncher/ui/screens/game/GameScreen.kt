@@ -24,9 +24,11 @@ import androidx.compose.animation.fadeOut
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.widget.Toast
+import com.movtery.zalithlauncher.game.recorder.MediaProjectionForegroundService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -582,15 +584,36 @@ fun GameScreen(
 
     // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
     // On approval we get the MediaProjection token and hand it to GameRecorder.
+    /** Start the MediaProjection foreground service then show the system consent dialog. */
+    fun launchProjectionConsent() {
+        context.startForegroundService(
+            Intent(context, MediaProjectionForegroundService::class.java)
+        )
+        requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
+    }
+
+    /** Stop the MediaProjection foreground service (called when user cancels/denies). */
+    fun stopProjectionService() {
+        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
+    }
+
+    // Step 2: system consent dialog ("Allow Zeryth to capture your screen?").
+    // The foreground service is already running at this point (started in launchProjectionConsent).
+    // On approval we get the MediaProjection token and hand it to GameRecorder.
+    // On denial/cancel we stop the service immediately — it has no reason to keep running.
     val requestProjection = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         pendingStartRecording = false
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val projection = mediaProjectionManager
-                .getMediaProjection(result.resultCode, result.data!!) ?: return@rememberLauncherForActivityResult
+                .getMediaProjection(result.resultCode, result.data!!)
+                ?: run { stopProjectionService(); return@rememberLauncherForActivityResult }
             GameRecorder.start(context, projection)
             eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+        } else {
+            // User denied the consent dialog — release the service we started.
+            stopProjectionService()
         }
     }
 
@@ -599,7 +622,7 @@ fun GameScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (pendingStartRecording && granted) {
-            requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
+            launchProjectionConsent()
         } else {
             pendingStartRecording = false
         }
@@ -851,9 +874,7 @@ fun GameScreen(
                     ) == PackageManager.PERMISSION_GRANTED
                     if (hasAudio) {
                         // Permission already granted — go straight to Step 2.
-                        requestProjection.launch(
-                            mediaProjectionManager.createScreenCaptureIntent()
-                        )
+                        launchProjectionConsent()
                     } else {
                         // Step 1: request RECORD_AUDIO; Step 2 fires in the callback.
                         requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)

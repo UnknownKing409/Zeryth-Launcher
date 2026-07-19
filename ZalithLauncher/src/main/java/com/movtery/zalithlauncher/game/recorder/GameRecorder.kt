@@ -132,6 +132,9 @@ object GameRecorder {
     // ── MediaProjection ───────────────────────────────────────────────────────
     private var mediaProjection: MediaProjection? = null
 
+    // ── Application context (stored in start(), used in cleanup()) ─────────────
+    private var appContext: android.content.Context? = null
+
     // ── Capture thread ────────────────────────────────────────────────────────
     private var captureThread:  HandlerThread? = null
     private var captureHandler: Handler?       = null
@@ -178,6 +181,7 @@ object GameRecorder {
             pendingFile = file
 
             mediaProjection = projection
+        appContext     = context.applicationContext
 
             // ── Reset shared state ────────────────────────────────────────────
             muxerStarted          = false
@@ -631,6 +635,12 @@ object GameRecorder {
 
         mediaProjection?.stop()
         mediaProjection = null
+
+        // Stop the foreground service that was holding the MediaProjection token.
+        appContext?.stopService(
+            android.content.Intent(appContext, MediaProjectionForegroundService::class.java)
+        )
+        appContext = null
 
         captureThread?.quit()
         captureThread  = null
