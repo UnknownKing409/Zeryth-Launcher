@@ -42,8 +42,14 @@ Reset `captureStartNs = 0L` in both the Phase-1 `start()` reset block and `clean
 
 ## Recording Status Sounds
 
-Also added in the same fix:
-- **Start sound**: `ToneGenerator(STREAM_NOTIFICATION, 70).startTone(TONE_PROP_BEEP, 160)` — one short beep after `scheduleNextFrame()`.
-- **Stop sound**: `ToneGenerator(STREAM_NOTIFICATION, 70).startTone(TONE_PROP_BEEP2, 400)` — two short beeps after successful MediaStore commit in `finalise()`.
-- Both use `STREAM_NOTIFICATION` (USAGE_NOTIFICATION) which is NOT captured by `AudioPlaybackCaptureConfiguration` (only USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN are matched).
-- Neither sound plays on init failure, permission denial, or cancellation.
+`ToneGenerator(STREAM_NOTIFICATION, …)` is silenced in DND, gaming mode (GameBooster, MIUI/ColorOS game profiles), and when notification volume = 0 — all common during gameplay. Do not use it.
+
+**Correct approach — `AudioTrack` with `USAGE_ASSISTANCE_SONIFICATION`:**
+- Synthesise a pure sine wave (with 15 ms linear fade-in/out) into a `ShortArray`, write to `AudioTrack` in `MODE_STATIC`, then `play()` + `Thread.sleep(durationMs + 30)` + `release()`.
+- `AudioAttributes`: `USAGE_ASSISTANCE_SONIFICATION` + `CONTENT_TYPE_SONIFICATION` — same path as keyboard clicks / camera shutter. Audible whenever system sounds are on, regardless of notification/DND state.
+- NOT captured by `AudioPlaybackCaptureConfiguration` (USAGE_ASSISTANCE_SONIFICATION ≠ USAGE_GAME/MEDIA/UNKNOWN).
+- Start: 880 Hz (110 ms) → 1320 Hz (130 ms) — rising pitch = "on".
+- Stop: 1320 Hz (110 ms) → 880 Hz (130 ms) — falling pitch = "off".
+- Both launched via `encodeScope.launch { runCatching { … } }` — errors are logged, never crash.
+
+**Why ToneGenerator failed:** `STREAM_NOTIFICATION` → `USAGE_NOTIFICATION`, which is muted by DND / gaming profiles. `AudioTrack` with `USAGE_ASSISTANCE_SONIFICATION` bypasses those restrictions.
