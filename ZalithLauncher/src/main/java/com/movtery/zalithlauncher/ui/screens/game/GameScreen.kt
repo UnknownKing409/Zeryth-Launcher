@@ -588,7 +588,7 @@ fun GameScreen(
         pendingStartRecording = false
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val projection = mediaProjectionManager
-                .getMediaProjection(result.resultCode, result.data!!)
+                .getMediaProjection(result.resultCode, result.data!!) ?: return@rememberLauncherForActivityResult
             GameRecorder.start(context, projection)
             eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
         }
