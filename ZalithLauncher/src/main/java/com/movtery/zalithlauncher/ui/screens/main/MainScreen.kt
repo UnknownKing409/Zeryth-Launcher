@@ -582,7 +582,7 @@ private fun <E: TitledNavKey> TopBar(
 
                 TopBarRailItem(
                     selected = inFileManagerScreen,
-                    painter = painterResource(R.drawable.ic_folder_outlined),
+                    painter = painterResource(R.drawable.ic_folder_filled),
                     text = stringResource(R.string.page_title_file_manager),
                     onClick = {
                         if (!inFileManagerScreen) toFileManagerScreen()
