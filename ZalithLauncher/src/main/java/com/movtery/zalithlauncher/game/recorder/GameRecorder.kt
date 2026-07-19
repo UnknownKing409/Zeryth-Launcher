@@ -22,12 +22,14 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.media.ToneGenerator
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Handler
@@ -318,10 +320,33 @@ object GameRecorder {
                     Log.w(TAG, "Priming incomplete (video=$videoTrackIndex audio=$audioTrackIndex) — encode jobs will register remaining tracks")
                 }
 
-                isCapturing.set(true)
+                // Drain any residual encoded output left in the video codec's output
+                // buffer pool from the priming black frame.  primeVideoTrack() exits as
+                // soon as INFO_OUTPUT_FORMAT_CHANGED is seen, which may leave one or more
+                // already-encoded priming frames in the queue.  If those buffers are not
+                // released before the first PixelCopy frame arrives, they occupy output
+                // slots and can cause the encoder to stall — the first real frame is then
+                // delayed or dropped, producing a frozen-frame at the start of the recording.
+                discardVideoOutput(videoCodec!!)
+
+                // Start the video encode drain job before enabling capture so it is
+                // already running when the first PixelCopy frame is drawn to the surface.
                 startVideoEncodeJob()
                 startAudioJob()
+
+                // Enable frame capture and schedule the first PixelCopy request.  The
+                // encode job is active by this point, so no frames can be lost to an
+                // un-drained output queue.
+                isCapturing.set(true)
                 scheduleNextFrame()
+
+                // Recording is now fully active — play the start confirmation sound.
+                // ToneGenerator on STREAM_NOTIFICATION (USAGE_NOTIFICATION) is NOT
+                // captured by AudioPlaybackCaptureConfiguration (we only match
+                // USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so this tone never
+                // appears in the recorded audio.  Played only here — after a confirmed
+                // successful start — never on init failure or cancellation.
+                playRecordingStartSound()
 
                 Log.i(TAG, "Recording started ${w}x${h} — audio via AudioPlaybackCapture")
             } catch (e: Exception) {
@@ -853,6 +878,9 @@ object GameRecorder {
                 }
                 runCatching { context.contentResolver.update(uri, values, null, null) }
                 Log.i(TAG, "Recording saved: $uri")
+                // Recording fully finalized and saved — play stop confirmation sound.
+                // Fires only after a successful MediaStore commit, never on error paths.
+                playRecordingStopSound()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Finalise error: ${e.message}")
@@ -918,6 +946,74 @@ object GameRecorder {
         pendingFile        = null
 
         _state.value = RecordingState.IDLE
+    }
+
+    // ──────────────────────────────────────────── Priming output drain ────────
+
+    /**
+     * Drain and discard all currently-available video codec output buffers without
+     * writing to the muxer.
+     *
+     * Called once, immediately after priming completes, to clear any residual
+     * encoded frames from the priming black frame.  This frees the encoder's output
+     * buffer pool so the first real PixelCopy frame is accepted without stalling.
+     */
+    private fun discardVideoOutput(vc: MediaCodec) {
+        val info = MediaCodec.BufferInfo()
+        while (true) {
+            val idx = vc.dequeueOutputBuffer(info, 0L)
+            if (idx >= 0) vc.releaseOutputBuffer(idx, false) else return
+        }
+    }
+
+    // ──────────────────────────────────────── Recording status sounds ─────────
+
+    /**
+     * Play a short single-beep confirmation tone indicating that recording has
+     * successfully started.
+     *
+     * The tone is emitted on [AudioManager.STREAM_NOTIFICATION] (USAGE_NOTIFICATION),
+     * which is **not** matched by our [AudioPlaybackCaptureConfiguration] (we only
+     * capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN).  The sound therefore never
+     * appears in the recorded audio.
+     *
+     * Called only on the confirmed-active recording path — never on init failure,
+     * permission denial, or cancellation.
+     */
+    private fun playRecordingStartSound() {
+        encodeScope.launch {
+            runCatching {
+                // Volume 70 out of 100 — audible but not intrusive.
+                // TONE_PROP_BEEP: one short 400 Hz beep ≈ 160 ms — clean start cue.
+                val tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70)
+                tg.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
+                delay(220L)   // outlast the tone before releasing
+                tg.release()
+            }.onFailure { e ->
+                Log.w(TAG, "Recording start sound failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Play a double-beep confirmation tone indicating that recording has stopped and
+     * the output file has been fully finalized and saved to MediaStore.
+     *
+     * Same stream as [playRecordingStartSound]; two beeps distinguish "stopped" from
+     * "started."  Called only after a successful [MediaStore] commit.
+     */
+    private fun playRecordingStopSound() {
+        encodeScope.launch {
+            runCatching {
+                // TONE_PROP_BEEP2: two short 400 Hz beeps ≈ 400 ms — distinct "done" cue.
+                val tg = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70)
+                tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
+                delay(480L)   // outlast the tone before releasing
+                tg.release()
+            }.onFailure { e ->
+                Log.w(TAG, "Recording stop sound failed: ${e.message}")
+            }
+        }
     }
 
     // ──────────────────────────────────────────────── MediaStore output ────────
