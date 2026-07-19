@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="24dp"
+    android:viewportHeight="960"
+    android:viewportWidth="960"
+    android:width="24dp">
+
+    <!--
+        Folder shape: rounded-rectangle body with a rounded tab in the
+        upper-left.  The tab's right edge is a diagonal cut, matching the
+        classic iOS / macOS folder silhouette.
+    -->
+    <path
+        android:fillColor="#1f1f1f"
+        android:pathData="M290,610 H670 Q730,610 730,550 V400 Q730,340 670,340 H453 L430,285 Q430,285 402,285 H258 Q230,285 230,313 V550 Q230,610 290,610 Z" />
+
+</vector>
