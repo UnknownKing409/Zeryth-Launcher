@@ -57,9 +57,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 private const val TAG = "GameRecorder"
 private const val FRAME_RATE = 30
 private const val VIDEO_BIT_RATE = 6_000_000   // 6 Mbps
-private const val AUDIO_SAMPLE_RATE = 44_100
+private const val AUDIO_SAMPLE_RATE = 48_000   // hardware-native; AudioPlaybackCapture delivers 48k regardless of request
 private const val AUDIO_BIT_RATE = 128_000
 private const val AUDIO_CHANNELS = 2            // stereo
+private const val BYTES_PER_FRAME = 2 * AUDIO_CHANNELS   // 16-bit stereo → 4 bytes per sample-frame
 
 /**
  * Singleton that manages a gameplay video recording session.
@@ -223,7 +224,7 @@ object GameRecorder {
                 setInteger(MediaFormat.KEY_AAC_PROFILE,
                     MediaCodecInfo.CodecProfileLevel.AACObjectLC)
                 setInteger(MediaFormat.KEY_BIT_RATE,       AUDIO_BIT_RATE)
-                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioBufferSize())
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, audioReadChunkSize())
             }
             audioCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).also { c ->
                 c.configure(audioFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -350,29 +351,34 @@ object GameRecorder {
 
     private fun startAudioJob() {
         audioJob = encodeScope.launch {
-            val ar      = audioRecord  ?: return@launch
-            val ac      = audioCodec   ?: return@launch
-            val bufSize = audioBufferSize()
-            val pcmBuf  = ByteArray(bufSize)
+            val ar        = audioRecord ?: return@launch
+            val ac        = audioCodec  ?: return@launch
+            val chunkSize = audioReadChunkSize()
+            val pcmBuf    = ByteArray(chunkSize)
 
-            // Audio PTS strategy — synchronized with video via a shared wall-clock anchor:
+            // ── Audio PTS strategy ────────────────────────────────────────────
             //
-            // 1. On the very first PCM read we capture audioStartNs (System.nanoTime()).
-            //    This tells us the wall-clock offset of the first audio sample relative to
-            //    recordingStartNs (the anchor set in start(), identical clock domain).
+            // We use AudioRecord.getTimestamp(AudioTimestamp, TIMEBASE_MONOTONIC)
+            // (API 24+, always available since AudioPlaybackCapture requires 29+)
+            // to obtain a hardware-accurate (framePosition, nanoTime) anchor on the
+            // very first read.  All subsequent PTS are:
             //
-            // 2. All subsequent PTS are computed as:
-            //      pts = (audioStartNs - recordingStartNs) / 1000   [start-offset, µs]
-            //            + sampleCount * 1_000_000 / SAMPLE_RATE     [sample-count drift, µs]
+            //   batchStartNs = anchorNs + (totalFramesRead - anchorFrame) * 1e9 / SAMPLE_RATE
+            //   pts_µs       = (batchStartNs - recordingStartNs) / 1000
             //
-            //    The sample-count term is more accurate than wall-clock for intra-batch
-            //    timing (no scheduling jitter), while the start-offset term aligns the audio
-            //    stream to the same origin as the video stream.
+            // This approach is immune to:
+            //  • ar.read() blocking latency (~chunkDuration ms on first call)
+            //  • OS scheduling jitter between reads
+            //  • Dropped encoder-input batches (totalFramesRead still advances,
+            //    so PTS stays consistent with the hardware timeline even when we
+            //    cannot immediately queue a batch into the encoder)
             //
-            // 3. While paused, sampleCount is not incremented (no audio is read), so paused
-            //    gaps are skipped naturally — matching the video side's totalPausedUs logic.
-            var audioStartNs  = 0L
-            var sampleCount   = 0L
+            // Fallback (getTimestamp fails): approximate anchorNs by subtracting
+            // one chunk-duration from System.nanoTime() after the first read.
+            val hwTimestamp   = android.media.AudioTimestamp()
+            var anchorNs      = 0L          // System.nanoTime() of anchorFrame
+            var anchorFrame   = 0L          // frame index reported by hardware
+            var totalFrames   = 0L          // running count of frames fed to encoder
 
             ar.startRecording()
             try {
@@ -385,26 +391,49 @@ object GameRecorder {
                         continue
                     }
 
-                    val read = ar.read(pcmBuf, 0, bufSize)
+                    val read = ar.read(pcmBuf, 0, chunkSize)
                     if (read <= 0) continue
 
-                    // Capture the wall-clock offset of the very first audio batch.
-                    if (audioStartNs == 0L) audioStartNs = System.nanoTime()
+                    val framesInBatch = read.toLong() / BYTES_PER_FRAME
 
-                    // Feed raw PCM to AAC encoder.
-                    val inputIdx = ac.dequeueInputBuffer(5_000L)
+                    // Acquire hardware timestamp anchor once (on first successful read).
+                    if (anchorNs == 0L) {
+                        if (ar.getTimestamp(hwTimestamp,
+                                android.media.AudioTimestamp.TIMEBASE_MONOTONIC)
+                            == AudioRecord.SUCCESS
+                        ) {
+                            anchorFrame = hwTimestamp.framePosition
+                            anchorNs    = hwTimestamp.nanoTime
+                        } else {
+                            // Fallback: nanoTime() corrected backwards by one chunk latency.
+                            anchorFrame = 0L
+                            anchorNs    = System.nanoTime() -
+                                framesInBatch * 1_000_000_000L / AUDIO_SAMPLE_RATE
+                        }
+                    }
+
+                    // Compute PTS for the first frame of this batch.
+                    val batchStartNs = anchorNs +
+                        (totalFrames - anchorFrame) * 1_000_000_000L / AUDIO_SAMPLE_RATE
+                    val pts = (batchStartNs - recordingStartNs) / 1_000L
+
+                    // Advance frame counter BEFORE the encoder check so PTS stays
+                    // correct even if this batch cannot be queued and is dropped.
+                    totalFrames += framesInBatch
+
+                    // Feed to AAC encoder.  If the input queue is momentarily full,
+                    // drain the output side first (which frees input slots) then retry
+                    // once rather than silently dropping the batch.
+                    var inputIdx = ac.dequeueInputBuffer(5_000L)
+                    if (inputIdx < 0) {
+                        drainAudioCodec(ac, endOfStream = false)
+                        inputIdx = ac.dequeueInputBuffer(10_000L)
+                    }
                     if (inputIdx >= 0) {
-                        val inBuf = ac.getInputBuffer(inputIdx)!!
-                        inBuf.clear()
-                        inBuf.put(pcmBuf, 0, read)
-
-                        // PTS in µs: offset from the shared recording-start anchor
-                        // plus the running sample count for drift-free accuracy.
-                        val startOffsetUs = (audioStartNs - recordingStartNs) / 1_000L
-                        val pts = startOffsetUs + sampleCount * 1_000_000L / AUDIO_SAMPLE_RATE
-                        ac.queueInputBuffer(inputIdx, 0, read, pts, 0)
-                        // 16-bit stereo PCM: 4 bytes per sample-frame
-                        sampleCount += read.toLong() / (2 * AUDIO_CHANNELS)
+                        ac.getInputBuffer(inputIdx)!!.apply { clear(); put(pcmBuf, 0, read) }
+                        ac.queueInputBuffer(inputIdx, 0, read, pts.coerceAtLeast(0L), 0)
+                    } else {
+                        Log.w(TAG, "Audio encoder input buffer unavailable — batch dropped (${framesInBatch} frames)")
                     }
 
                     drainAudioCodec(ac, endOfStream = false)
@@ -412,9 +441,8 @@ object GameRecorder {
             } finally {
                 // Signal EOS to the AAC encoder and flush its remaining output.
                 val eosIdx = ac.dequeueInputBuffer(5_000L)
-                if (eosIdx >= 0) {
+                if (eosIdx >= 0)
                     ac.queueInputBuffer(eosIdx, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                }
                 drainAudioCodec(ac, endOfStream = true)
                 runCatching { ar.stop() }
             }
@@ -422,16 +450,20 @@ object GameRecorder {
     }
 
     /**
-     * Drain encoded AAC output from the audio [MediaCodec] and write it to the muxer.
+     * Drain all immediately-available encoded AAC output from [ac] and write it to the muxer.
      *
-     * When [endOfStream] is false the drain is non-blocking (timeout 0) and returns
-     * after at most one buffer so the capture loop stays responsive.  When [endOfStream]
-     * is true it blocks until the EOS buffer arrives.
+     * Both in normal mode and in [endOfStream] mode the loop runs until there are no
+     * more ready output buffers (`INFO_TRY_AGAIN_LATER`).  In EOS mode it additionally
+     * waits up to 10 ms per poll so the final frames are never missed.  The loop always
+     * exits on the EOS sentinel, regardless of mode.
      */
     private fun drainAudioCodec(ac: MediaCodec, endOfStream: Boolean) {
         val bufInfo = MediaCodec.BufferInfo()
         while (true) {
-            val idx = ac.dequeueOutputBuffer(bufInfo, if (endOfStream) 10_000L else 0L)
+            // Block briefly when draining for EOS; otherwise non-blocking so the
+            // capture loop keeps reading from AudioRecord without stalling.
+            val timeout = if (endOfStream) 10_000L else 0L
+            val idx = ac.dequeueOutputBuffer(bufInfo, timeout)
             when {
                 idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     synchronized(muxerLock) {
@@ -450,11 +482,12 @@ object GameRecorder {
                         }
                     }
                     ac.releaseOutputBuffer(idx, false)
-                    // In non-EOS drain: process one buffer then yield back to caller.
-                    // In EOS drain: keep looping until the EOS sentinel arrives.
-                    if (isEos || !endOfStream) return
+                    // Exit on EOS sentinel regardless of mode.
+                    if (isEos) return
+                    // Otherwise keep looping — drain ALL ready buffers per call,
+                    // not just one, to avoid encoder stall and free input slots faster.
                 }
-                else -> return  // INFO_TRY_AGAIN_LATER or no more output
+                else -> return  // INFO_TRY_AGAIN_LATER — nothing more ready right now
             }
         }
     }
@@ -591,17 +624,41 @@ object GameRecorder {
                     .setChannelMask(AudioFormat.CHANNEL_IN_STEREO)
                     .build()
             )
-            .setBufferSizeInBytes(audioBufferSize())
+            // Hardware ring-buffer: 4× minimum so scheduling jitter never causes
+            // a hardware overrun (overrun = unrecoverable gap → pop in audio).
+            .setBufferSizeInBytes(audioHardwareBufferSize())
             .build()
     }
 
-    private fun audioBufferSize(): Int = maxOf(
+    /**
+     * Size of the [AudioRecord] hardware ring-buffer.
+     *
+     * Set to 4× the minimum so that OS scheduling jitter (the primary cause of
+     * hardware overruns, which produce unrecoverable gaps and audible pops) is
+     * absorbed without dropping any samples.
+     */
+    private fun audioHardwareBufferSize(): Int = maxOf(
+        AudioRecord.getMinBufferSize(
+            AUDIO_SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_STEREO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ) * 4,
+        32_768
+    )
+
+    /**
+     * Size of each PCM read chunk fed to the AAC encoder as one input buffer.
+     *
+     * Kept to roughly one minimum-buffer-size worth of samples so the encoder
+     * pipeline stays saturated without over-large latency per chunk.
+     */
+    private fun audioReadChunkSize(): Int = maxOf(
         AudioRecord.getMinBufferSize(
             AUDIO_SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_STEREO,
             AudioFormat.ENCODING_PCM_16BIT
         ),
-        8192
+        4_096
     )
 
     // ──────────────────────────────────────────────────────── Finalise ─────────
