@@ -30,6 +30,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Handler
@@ -107,6 +108,10 @@ object GameRecorder {
     private val _elapsedMs = MutableStateFlow(0L)
     val elapsedMs: StateFlow<Long> = _elapsedMs.asStateFlow()
 
+    // ── Microphone toggle ─────────────────────────────────────────────────────
+    private val _micEnabled = MutableStateFlow(false)
+    val micEnabled: StateFlow<Boolean> = _micEnabled.asStateFlow()
+
     private val timerScope  = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val encodeScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -124,6 +129,7 @@ object GameRecorder {
 
     // ── Audio pipeline ────────────────────────────────────────────────────────
     private var audioRecord:    AudioRecord?  = null
+    private var micAudioRecord: AudioRecord?  = null
     private var audioCodec:     MediaCodec?   = null
     @Volatile private var audioTrackIndex = -1
 
@@ -253,7 +259,9 @@ object GameRecorder {
                 c.start()
             }
 
-            audioRecord = buildAudioRecord(projection)
+            audioRecord    = buildAudioRecord(projection)
+            micAudioRecord = buildMicAudioRecord()
+            _micEnabled.value = false
 
             captureThread  = HandlerThread("GameRecorder-Capture").also { it.start() }
             captureHandler = Handler(captureThread!!.looper)
@@ -377,6 +385,15 @@ object GameRecorder {
             pauseStartMs   = System.currentTimeMillis()
             accumulatedMs += System.currentTimeMillis() - resumeTimeMs
             timerJob?.cancel(); timerJob = null
+            // Stop mic capture during pause so we don't read stale audio on resume.
+            // _micEnabled stays true so we know to restart the mic when we resume.
+            runCatching {
+                if (_micEnabled.value &&
+                    micAudioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING
+                ) {
+                    micAudioRecord?.stop()
+                }
+            }
             _state.value = RecordingState.PAUSED
             Log.i(TAG, "Recording paused at ${accumulatedMs}ms")
         } catch (e: Exception) {
@@ -390,6 +407,14 @@ object GameRecorder {
         try {
             // Accumulate pause wall-clock duration for video timestamp correction.
             totalPausedUs += (System.currentTimeMillis() - pauseStartMs) * 1_000L
+            // Restart mic if it was enabled before pause.
+            runCatching {
+                if (_micEnabled.value &&
+                    micAudioRecord?.recordingState != AudioRecord.RECORDSTATE_RECORDING
+                ) {
+                    micAudioRecord?.startRecording()
+                }
+            }
             isCapturing.set(true)
             resumeTimeMs = System.currentTimeMillis()
             startTimerTick()
@@ -398,6 +423,60 @@ object GameRecorder {
             Log.i(TAG, "Recording resumed")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to resume: ${e.message}")
+        }
+    }
+
+    /**
+     * Toggle microphone capture on or off while a recording session is active.
+     *
+     * Safe to call from any thread.  Has no effect when no recording is in
+     * progress.  [RECORD_AUDIO] is already granted at this point because it is
+     * a prerequisite of starting the recording session.
+     */
+    fun toggleMicrophone() {
+        if (_micEnabled.value) disableMicrophone() else enableMicrophone()
+    }
+
+    /**
+     * Start capturing microphone audio and mix it into the recording.
+     *
+     * No-op if already enabled or if no recording is active.
+     */
+    private fun enableMicrophone() {
+        val state = _state.value
+        if (state != RecordingState.RECORDING && state != RecordingState.PAUSED) return
+        val mar = micAudioRecord ?: run {
+            Log.w(TAG, "Microphone AudioRecord not available")
+            return
+        }
+        try {
+            if (mar.recordingState != AudioRecord.RECORDSTATE_RECORDING &&
+                state == RecordingState.RECORDING
+            ) {
+                mar.startRecording()
+            }
+            _micEnabled.value = true
+            Log.i(TAG, "Microphone recording enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable microphone: ${e.message}")
+        }
+    }
+
+    /**
+     * Stop capturing microphone audio.  Screen recording continues unaffected.
+     *
+     * No-op if already disabled.
+     */
+    private fun disableMicrophone() {
+        _micEnabled.value = false
+        val mar = micAudioRecord ?: return
+        try {
+            if (mar.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                mar.stop()
+            }
+            Log.i(TAG, "Microphone recording disabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable microphone: ${e.message}")
         }
     }
 
@@ -552,6 +631,7 @@ object GameRecorder {
             val ac        = audioCodec  ?: return@launch
             val chunkSize = audioReadChunkSize()
             val pcmBuf    = ByteArray(chunkSize)
+            val micBuf    = ByteArray(chunkSize)
 
             // ── Audio PTS ─────────────────────────────────────────────────────
             //
@@ -582,6 +662,22 @@ object GameRecorder {
 
                     val read = ar.read(pcmBuf, 0, chunkSize)
                     if (read <= 0) continue
+
+                    // ── Microphone mixing ─────────────────────────────────────
+                    // When mic is enabled, read available mic PCM non-blocking and
+                    // mix it into the internal-audio buffer.  READ_NON_BLOCKING
+                    // avoids stalling the capture loop if the mic buffer is empty.
+                    // Any partially-filled mic read is mixed for its available
+                    // length only; the rest of the internal audio plays unchanged.
+                    if (_micEnabled.value) {
+                        val mar = micAudioRecord
+                        if (mar != null && mar.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                            val micRead = mar.read(micBuf, 0, read, AudioRecord.READ_NON_BLOCKING)
+                            if (micRead > 0) {
+                                mixPcm16Le(pcmBuf, micBuf, minOf(read, micRead))
+                            }
+                        }
+                    }
 
                     val framesInBatch = read.toLong() / BYTES_PER_FRAME
 
@@ -615,6 +711,28 @@ object GameRecorder {
                 drainAudioCodec(ac, endOfStream = true)
                 runCatching { ar.stop() }
             }
+        }
+    }
+
+    /**
+     * Mix [len] bytes of [src] (little-endian 16-bit PCM) into [dst] in-place.
+     *
+     * Each pair of bytes is treated as a signed 16-bit sample.  Samples are summed
+     * and clamped to the signed 16-bit range to prevent clipping distortion.
+     * Dividing by 2 before clamping would halve the loudness of both sources even
+     * when only one is non-silent; simple saturation clipping is preferred here
+     * because Minecraft game audio and microphone voice are rarely both at max
+     * amplitude simultaneously.
+     */
+    private fun mixPcm16Le(dst: ByteArray, src: ByteArray, len: Int) {
+        var i = 0
+        while (i + 1 < len) {
+            val a = ((dst[i].toInt() and 0xFF) or ((dst[i + 1].toInt() and 0xFF) shl 8)).toShort().toInt()
+            val b = ((src[i].toInt() and 0xFF) or ((src[i + 1].toInt() and 0xFF) shl 8)).toShort().toInt()
+            val mixed = (a + b).coerceIn(-32768, 32767)
+            dst[i]     = (mixed and 0xFF).toByte()
+            dst[i + 1] = ((mixed ushr 8) and 0xFF).toByte()
+            i += 2
         }
     }
 
@@ -867,6 +985,50 @@ object GameRecorder {
         4_096
     )
 
+    /**
+     * Build an [AudioRecord] configured to capture microphone input.
+     *
+     * Uses [MediaRecorder.AudioSource.VOICE_COMMUNICATION] which enables
+     * hardware echo-cancellation and noise-suppression where available, reducing
+     * feedback between the device speaker and microphone during gameplay.
+     *
+     * Returns `null` if the device does not support microphone capture or if
+     * [AudioRecord] fails to initialize — the caller treats `null` as
+     * "mic unavailable" and disables the toggle gracefully.
+     *
+     * [android.Manifest.permission.RECORD_AUDIO] is required and is already
+     * granted before the recording session starts.
+     */
+    @Suppress("MissingPermission")
+    private fun buildMicAudioRecord(): AudioRecord? {
+        return try {
+            val bufSize = maxOf(
+                AudioRecord.getMinBufferSize(
+                    AUDIO_SAMPLE_RATE,
+                    AudioFormat.CHANNEL_IN_STEREO,
+                    AudioFormat.ENCODING_PCM_16BIT
+                ) * 2,
+                16_384
+            )
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                AUDIO_SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_STEREO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufSize
+            ).also { ar ->
+                if (ar.state != AudioRecord.STATE_INITIALIZED) {
+                    ar.release()
+                    Log.w(TAG, "Microphone AudioRecord failed to initialize — mic toggle disabled")
+                    return null
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not create microphone AudioRecord: ${e.message}")
+            null
+        }
+    }
+
     // ──────────────────────────────────────────────────────── Finalise ─────────
 
     private fun finalise(context: Context) {
@@ -930,6 +1092,11 @@ object GameRecorder {
         runCatching { audioRecord?.stop()    }
         runCatching { audioRecord?.release() }
         audioRecord = null
+
+        runCatching { micAudioRecord?.stop()    }
+        runCatching { micAudioRecord?.release() }
+        micAudioRecord = null
+        _micEnabled.value = false
 
         runCatching { audioCodec?.stop()    }
         runCatching { audioCodec?.release() }

@@ -69,9 +69,11 @@ fun DraggableGameBall(
     onClick: () -> Unit = {},
     recordingState: RecordingState = RecordingState.IDLE,
     elapsedMs: Long = 0L,
+    micEnabled: Boolean = false,
     onPauseRecording: () -> Unit = {},
     onResumeRecording: () -> Unit = {},
-    onStopRecording: () -> Unit = {}
+    onStopRecording: () -> Unit = {},
+    onToggleMic: () -> Unit = {}
 ) {
     val isRecordingActive = recordingState == RecordingState.RECORDING ||
             recordingState == RecordingState.PAUSED
@@ -96,9 +98,11 @@ fun DraggableGameBall(
             isRecordingActive = isRecordingActive,
             isPaused = recordingState == RecordingState.PAUSED,
             elapsedMs = elapsedMs,
+            micEnabled = micEnabled,
             onPauseRecording = onPauseRecording,
             onResumeRecording = onResumeRecording,
             onStopRecording = onStopRecording,
+            onToggleMic = onToggleMic,
         )
     }
 }
@@ -120,9 +124,11 @@ fun DraggableGameBall(
 private fun RecordingControlContent(
     isPaused: Boolean,
     elapsedMs: Long,
+    micEnabled: Boolean,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onToggleMic: () -> Unit
 ) {
     Row(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
@@ -142,6 +148,24 @@ private fun RecordingControlContent(
             text = elapsedMs.formatElapsedTime(),
             style = MaterialTheme.typography.labelSmall,
         )
+        // Microphone toggle — lit when mic capture is active
+        IconButton(
+            onClick = onToggleMic,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (micEnabled) R.drawable.ic_mic
+                    else R.drawable.ic_mic_off
+                ),
+                contentDescription = stringResource(
+                    if (micEnabled) R.string.recorder_mic_on else R.string.recorder_mic_off
+                ),
+                modifier = Modifier.size(18.dp),
+                tint = if (micEnabled) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        }
         // Pause / Resume toggle
         IconButton(
             onClick = if (isPaused) onResume else onPause,
@@ -195,9 +219,11 @@ private fun GameBallContent(
     isRecordingActive: Boolean = false,
     isPaused: Boolean = false,
     elapsedMs: Long = 0L,
+    micEnabled: Boolean = false,
     onPauseRecording: () -> Unit = {},
     onResumeRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
+    onToggleMic: () -> Unit = {},
 ) {
     val showFps = remember(gameFps) {
         gameFps != null
@@ -289,9 +315,11 @@ private fun GameBallContent(
             RecordingControlContent(
                 isPaused = isPaused,
                 elapsedMs = elapsedMs,
+                micEnabled = micEnabled,
                 onPause = onPauseRecording,
                 onResume = onResumeRecording,
                 onStop = onStopRecording,
+                onToggleMic = onToggleMic,
             )
         }
     }

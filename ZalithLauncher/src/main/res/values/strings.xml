@@ -1761,6 +1761,9 @@
     <string name="recorder_pause">Pause</string>
     <string name="recorder_resume">Resume</string>
     <string name="recorder_started">Recording started</string>
+    <string name="recorder_mic_on">Microphone On</string>
+    <string name="recorder_mic_off">Microphone Off</string>
+    <string name="recorder_mic_denied">Microphone permission denied</string>
     <string name="recorder_notification_channel_name">Screen Recording</string>
     <string name="recorder_notification_title">Zeryth is recording</string>
     <string name="recorder_notification_text">Game audio and screen are being captured</string>

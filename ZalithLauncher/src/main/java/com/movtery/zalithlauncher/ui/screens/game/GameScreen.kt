@@ -563,6 +563,7 @@ fun GameScreen(
     // Collect recorder state and elapsed timer so the floating ball reacts in real-time
     val recordingState by GameRecorder.state.collectAsStateWithLifecycle()
     val elapsedMs by GameRecorder.elapsedMs.collectAsStateWithLifecycle()
+    val micEnabled by GameRecorder.micEnabled.collectAsStateWithLifecycle()
     val cursorMode by ZLBridgeStates.cursorMode.collectAsStateWithLifecycle()
     val isGrabbing = remember(cursorMode) {
         cursorMode == CURSOR_DISABLED
@@ -937,6 +938,7 @@ fun GameScreen(
                     },
                     recordingState = recordingState,
                     elapsedMs = elapsedMs,
+                    micEnabled = micEnabled,
                     onPauseRecording = { GameRecorder.pause() },
                     onResumeRecording = { GameRecorder.resume() },
                     onStopRecording = {
@@ -945,7 +947,8 @@ fun GameScreen(
                             androidText(R.string.recorder_saved),
                             android.widget.Toast.LENGTH_SHORT
                         )
-                    }
+                    },
+                    onToggleMic = { GameRecorder.toggleMicrophone() }
                 )
             }
         }
