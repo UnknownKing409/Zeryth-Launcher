@@ -30,6 +30,16 @@ Any future change to the recording startup sequence must preserve this ordering:
 4. `isCapturing.set(true)`
 5. `scheduleNextFrame()`
 
+## A/V Sync Fix (captureStartNs)
+
+`audioRecord.startRecording()` is called before `discardVideoOutput()` and job launch, so audio accumulates from `muxerStartedNs`. The first PixelCopy frame only arrives ~33ms + PixelCopy latency after `captureStartNs`. Without correction, audio leads video by `(captureStartNs − muxerStartedNs)`.
+
+Fix: record `captureStartNs = System.nanoTime()` right before `scheduleNextFrame()`. In `drainAudioCodec`, add `captureShiftUs = (captureStartNs − muxerStartedNs) / 1000` to every audio PTS (after the existing `muxerDeltaUs` subtraction). This delays all audio by exactly the gap between muxer start and when video capture begins, giving both streams the same effective time-zero.
+
+Reset `captureStartNs = 0L` in both the Phase-1 `start()` reset block and `cleanup()`.
+
+**Why:** `discardVideoOutput()` runs between `muxer.start()` and `scheduleNextFrame()`, widening the gap between audio and video origins beyond what existed before that call was introduced.
+
 ## Recording Status Sounds
 
 Also added in the same fix:
