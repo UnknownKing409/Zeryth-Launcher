@@ -16,7 +16,7 @@ Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section l
 
 - [x] Built-In File Manager
 - [x] Ely.by Login Option
-- [x] Collapsible Bottom Navigation Bar
+- [x] Customizable Main Screen Mode
 - [x] Built-In Mobile Glues and Kopper Zink Renderer
 - [x] Built-In Screen Recorder and Video Player
 - [x] Zalith Launcher 1 Controls Support
