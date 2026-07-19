@@ -266,25 +266,35 @@ object GameRecorder {
         // We run priming on encodeScope (Dispatchers.IO).  isCapturing is still
         // false, so scheduleNextFrame() and the audio loop are not yet active.
         // Once the muxer is open we flip isCapturing and start all the jobs.
+        // ── Phase 2: codec priming + muxer start on an IO thread ─────────────
+        //
+        // Priming is best-effort.  If a codec does not emit FORMAT_CHANGED within
+        // its timeout (common on devices that need a rendered frame first), the
+        // track index stays -1.  We do NOT abort — the encode jobs already contain
+        // tryStartMuxerLocked() fallback paths that register the remaining track(s)
+        // and start the muxer as soon as each codec emits FORMAT_CHANGED during
+        // normal encoding.
         encodeScope.launch {
             try {
                 primeVideoTrack()
                 primeAudioTrack()
-
-                if (videoTrackIndex < 0 || audioTrackIndex < 0) {
-                    Log.e(TAG, "Codec priming failed (video=$videoTrackIndex audio=$audioTrackIndex)")
-                    cleanup(); return@launch
-                }
 
                 // Bail out cleanly if the user stopped recording while we were priming.
                 if (_state.value != RecordingState.RECORDING) {
                     cleanup(); return@launch
                 }
 
-                synchronized(muxerLock) {
-                    muxer!!.start()
-                    muxerStarted = true
-                    Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+                // If both tracks were primed, start the muxer now for zero-gap
+                // A/V alignment.  If either track is still pending, the encode
+                // jobs will complete registration via tryStartMuxerLocked().
+                if (videoTrackIndex >= 0 && audioTrackIndex >= 0) {
+                    synchronized(muxerLock) {
+                        muxer!!.start()
+                        muxerStarted = true
+                        Log.i(TAG, "MediaMuxer pre-started (video=$videoTrackIndex, audio=$audioTrackIndex)")
+                    }
+                } else {
+                    Log.w(TAG, "Priming incomplete (video=$videoTrackIndex audio=$audioTrackIndex) — encode jobs will register remaining tracks")
                 }
 
                 // Both streams share the same wall-clock origin.  ar.startRecording()
@@ -361,13 +371,31 @@ object GameRecorder {
      * Block until the video [MediaCodec] emits `INFO_OUTPUT_FORMAT_CHANGED` and
      * register the track with the muxer.
      *
-     * Surface-based H.264 encoders always emit this event before the first encoded
-     * frame, so we only need to drain a few output polls — no input is required.
+     * On Android 12+ (and many OEM codecs on older versions) a surface-based
+     * H.264 encoder will NOT emit `INFO_OUTPUT_FORMAT_CHANGED` until it has
+     * processed at least one frame from its input surface.  We therefore render
+     * a single black frame to [inputSurface] before polling, which reliably
+     * triggers the event on all known devices.
      */
+    @Suppress("DEPRECATION")
     private fun primeVideoTrack() {
-        val codec = videoCodec ?: return
-        val info  = MediaCodec.BufferInfo()
-        repeat(100) {  // up to 100 × 10 ms = 1 s
+        val codec   = videoCodec   ?: return
+        val surface = inputSurface ?: return
+        val info    = MediaCodec.BufferInfo()
+
+        // Render one black frame so the codec initialises its output format.
+        // lockHardwareCanvas is preferred on API 26+ but may be unavailable on
+        // some virtual-display / emulator surfaces — fall back to lockCanvas.
+        runCatching {
+            val canvas = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) surface.lockHardwareCanvas()
+                else surface.lockCanvas(null)
+            } catch (_: Exception) { surface.lockCanvas(null) }
+            canvas.drawColor(android.graphics.Color.BLACK)
+            surface.unlockCanvasAndPost(canvas)
+        }
+
+        repeat(200) {  // up to 200 × 10 ms = 2 s
             when (val idx = codec.dequeueOutputBuffer(info, 10_000L)) {
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     videoTrackIndex = muxer!!.addTrack(codec.outputFormat)
@@ -397,7 +425,7 @@ object GameRecorder {
             ac.getInputBuffer(inputIdx)!!.apply { clear(); put(ByteArray(chunkSize)) }
             ac.queueInputBuffer(inputIdx, 0, chunkSize, 0L, 0)
         }
-        repeat(100) {  // up to 100 × 10 ms = 1 s
+        repeat(200) {  // up to 200 × 10 ms = 2 s
             when (val idx = ac.dequeueOutputBuffer(info, 10_000L)) {
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     audioTrackIndex = muxer!!.addTrack(ac.outputFormat)
