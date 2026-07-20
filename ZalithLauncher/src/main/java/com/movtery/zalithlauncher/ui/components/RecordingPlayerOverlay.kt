@@ -512,23 +512,33 @@ fun RecordingPlayerOverlay(
                                 )
                         )
                         VideoGestureLayer(
-                            onTap      = { /* controls always visible in card mode */ },
+                            onTap      = { controlsVisible = !controlsVisible },
                             onDoubleTap = { offset, width ->
                                 seek(if (offset < width / 2f) -5 else 5)
+                                controlsVisible = true
                             }
                         )
                         SeekIndicator(seekVisible = seekVisible, seekAccumSec = seekAccumSec)
-                        // Centre play/pause/replay — always visible in card mode
-                        CentrePlayButton(
-                            isBuffering = isBuffering,
-                            isEnded     = isEnded,
-                            isPlaying   = isPlaying,
-                            tint        = Color.White,
-                            size        = 60.dp,
-                            iconSize    = 34.dp,
-                            modifier    = Modifier.align(Alignment.Center),
-                            onClick     = ::togglePlayback
-                        )
+                        // Centre play/pause/replay — auto-hides with controlsVisible
+                        AnimatedVisibility(
+                            visible  = controlsVisible,
+                            enter    = fadeIn(tween(200)),
+                            exit     = fadeOut(tween(300)),
+                            modifier = Modifier.align(Alignment.Center)
+                        ) {
+                            CentrePlayButton(
+                                isBuffering = isBuffering,
+                                isEnded     = isEnded,
+                                isPlaying   = isPlaying,
+                                tint        = Color.White,
+                                size        = 60.dp,
+                                iconSize    = 34.dp,
+                                onClick     = {
+                                    togglePlayback()
+                                    controlsVisible = true
+                                }
+                            )
+                        }
                     }
 
                     // ── Thin divider between video and progress row ───────────
