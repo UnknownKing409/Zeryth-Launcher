@@ -25,7 +25,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
-import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
@@ -1162,112 +1162,49 @@ object GameRecorder {
     // ──────────────────────────────────────── Recording status sounds ─────────
 
     /**
-     * Play a short rising two-tone confirmation indicating that recording has
-     * successfully started.
+     * Play the recording-start sound from [R.raw.recorder_start].
      *
-     * Tones are generated directly via [AudioTrack] with [AudioAttributes.USAGE_ALARM].
-     * USAGE_ALARM routes through [android.media.AudioManager.STREAM_ALARM] — the only
-     * Android audio stream guaranteed to play through ringer-silent and vibrate modes,
-     * for the same reason alarm clocks still sound when the phone is on silent.
-     *
-     * USAGE_ALARM is **not** matched by our [AudioPlaybackCaptureConfiguration] (we only
-     * capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so neither tone ever appears
-     * in the recorded audio.
+     * Audio is routed through [AudioAttributes.USAGE_ALARM] so it plays even when
+     * the device is in ringer-silent or vibrate mode.  USAGE_ALARM is **not** matched
+     * by our [AudioPlaybackCaptureConfiguration] (we only capture USAGE_GAME /
+     * USAGE_MEDIA / USAGE_UNKNOWN), so the sound never appears in the recorded video.
      *
      * Called only on the confirmed-active recording path — never on init failure,
      * permission denial, or cancellation.
      */
     private fun playRecordingStartSound() {
-        encodeScope.launch {
-            runCatching {
-                playTone(880f, 110)   // high beep  ↑
-                delay(60L)
-                playTone(1320f, 130)  // higher beep ↑↑  — rising = "on"
-            }.onFailure { e ->
-                Log.w(TAG, "Recording start sound failed: ${e.message}")
-            }
-        }
+        playRawSound(com.movtery.zalithlauncher.R.raw.recorder_start)
     }
 
     /**
-     * Play a short falling two-tone confirmation indicating that recording has stopped
-     * and the output file has been fully finalized and saved to MediaStore.
+     * Play the recording-stop sound from [R.raw.recorder_end].
      *
-     * Same audio path as [playRecordingStartSound]; descending pitch distinguishes
-     * "stopped" from "started."  Called only after a successful [MediaStore] commit.
+     * Same audio routing as [playRecordingStartSound].  Called only after a successful
+     * [MediaStore] commit, so the user knows the file has been saved.
      */
     private fun playRecordingStopSound() {
-        encodeScope.launch {
-            runCatching {
-                playTone(1320f, 110)  // high beep  ↓
-                delay(60L)
-                playTone(880f, 130)   // lower beep  ↓↓  — falling = "off"
-            }.onFailure { e ->
-                Log.w(TAG, "Recording stop sound failed: ${e.message}")
-            }
-        }
+        playRawSound(com.movtery.zalithlauncher.R.raw.recorder_end)
     }
 
     /**
-     * Synthesise and play a pure sine-wave tone at [freqHz] for [durationMs] milliseconds.
-     *
-     * Uses [AudioTrack] in static mode so the entire PCM buffer is uploaded before
-     * playback begins — no underruns, no threading complexity.  A short linear
-     * fade-in and fade-out envelope (15 ms each, capped at ¼ of the tone duration)
-     * prevents audible clicks at the boundaries.
-     *
-     * Blocks the calling coroutine for [durationMs] + 30 ms to let the hardware
-     * drain before [AudioTrack.release] is called.
+     * Create a [MediaPlayer] for the given raw resource, apply USAGE_ALARM audio
+     * attributes so the sound bypasses silent/vibrate mode, start it, and release it
+     * automatically when playback finishes.
      */
-    private fun playTone(freqHz: Float, durationMs: Int, amplitude: Float = 0.45f) {
-        val sampleRate = 44_100
-        val numSamples = sampleRate * durationMs / 1_000
-        val fadeSamps  = minOf(sampleRate * 15 / 1_000, numSamples / 4)
-
-        val pcm = ShortArray(numSamples)
-        for (i in 0 until numSamples) {
-            val envelope = when {
-                i < fadeSamps                -> i.toDouble() / fadeSamps
-                i > numSamples - fadeSamps   -> (numSamples - i).toDouble() / fadeSamps
-                else                         -> 1.0
-            }
-            val raw = amplitude * envelope *
-                kotlin.math.sin(2.0 * Math.PI * freqHz * i / sampleRate)
-            pcm[i] = (raw * Short.MAX_VALUE)
-                .toInt()
-                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                .toShort()
+    private fun playRawSound(rawResId: Int) {
+        val ctx = appContext ?: return
+        runCatching {
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            val mp = MediaPlayer.create(ctx, rawResId, attrs, /* audioSessionId */ 0)
+                ?: run { Log.w(TAG, "MediaPlayer.create returned null for res $rawResId"); return }
+            mp.setOnCompletionListener { it.release() }
+            mp.start()
+        }.onFailure { e ->
+            Log.w(TAG, "Recording sound playback failed (res=$rawResId): ${e.message}")
         }
-
-        // USAGE_ALARM routes through STREAM_ALARM, the only Android audio stream
-        // that is guaranteed to play through silent mode (ringer-silent / vibrate).
-        // USAGE_ALARM is NOT matched by AudioPlaybackCaptureConfiguration (we only
-        // capture USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN), so these tones never
-        // appear in the recorded audio.
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val fmt = AudioFormat.Builder()
-            .setSampleRate(sampleRate)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
-        val minBuf   = AudioTrack.getMinBufferSize(
-            sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        val bufBytes = maxOf(numSamples * Short.SIZE_BYTES, minBuf)
-
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(attrs)
-            .setAudioFormat(fmt)
-            .setBufferSizeInBytes(bufBytes)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .build()
-        track.write(pcm, 0, numSamples)
-        track.play()
-        Thread.sleep((durationMs + 30).toLong())  // wait for hardware drain
-        runCatching { track.stop() }
-        track.release()
     }
 
     // ──────────────────────────────────────────────── MediaStore output ────────
