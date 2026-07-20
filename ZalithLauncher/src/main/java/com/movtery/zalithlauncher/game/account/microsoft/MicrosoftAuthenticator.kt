@@ -82,6 +82,12 @@ private const val TAG = "MicrosoftAuth"
 private val SCOPES = listOf("XboxLive.signin", "offline_access", "openid", "profile", "email")
 private const val TENANT = "/consumers"
 
+/**
+ * 轮询令牌时允许的最大连续网络失败次数
+ * 网络环境较差时，偶发的失败不应中断登录，但持续失败说明网络不可用，应提前放弃
+ */
+private const val MAX_CONSECUTIVE_POLL_FAILURES = 5
+
 const val MICROSOFT_AUTH_URL = "https://login.microsoftonline.com"
 const val LIVE_AUTH_URL = "https://login.live.com"
 const val XBL_AUTH_URL = "https://user.auth.xboxlive.com"
@@ -116,7 +122,7 @@ suspend fun fetchDeviceCodeResponse(context: CoroutineContext): DeviceCodeRespon
     debugLog("Stage: OAuth device code — POST $MICROSOFT_AUTH_URL/$TENANT/oauth2/v2.0/devicecode")
     withRetry {
         submitForm(
-            url = "$MICROSOFT_AUTH_URL/$TENANT/oauth2/v2.0/devicecode",
+            url = "$MICROSOFT_AUTH_URL$TENANT/oauth2/v2.0/devicecode",
             parameters = Parameters.build {
                 append("client_id", BuildKeys.OAUTH_CLIENT_ID)
                 append("scope", SCOPES.joinToString(" "))
@@ -145,6 +151,11 @@ suspend fun getTokenResponse(
         return cancelled > 1
     }
 
+    //连续的网络层失败次数，避免网络长期不可用时无意义地轮询到设备码过期
+    var consecutiveFailures = 0
+
+    Logger.debug(TAG, "Polling for token, interval = ${pollingInterval}ms, expires in ${codeResponse.expiresIn}s")
+
     while (System.currentTimeMillis() < expireTime) {
         context.ensureActive()
 
@@ -159,6 +170,7 @@ suspend fun getTokenResponse(
                 },
                 context = context
             )
+            consecutiveFailures = 0
 
             if (response["token_type"]?.jsonPrimitive?.content == "Bearer") {
                 debugLog("Stage: OAuth token poll — token received")
@@ -168,45 +180,57 @@ suspend fun getTokenResponse(
                     expiresIn = response["expires_in"]?.jsonPrimitive?.int ?: 0
                 )
             }
+            Logger.warning(TAG, "Token endpoint responded without a Bearer token, continuing to poll")
         } catch (e: ClientRequestException) {
-            if (BuildConfig.DEBUG) {
-                val errorCode = runCatching {
-                    e.response.safeBodyAsJson<JsonObject>()["error"]?.jsonPrimitive?.content
-                }.getOrNull()
-                debugLog("Stage: OAuth token poll — HTTP ${e.response.status.value} error=$errorCode")
+            when (val error = e.errorCode()) {
+                // 服务器正常响应，说明网络可用
+                "authorization_pending" -> consecutiveFailures = 0 // 正常情况，继续轮询
+                "slow_down" -> {
+                    consecutiveFailures = 0
+                    pollingInterval += 1000L
+                    Logger.debug(TAG, "Slowing down polling to ${pollingInterval}ms")
+                }
+                else -> {
+                    Logger.error(TAG, "Token endpoint rejected the polling request: error = $error", e)
+                    throw e
+                }
             }
-            handleClientRequestException(e, pollingInterval)
-            pollingInterval = adjustPollingInterval(e, pollingInterval)
         } catch (e: CancellationException) {
             Logger.debug(TAG, "Authentication cancelled")
             throw e
+        } catch (e: Exception) {
+            // 轮询期间的临时性错误（网络波动、DNS解析失败、服务器5xx、请求超时等）不应中断整个登录流程
+            // 只要设备码尚未过期，就继续轮询；但网络持续不可用时应提前放弃
+            consecutiveFailures++
+            if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES ||
+                System.currentTimeMillis() + pollingInterval >= expireTime
+            ) {
+                Logger.error(TAG, "Polling failed $consecutiveFailures time(s) in a row, giving up", e)
+                throw e
+            }
+            Logger.warning(TAG, "Polling failed, will retry in ${pollingInterval}ms: ${e::class.simpleName}: ${e.message}")
         }
 
-        if (checkIsReallyCancelled()) throw CancellationException("Authentication cancelled")
+        if (checkIsReallyCancelled()) {
+            Logger.debug(TAG, "The user left the web page, cancelling the authentication")
+            throw CancellationException("Authentication cancelled")
+        }
 
         delay(pollingInterval.milliseconds).also {
             context.ensureActive()
         }
     }
+    Logger.warning(TAG, "Device code expired before the user completed authorization")
     throw HttpRequestTimeoutException("Authentication timed out!", expireTime)
 }
 
-private suspend fun handleClientRequestException(e: ClientRequestException, interval: Long) {
-    val errorBody = e.response.safeBodyAsJson<JsonObject>()
-    when (errorBody["error"]?.jsonPrimitive?.content) {
-        "authorization_pending" -> Unit /* 正常情况，继续轮询 */
-        "slow_down" -> Logger.debug(TAG, "Slowing down polling to ${interval + 1000}ms")
-        else -> throw e
-    }
-}
-
-private suspend fun adjustPollingInterval(e: ClientRequestException, currentInterval: Long): Long {
-    return if (e.isSlowDownError()) currentInterval + 1000L else currentInterval
-}
-
-private suspend fun ClientRequestException.isSlowDownError(): Boolean {
-    val error = response.safeBodyAsJson<JsonObject>()["error"]?.jsonPrimitive?.content
-    return error == "slow_down"
+/**
+ * 从 OAuth 错误响应中解析 error 字段
+ */
+private suspend fun ClientRequestException.errorCode(): String? {
+    return runCatching {
+        response.safeBodyAsJson<JsonObject>()["error"]?.jsonPrimitive?.content
+    }.getOrNull()
 }
 
 /**
@@ -231,9 +255,13 @@ suspend fun microsoftAuthAsync(
         else -> Pair(accessToken, refreshToken)
     }
 
+    Logger.debug(TAG, "Authenticating with Xbox Live (XBL)")
     val xblToken = authenticateXBL(finalAccessToken, statusUpdate)
+    Logger.debug(TAG, "Authenticating with Xbox Secure Token Service (XSTS)")
     val xstsToken = authenticateXSTS(xblToken.first, xblToken.second, statusUpdate, context)
+    Logger.debug(TAG, "Authenticating with Minecraft services")
     val authResponse = authenticateMinecraft(xstsToken, statusUpdate, context)
+    Logger.debug(TAG, "Verifying Minecraft ownership")
     verifyGameOwnership(authResponse.accessToken, statusUpdate)
 
     return@coroutineScope createAccount(authResponse, newRefreshToken, xblToken.second, statusUpdate)
@@ -268,17 +296,18 @@ private suspend fun refreshAccessToken(
 private suspend fun authenticateXBL(accessToken: String, update: (AsyncStatus) -> Unit): Pair<String, String> {
     update(AsyncStatus.GETTING_XBL_TOKEN)
     debugLog("Stage: Xbox Live (XBL) — POST $XBL_AUTH_URL/user/authenticate")
-    val requestBody = XBLRequest(
-        properties = XBLProperties(
-            authMethod = "RPS",
-            siteName = "user.auth.xboxlive.com",
-            rpsTicket = "d=$accessToken"
-        ),
-        relyingParty = "http://auth.xboxlive.com",
-        tokenType = "JWT"
-    )
 
-    return withRetry {
+    suspend fun requestXblToken(rpsTicket: String): Pair<String, String> {
+        val requestBody = XBLRequest(
+            properties = XBLProperties(
+                authMethod = "RPS",
+                siteName = "user.auth.xboxlive.com",
+                rpsTicket = rpsTicket
+            ),
+            relyingParty = "http://auth.xboxlive.com",
+            tokenType = "JWT"
+        )
+
         val response = GLOBAL_CLIENT.post("$XBL_AUTH_URL/user/authenticate") {
             contentType(ContentType.Application.Json)
             setBody(requestBody)
@@ -299,7 +328,20 @@ private suspend fun authenticateXBL(accessToken: String, update: (AsyncStatus) -
             throw Exception("XBL token is empty — check Azure App XboxLive.signin API permission")
         }
         debugLog("Stage: XBL — token obtained (length=${xblToken.length}, uhs length=${uhs.length})")
-        Pair(xblToken, uhs)
+        return Pair(xblToken, uhs)
+    }
+
+    return withRetry {
+        try {
+            requestXblToken("d=$accessToken")
+        } catch (e: ClientRequestException) {
+            // 参考 Wiki：RpsTicket 如遇 400 Bad Request，可尝试去掉 "d=" 前缀重新请求
+            // https://zh.minecraft.wiki/w/Tutorial:%E7%BC%96%E5%86%99%E5%90%AF%E5%8A%A8%E5%99%A8#Xbox_Live%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81
+            if (e.response.status.value == 400) {
+                Logger.warning(TAG, "XBL authentication rejected the d= prefixed RpsTicket, retrying without the prefix")
+                requestXblToken(accessToken)
+            } else throw e
+        }
     }
 }
 
@@ -313,45 +355,46 @@ private suspend fun authenticateXSTS(
     debugLog("Stage: XSTS — POST $XSTS_AUTH_URL/xsts/authorize")
 
     return withRetry {
-        val response = httpPostJson<JsonObject>(
-            url = "$XSTS_AUTH_URL/xsts/authorize",
-            body = XSTSRequest(
-                properties = XSTSProperties(
-                    sandboxId = "RETAIL",
-                    userTokens = listOf(xblToken)
+        try {
+            val response = httpPostJson<JsonObject>(
+                url = "$XSTS_AUTH_URL/xsts/authorize",
+                body = XSTSRequest(
+                    properties = XSTSProperties(
+                        sandboxId = "RETAIL",
+                        userTokens = listOf(xblToken)
+                    ),
+                    relyingParty = "rp://api.minecraftservices.com/",
+                    tokenType = "JWT"
                 ),
-                relyingParty = "rp://api.minecraftservices.com/",
-                tokenType = "JWT"
-            ),
-            context = context
-        )
+                context = context
+            )
 
-        val xerr = response["XErr"].text()
-        if (xerr.isNotEmpty()) {
-            debugLog("Stage: XSTS — XErr=$xerr")
+            val xstsToken = response["Token"].text()
+            debugLog("Stage: XSTS — token obtained (length=${xstsToken.length})")
+            XSTSAuthResult(token = xstsToken, uhs = uhs)
+        } catch (e: ClientRequestException) {
+            // XSTS 对账号类问题统一返回 4xx 及 XErr 错误码，expectSuccess 会提前抛出异常
+            // 因此必须从异常响应体中解析 XErr，才能向用户展示真实的失败原因
+            val errorBody = runCatching { e.response.safeBodyAsJson<JsonObject>() }.getOrNull()
+            when (val xErr = errorBody?.get("XErr").text()) {
+                //Reference : https://github.com/PrismarineJS/prismarine-auth/blob/1aef6e1/src/common/Constants.js#L50-L59
+                "2148916227" -> throw XboxLoginException(BANNED)
+                "2148916229" -> throw XboxLoginException(RESTRICTED)
+                "2148916233" -> throw XboxLoginException(UNREGISTERED)
+                "2148916234" -> throw XboxLoginException(NOT_ACCEPTED_SERVICE)
+                "2148916235" -> throw XboxLoginException(BLOCKED_REGION)
+                "2148916236" -> throw XboxLoginException(REQUIRES_PROOF_OF_AGE)
+                "2148916237" -> throw XboxLoginException(REACHED_PLAYTIME_LIMIT)
+                "2148916238" -> throw XboxLoginException(UNDERAGE)
+                else -> {
+                    Logger.error(
+                        TAG,
+                        "XSTS authentication failed: status = ${e.response.status}, XErr = $xErr, message = ${errorBody?.get("Message").text()}"
+                    )
+                    throw e
+                }
+            }
         }
-        //Reference : https://github.com/PrismarineJS/prismarine-auth/blob/1aef6e1/src/common/Constants.js#L50-L59
-        when (xerr) {
-            "2148916227" -> throw XboxLoginException(BANNED)
-            "2148916229" -> throw XboxLoginException(RESTRICTED)
-            "2148916233" -> throw XboxLoginException(UNREGISTERED)
-            "2148916234" -> throw XboxLoginException(NOT_ACCEPTED_SERVICE)
-            "2148916235" -> throw XboxLoginException(BLOCKED_REGION)
-            "2148916236" -> throw XboxLoginException(REQUIRES_PROOF_OF_AGE)
-            "2148916237" -> throw XboxLoginException(REACHED_PLAYTIME_LIMIT)
-            "2148916238" -> throw XboxLoginException(UNDERAGE)
-        }
-
-        val xstsToken = response["Token"].text()
-        if (xstsToken.isEmpty()) {
-            Logger.error(TAG, "Stage: XSTS — Token field is empty in XSTS response. " +
-                "XErr=${response["XErr"].text()}, response keys: ${response.keys}. " +
-                "An unrecognised XErr code may have caused silent fall-through; " +
-                "passing an empty XSTS token to login_with_xbox would produce HTTP 403.")
-            throw Exception("XSTS token is empty — check response for unknown XErr code")
-        }
-        debugLog("Stage: XSTS — token obtained (length=${xstsToken.length})")
-        XSTSAuthResult(token = xstsToken, uhs = uhs)
     }
 }
 

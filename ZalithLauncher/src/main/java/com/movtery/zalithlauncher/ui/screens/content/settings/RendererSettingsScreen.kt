@@ -94,7 +94,6 @@ import com.movtery.zalithlauncher.game.plugin.driver.Driver
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.game.plugin.renderer.RendererPluginManager
 import com.movtery.zalithlauncher.game.plugin.renderer_v2.RendererV2Data
-import com.movtery.zalithlauncher.game.plugin.renderer_v2.data.EnvSettingUnit
 import com.movtery.zalithlauncher.game.renderer.RendererInterface
 import com.movtery.zalithlauncher.game.renderer.Renderers
 import com.movtery.zalithlauncher.game.renderer.renderers.KopperZinkRenderer
@@ -212,6 +211,15 @@ fun RendererSettingsScreen(
                         .fillMaxWidth()
                         .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
                 ) {
+                    val selectedRendererId = AllSettings.renderer.state
+                    val v2PluginEnvUnits = remember(selectedRendererId) {
+                        Renderers.getRenderers()
+                            .filterIsInstance<RendererV2Data>()
+                            .find { it.getUniqueIdentifier() == selectedRendererId }
+                            ?.env?.getConfigurableUnits()?.takeIf { it.isNotEmpty() }
+                    }
+                    var showV2ConfigDialog by remember { mutableStateOf(false) }
+
                     RunBenchmarkPill(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -233,6 +241,7 @@ fun RendererSettingsScreen(
                             AllSettings.renderer.save(renderer.getUniqueIdentifier())
                         },
                         onMobileGluesSettingsClick = { showMobileGluesSettings = true },
+                        onV2ConfigClick = if (v2PluginEnvUnits != null) { { showV2ConfigDialog = true } } else null,
                         onDownloadClick = {
                             eventViewModel.sendDLPlugin(
                                 githubLink = URL_GITHUB_RENDERER_PLUGINS,
@@ -246,54 +255,12 @@ fun RendererSettingsScreen(
                         }
                     )
 
-                    val currentRendererId = AllSettings.renderer.state
-                    val v2PluginEnvUnits = remember(currentRendererId) {
-                        Renderers.getRenderers()
-                            .filterIsInstance<RendererV2Data>()
-                            .find { it.getUniqueIdentifier() == currentRendererId }
-                            ?.env?.getConfigurableUnits()?.takeIf { it.isNotEmpty() }
-                    }
-                    if (v2PluginEnvUnits != null) {
-                        for (unit in v2PluginEnvUnits) {
-                            when (unit) {
-                                is EnvSettingUnit.Selectable -> {
-                                    ListSettingsCard(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        position = CardPosition.Middle,
-                                        items = unit.values,
-                                        currentId = unit.state,
-                                        defaultId = unit.defaultValue,
-                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                                        summary = unit.summary,
-                                        getItemText = { it },
-                                        getItemId = { it },
-                                        onValueChange = { unit.save(it) }
-                                    )
-                                }
-                                is EnvSettingUnit.Customizable -> {
-                                    TextInputSettingsCard(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        value = unit.state,
-                                        position = CardPosition.Middle,
-                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                                        summary = unit.summary,
-                                        onValueChange = { unit.save(it) }
-                                    )
-                                }
-                                is EnvSettingUnit.Toggleable -> {
-                                    SwitchSettingsCard(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        checked = unit.isEnabled,
-                                        onCheckedChange = { checked ->
-                                            unit.save(if (checked) unit.envValue else "")
-                                        },
-                                        position = CardPosition.Middle,
-                                        title = stringResource(R.string.settings_renderer_env_title, unit.rawEnv.key),
-                                        summary = unit.summary
-                                    )
-                                }
-                            }
-                        }
+                    //新一代渲染器插件的环境变量配置对话框
+                    if (showV2ConfigDialog && v2PluginEnvUnits != null) {
+                        RendererV2ConfigDialog(
+                            units = v2PluginEnvUnits,
+                            onDismissRequest = { showV2ConfigDialog = false }
+                        )
                     }
 
                     ListSettingsCard(
@@ -676,7 +643,9 @@ private fun GlobalRendererCard(
     onRendererSelected: (RendererInterface) -> Unit,
     onMobileGluesSettingsClick: () -> Unit,
     onDownloadClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Upstream: show a settings entry when the selected renderer is a v2 plugin with config
+    onV2ConfigClick: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val currentRendererId = AllSettings.renderer.state
@@ -715,6 +684,15 @@ private fun GlobalRendererCard(
                         modifier = Modifier.alpha(0.7f),
                         text = stringResource(R.string.settings_element_selected, selectedName),
                         style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+            // v2 renderer plugin config button — only shown when applicable (upstream feature)
+            if (onV2ConfigClick != null) {
+                IconButton(onClick = onV2ConfigClick) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_settings_filled),
+                        contentDescription = stringResource(R.string.settings_renderer_config_title)
                     )
                 }
             }
