@@ -520,28 +520,20 @@ fun RecordingPlayerOverlay(
                             }
                         )
                         SeekIndicator(seekVisible = seekVisible, seekAccumSec = seekAccumSec)
-                        // Centre play/pause/replay — auto-hides with controlsVisible
-                        AnimatedVisibility(
-                            visible  = controlsVisible,
-                            enter    = fadeIn(tween(200)),
-                            exit     = fadeOut(tween(300)),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .wrapContentSize(Alignment.Center)
-                        ) {
-                            CentrePlayButton(
-                                isBuffering = isBuffering,
-                                isEnded     = isEnded,
-                                isPlaying   = isPlaying,
-                                tint        = Color.White,
-                                size        = 60.dp,
-                                iconSize    = 34.dp,
-                                onClick     = {
-                                    togglePlayback()
-                                    controlsVisible = true
-                                }
-                            )
-                        }
+                        // Centre play/pause/replay — auto-hides with controlsVisible.
+                        // Extracted to a private composable so ColumnScope (from BackgroundCard)
+                        // does not leak in and cause Kotlin to pick ColumnScope.AnimatedVisibility
+                        // as the overload while the actual receiver is BoxScope.
+                        CardModePlayButton(
+                            visible     = controlsVisible,
+                            isBuffering = isBuffering,
+                            isEnded     = isEnded,
+                            isPlaying   = isPlaying,
+                            onClick     = {
+                                togglePlayback()
+                                controlsVisible = true
+                            }
+                        )
                     }
 
                     // ── Thin divider between video and progress row ───────────
@@ -619,6 +611,43 @@ private fun SeekIndicator(seekVisible: Boolean, seekAccumSec: Int) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Animated wrapper for [CentrePlayButton] used in card (overlay) mode.
+ *
+ * Extracted from the `BackgroundCard { Box { … } }` nesting so that
+ * [AnimatedVisibility] is called from a receiver-free composable context.
+ * Without this, the outer [ColumnScope] implicit receiver (from BackgroundCard)
+ * causes Kotlin to resolve the call to [ColumnScope.AnimatedVisibility], which
+ * cannot be dispatched from a [BoxScope] and produces a compile error.
+ */
+@Composable
+private fun CardModePlayButton(
+    visible: Boolean,
+    isBuffering: Boolean,
+    isEnded: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit
+) {
+    AnimatedVisibility(
+        visible  = visible,
+        enter    = fadeIn(tween(200)),
+        exit     = fadeOut(tween(300)),
+        modifier = Modifier
+            .fillMaxSize()
+            .wrapContentSize(Alignment.Center)
+    ) {
+        CentrePlayButton(
+            isBuffering = isBuffering,
+            isEnded     = isEnded,
+            isPlaying   = isPlaying,
+            tint        = Color.White,
+            size        = 60.dp,
+            iconSize    = 34.dp,
+            onClick     = onClick
+        )
     }
 }
 
