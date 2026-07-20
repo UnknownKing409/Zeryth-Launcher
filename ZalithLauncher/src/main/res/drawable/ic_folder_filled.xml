@@ -5,12 +5,20 @@
     android:width="24dp">
 
     <!--
-        Folder shape: rounded-rectangle body with a rounded tab in the
-        upper-left.  The tab's right edge is a diagonal cut, matching the
-        classic iOS / macOS folder silhouette.
+        Folder shape: rounded-rectangle body (corner r=60) with a tab in
+        the upper-left.  The tab's right edge is a diagonal cut; both tab
+        corners are properly rounded (r≈28) using well-formed quadratic
+        bezier curves whose start/end points sit on the incoming edges.
+
+        Clockwise from bottom-left of body:
+          body bottom-right corner  (r=60)
+          body top-right corner     (r=60)
+          diagonal cut → tab top-right corner  (Q with control at corner)
+          tab top edge → tab top-left corner   (r=28)
+          left side down → body bottom-left corner (r=60)
     -->
     <path
         android:fillColor="#1f1f1f"
-        android:pathData="M290,610 H670 Q730,610 730,550 V400 Q730,340 670,340 H453 L430,285 Q430,285 402,285 H258 Q230,285 230,313 V550 Q230,610 290,610 Z" />
+        android:pathData="M290,610 H670 Q730,610 730,550 V420 Q730,360 670,360 H456 L438,303 Q430,284 406,284 H262 Q230,284 230,312 V550 Q230,610 290,610 Z" />
 
 </vector>
