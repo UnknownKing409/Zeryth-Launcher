@@ -166,7 +166,12 @@ fun RendererSettingsScreen(
         if (showBenchmark) {
             Dialog(
                 onDismissRequest = { showBenchmark = false },
-                properties = DialogProperties(usePlatformDefaultWidth = false)
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    // Allow the dialog window to draw behind the notch/status-bar so
+                    // the dark scrim covers the full physical display evenly.
+                    decorFitsSystemWindows = false
+                )
             ) {
                 RendererBenchmarkOverlay(
                     availableRenderers = Renderers.getCompatibleRenderers(context).second,
