@@ -85,6 +85,7 @@ public final class ZLBridge {
     @Keep public static native int chdir(String path);
     @Keep public static native void fsrInit(int qualityPreset);
     @Keep public static native void fsrSetQuality(int qualityPreset);
+    @Keep public static native void fpsLimitSet(int fps);
 
     static {
         // libffmpeg.so (Replay Mod video export) failed to resolve the native_handle_create

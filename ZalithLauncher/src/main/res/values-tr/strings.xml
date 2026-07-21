@@ -78,6 +78,7 @@
     <string name="generic_unspecified">Belirtilmemiş</string>
     <string name="generic_save">Kaydet</string>
     <string name="generic_share">Paylaş</string>
+    <string name="generic_scroll_top">Yukarı Çık</string>
     <string name="unit_day">Gün</string>
     <string name="date_format">MMM d, yyyy, h:mm:ss a ÖÖ/ÖS</string>
     <string name="just_now">Şu anda</string>
@@ -569,7 +570,9 @@
     <string name="settings_renderer_vsync_in_zink_title">Zink Vsync</string>
     <string name="settings_renderer_vsync_in_zink_summary">Zink işleyicisi için sistem arayüzünden dikey senkronizasyon aç</string>
     <string name="settings_renderer_force_big_core_title">Yüksek Performans Çekirdeği Kullan</string>
-    <string name="settings_renderer_force_big_core_summary">Minecraft’ın render iş parçacığını CPU’nun yüksek performanslı çekirdeklerine (büyük çekirdek) bağlar; etkinleştirildiğinde güç tüketimi ve ısınmayı artırabilir</string>
+    <string name="settings_renderer_force_big_core_summary">Minecraft\'ın render iş parçacığını CPU\'nun yüksek performanslı çekirdeklerine (büyük çekirdek) bağlar; etkinleştirildiğinde güç tüketimi ve ısınmayı artırabilir</string>
+    <string name="settings_renderer_fps_limit_title">Kare Hızı Sınırı</string>
+    <string name="settings_renderer_fps_limit_summary">Pil tasarrufu ve ısınmayı azaltmak için kare hızını sınırlar. Etkinleştirildiğinde, varsayılan olarak ekranınızın tazeleme hızını kullanır</string>
     <string name="settings_game_version_isolation_title">Genel Sürüm Yalıtımı</string>
     <string name="settings_game_version_isolation_summary">Varsayılan olarak tüm sürümler izole edilir, sürümler arası veriler birbirine karışmaz</string>
     <string name="settings_game_skip_game_integrity_check_title">Bütünlük Kontrolünü Atla</string>
@@ -806,6 +809,7 @@
     <string name="game_menu_option_show_menu_hided">Oyun menüsü yer paylaşımı devre dışı bırakıldı. Oyun menüsünü sistem geri düğmesini kullanarak açabilirsiniz</string>
     <string name="game_menu_option_controls_opacity">Kontrol Düzeni Şeffaflığı</string>
     <string name="game_menu_option_hide_controls_loading">Yüklenirken Kontrolleri Gizle</string>
+    <string name="game_menu_option_disable_loading_popup">Yükleme Pop-up\'ını Devre Dışı Bırak</string>
     <string name="game_styles_joystick">Joystick\'i Yönetin</string>
     <string name="game_styles_joystick_enable">Joystick\'i Etkinleştir</string>
     <string name="game_styles_joystick_x">Joystick X Konumu</string>
@@ -1411,7 +1415,7 @@
     <string name="error_bad_gateway">(%s) Sunucu, yukarı akış sunucusundan geçersiz bir yanıt aldı</string>
     <string name="error_service_unavailable">(%s) Sunucu geçici olarak isteği işleyemiyor</string>
     <string name="error_gateway_timeout">(%s) Sunucu zamanında yanıt alamadı</string>
-    <string name="download_category_by_id">Kimlik numarasına göre ara</string>
+    <string name="download_category_by_id">ID\'ye Göre Ara</string>
     <string name="download_assets_id_holder">Proje Kimliği</string>
     <string name="download_assets_id_tip">Proje kimliğiyle ilgili projeye hızlıca ulaşın</string>
     <string name="download_assets_id_not_found">Proje bulunamadı!</string>
@@ -1460,7 +1464,7 @@
     <string name="settings_renderer_turnip_success">Turnip Sürücüsü başarıyla yüklendi</string>
     <string name="launcher_ram_usage">RAM: %1$dMB / %2$dMB</string>
     <string name="launcher_fps_display">FPS: %d</string>
-    <string name="account_change_cape_upload">Pelerin Değiştir</string>
+    <string name="account_change_cape_upload">Galeriden Pelerin Yükle</string>
     <string name="account_change_cape_reset">Pelerini Sıfırla</string>
     <string name="account_change_cape_invalid">Geçersiz pelerin dosyası! Pelerin 64x32 piksel PNG olmalıdır.</string>
     <string name="account_change_cape_failed_to_import">Pelerin içe aktarılamadı: %s</string>
@@ -1550,4 +1554,50 @@
     <string name="versions_manage_move_versions_moving">%1$s taşınıyor…</string>
     <string name="versions_manage_move_versions_done">Taşıma tamamlandı</string>
     <string name="versions_manage_move_versions_failed">Taşıma başarısız</string>
+    <string name="account_capes_install">Pelerin Yükle</string>
+    <string name="account_capes_install_from_labynet">Laby.net\'ten Yükle</string>
+    <string name="account_capes_select">Pelerinler</string>
+    <string name="account_capes_source_imported">Galeri</string>
+    <string name="account_capes_saved_toast">Pelerin kaydedildi</string>
+    <string name="account_capes_select_title">Pelerinlerim</string>
+    <string name="account_capes_no_capes">Henüz pelerin yüklenmedi. Başlamak için \"Pelerin Yükle\"ye dokunun.</string>
+    <string name="account_capes_none">Pelerin Yok</string>
+    <string name="account_capes_favorite">Favori</string>
+    <string name="account_capes_unfavorite">Favorilerden Çıkar</string>
+    <string name="account_capes_activate">Etkinleştir</string>
+    <string name="account_capes_rename_hint">Pelerin adı</string>
+    <string name="account_capes_labynet_title">Pelerin Galerisi</string>
+    <string name="account_capes_labynet_loading">Pelerinler yükleniyor…</string>
+    <string name="account_capes_labynet_download">İndir</string>
+    <string name="account_capes_labynet_downloading">İndiriliyor…</string>
+    <string name="account_capes_labynet_downloaded">\"%s\" pelerini indirildi</string>
+    <string name="account_capes_labynet_download_failed">İndirme başarısız: %s</string>
+    <string name="account_capes_labynet_failed">Pelerinler yüklenemedi: %s</string>
+    <string name="account_capes_labynet_no_capes">Bu hesap için pelerin bulunamadı.</string>
+    <string name="account_capes_delete_title">Pelerini Sil</string>
+    <string name="account_capes_delete_message">\"%s\" pelerinini silmek istediğinize emin misiniz?</string>
+
+    <!-- Screen Recorder -->
+    <string name="quick_access_shortcut_recordings">Kayıtlar</string>
+    <string name="game_menu_option_screen_recorder">Ekran Kaydedici</string>
+    <string name="recorder_stop_and_save">Durdur ve Kaydet</string>
+    <string name="recorder_pause">Duraklat</string>
+    <string name="recorder_resume">Devam Et</string>
+    <string name="recorder_started">Kayıt başlatıldı</string>
+    <string name="recorder_saved">Kayıt kaydedildi</string>
+    <string name="recorder_error">Kayıt başlatılamadı</string>
+    <string name="page_title_recordings">Kayıtlar</string>
+    <string name="recordings_empty">Henüz kayıt yok.\nOyun içi menüden kayda başlayın.</string>
+    <string name="recordings_play">Oynat</string>
+    <string name="recordings_share">Paylaş</string>
+    <string name="recordings_rename">Yeniden Adlandır</string>
+    <string name="recordings_rename_hint">Dosya adı (uzantısız)</string>
+    <string name="recordings_reveal">Dosya Yöneticisinde Göster</string>
+    <string name="recordings_delete_title">Kayıt silinsin mi?</string>
+    <string name="recordings_delete_message">"%s" kalıcı olarak silinecek.</string>
+    <string name="recorder_mic_on">Mikrofon Açık</string>
+    <string name="recorder_mic_off">Mikrofon Kapalı</string>
+    <string name="recorder_notification_channel_name">Ekran Kaydı</string>
+    <string name="recorder_notification_title">Kayıt devam ediyor</string>
+    <string name="recorder_notification_text">Oyun sesi ve ekranı kaydediliyor</string>
 </resources>

@@ -53,6 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
 import com.movtery.zalithlauncher.setting.enums.MemoryDisplayMode
@@ -75,6 +76,7 @@ import com.movtery.zalithlauncher.ui.theme.cardTitleColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import androidx.compose.ui.text.style.TextAlign
 import com.movtery.zalithlauncher.viewmodel.GamepadViewModel
+import kotlin.math.roundToInt
 
 private data class IconTab(val iconRes: Int, val iconSize: Dp = 18.dp)
 
@@ -256,6 +258,18 @@ private fun GameActionContent(
             )
         }
 
+        //加载弹出提示
+        item {
+            MenuSwitchButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.game_menu_option_disable_loading_popup),
+                switch = AllSettings.disableLoadingPopup.state,
+                onSwitch = { AllSettings.disableLoadingPopup.save(it) },
+                color = color,
+                contentColor = contentColor
+            )
+        }
+
         //如果开启多人联机，则展示这个按钮
         if (enableTerracotta) {
             item {
@@ -417,6 +431,7 @@ private fun ControlOverview(
     onManageJoystick: () -> Unit,
     onEditLayout: () -> Unit
 ) {
+    val display = LocalContext.current.display
     val listState = rememberLazyListState()
     LazyColumn(
         modifier = modifier.lazyScrollWithBar(listState),
@@ -506,6 +521,44 @@ private fun ControlOverview(
                 color = color,
                 contentColor = contentColor,
             )
+        }
+        //帧率上限
+        item {
+            MenuSwitchButton(
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.settings_renderer_fps_limit_title),
+                switch = AllSettings.fpsLimitEnabled.state,
+                onSwitch = { checked ->
+                    AllSettings.fpsLimitEnabled.save(checked)
+                    if (checked) {
+                        val hz = display?.refreshRate?.roundToInt() ?: 60
+                        AllSettings.fpsLimit.save(hz)
+                        ZLBridge.fpsLimitSet(hz)
+                    } else {
+                        ZLBridge.fpsLimitSet(0)
+                    }
+                },
+                color = color,
+                contentColor = contentColor
+            )
+        }
+        if (AllSettings.fpsLimitEnabled.state) {
+            item {
+                MenuSliderLayout(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = stringResource(R.string.settings_renderer_fps_limit_title),
+                    value = AllSettings.fpsLimit.state,
+                    valueRange = AllSettings.fpsLimit.floatRange,
+                    onValueChange = { AllSettings.fpsLimit.updateState(it) },
+                    onValueChangeFinished = {
+                        AllSettings.fpsLimit.save(it)
+                        ZLBridge.fpsLimitSet(it)
+                    },
+                    suffix = " FPS",
+                    color = color,
+                    contentColor = contentColor,
+                )
+            }
         }
         //加载时隐藏控制布局
         item {

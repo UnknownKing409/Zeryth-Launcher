@@ -46,6 +46,7 @@ import com.movtery.zalithlauncher.game.addons.modloader.AddonVersion
 import com.movtery.zalithlauncher.game.addons.modloader.ModLoader
 import com.movtery.zalithlauncher.game.addons.modloader.ResponseTooShortException
 import com.movtery.zalithlauncher.game.addons.modloader.cleanroom.CleanroomVersion
+import com.movtery.zalithlauncher.game.addons.modloader.fabriclike.babric.BabricVersion
 import com.movtery.zalithlauncher.game.addons.modloader.fabriclike.fabric.FabricVersion
 import com.movtery.zalithlauncher.game.addons.modloader.fabriclike.legacyfabric.LegacyFabricVersion
 import com.movtery.zalithlauncher.game.addons.modloader.fabriclike.quilt.QuiltVersion
@@ -77,6 +78,7 @@ class AddonList {
     var legacyFabricAPIList by mutableStateOf<List<ModVersion>?>(null)
     var quiltList by mutableStateOf<List<QuiltVersion>?>(null)
     var quiltAPIList by mutableStateOf<List<ModVersion>?>(null)
+    var babricList by mutableStateOf<List<BabricVersion>?>(null)
     var cleanroomList by mutableStateOf<List<CleanroomVersion>?>(null)
 }
 
@@ -91,6 +93,7 @@ class CurrentAddon {
     var legacyFabricAPIVersion = mutableStateOf<ModVersion?>(null)
     var quiltVersion = mutableStateOf<QuiltVersion?>(null)
     var quiltAPIVersion = mutableStateOf<ModVersion?>(null)
+    var babricVersion = mutableStateOf<BabricVersion?>(null)
     var cleanroomVersion = mutableStateOf<CleanroomVersion?>(null)
 
     //加载状态
@@ -103,6 +106,7 @@ class CurrentAddon {
     var legacyFabricAPIState by mutableStateOf<AddonState>(AddonState.None)
     var quiltState by mutableStateOf<AddonState>(AddonState.None)
     var quiltAPIState by mutableStateOf<AddonState>(AddonState.None)
+    var babricState by mutableStateOf<AddonState>(AddonState.None)
     var cleanroomState by mutableStateOf<AddonState>(AddonState.None)
 
     //不兼容列表 利用Set集合不可重复
@@ -115,6 +119,7 @@ class CurrentAddon {
     var incompatibleWithLegacyFabricAPI = mutableStateOf<Set<ModLoader>>(emptySet())
     var incompatibleWithQuilt = mutableStateOf<Set<ModLoader>>(emptySet())
     var incompatibleWithQuiltAPI = mutableStateOf<Set<ModLoader>>(emptySet())
+    var incompatibleWithBabric = mutableStateOf<Set<ModLoader>>(emptySet())
     var incompatibleWithCleanroom = mutableStateOf<Set<ModLoader>>(emptySet())
 
 
@@ -136,7 +141,8 @@ class CurrentAddon {
         ModLoader.FABRIC,
         ModLoader.QUILT,
         ModLoader.CLEANROOM,
-        ModLoader.LEGACY_FABRIC
+        ModLoader.LEGACY_FABRIC,
+        ModLoader.BABRIC
     )
 
     private data class LoaderState<T : Any>(
@@ -155,6 +161,7 @@ class CurrentAddon {
         LoaderState(ModLoader.LEGACY_FABRIC_API, legacyFabricAPIVersion, incompatibleWithLegacyFabricAPI),
         LoaderState(ModLoader.QUILT, quiltVersion, incompatibleWithQuilt),
         LoaderState(ModLoader.QUILT_API, quiltAPIVersion, incompatibleWithQuiltAPI),
+        LoaderState(ModLoader.BABRIC, babricVersion, incompatibleWithBabric),
         LoaderState(ModLoader.CLEANROOM, cleanroomVersion, incompatibleWithCleanroom)
     )
 
@@ -269,6 +276,7 @@ data class LoaderVerSupports(
     val isQuiltSupports: Boolean,
     val isCleanroomSupports: Boolean,
     val isLegacyFabricSupports: Boolean,
+    val isBabricSupports: Boolean,
 )
 
 @Composable
@@ -279,7 +287,8 @@ fun rememberLoaderVerSupports(mcVer: String) = remember(mcVer) {
         isFabricSupports = fabricLike,
         isQuiltSupports = fabricLike,
         isCleanroomSupports = mcVer == "1.12.2",
-        isLegacyFabricSupports = !fabricLike
+        isLegacyFabricSupports = !fabricLike,
+        isBabricSupports = mcVer == "b1.7.3"
     )
 }
 
@@ -765,6 +774,40 @@ fun CleanroomList(
         getItemText = { it.version },
         summary = { CleanroomSummary(it) },
         onValueChange =  { version0 ->
+            version = version0
+            onValueChanged(version0)
+        },
+        onReload = onReload
+    )
+}
+
+@Composable
+fun BabricList(
+    modifier: Modifier = Modifier,
+    currentAddon: CurrentAddon,
+    addonList: AddonList,
+    error: String? = null,
+    onValueChanged: (BabricVersion?) -> Unit = {},
+    onReload: () -> Unit = {}
+) {
+    var version by currentAddon.babricVersion
+    val incompatibleSet by currentAddon.incompatibleWithBabric
+
+    AddonListLayout(
+        modifier = modifier,
+        state = currentAddon.babricState,
+        title = ModLoader.BABRIC.displayName,
+        error = error,
+        iconPainter = painterResource(R.drawable.img_loader_fabric),
+        items = addonList.babricList,
+        current = version,
+        incompatibleSet = incompatibleSet,
+        checkIncompatible = {
+            currentAddon.updateIncompatibleState(ModLoader.BABRIC, addonList)
+        },
+        getItemText = { it.version },
+        summary = { FabricLikeSummary(it) },
+        onValueChange = { version0 ->
             version = version0
             onValueChanged(version0)
         },

@@ -111,6 +111,7 @@ import com.movtery.zalithlauncher.ui.screens.content.LauncherScreen
 import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.LicenseScreen
 import com.movtery.zalithlauncher.ui.screens.content.GameStatsScreen
+import com.movtery.zalithlauncher.ui.screens.content.CapeGalleryScreen
 import com.movtery.zalithlauncher.ui.screens.content.PlayTimeStatsScreen
 import com.movtery.zalithlauncher.ui.screens.content.RecordingsScreen
 import com.movtery.zalithlauncher.ui.screens.content.LogViewScreen
@@ -408,16 +409,16 @@ private fun <E: TitledNavKey> TopBar(
     toMainScreen: () -> Unit,
     toSettingsScreen: () -> Unit,
     toDownloadScreen: () -> Unit,
-    toMultiplayerScreen: () -> Unit,
     toFileManagerScreen: () -> Unit,
+    toMultiplayerScreen: () -> Unit,
     toRecordingsScreen: () -> Unit,
     changeExpandedState: () -> Unit,
     onTitleClick: () -> Unit = {},
 ) {
     val festivals = LocalFestivals.current
 
-    val inMultiplayerScreen = mainScreenKey is NormalNavKey.Multiplayer
     val inFileManagerScreen = mainScreenKey is NormalNavKey.BuiltInFileManager
+    val inMultiplayerScreen = mainScreenKey is NormalNavKey.Multiplayer
     val inRecordingsScreen = mainScreenKey is NormalNavKey.Recordings
     val inDownloadScreen = mainScreenKey is NestedNavKey.Download
     val inSettingsScreen = mainScreenKey is NestedNavKey.Settings
@@ -879,11 +880,18 @@ private fun NavigationUI(
                         backStackViewModel = screenBackStackModel,
                     )
                 }
+                entry<NormalNavKey.CapeGallery> { key ->
+                    CapeGalleryScreen(
+                        key = key,
+                        backStackViewModel = screenBackStackModel,
+                    )
+                }
                 entry<NormalNavKey.Recordings> {
                     RecordingsScreen(
                         backStackViewModel = screenBackStackModel,
                     )
                 }
+
             }
         }
 

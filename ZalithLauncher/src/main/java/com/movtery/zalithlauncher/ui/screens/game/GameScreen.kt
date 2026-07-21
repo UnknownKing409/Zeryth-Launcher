@@ -111,6 +111,8 @@ import com.movtery.zalithlauncher.game.support.touch_controller.touchControllerI
 import com.movtery.zalithlauncher.game.support.touch_controller.touchControllerTouchModifier
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.path.PathManager
+import com.movtery.zalithlauncher.game.recorder.GameRecorder
+import com.movtery.zalithlauncher.game.recorder.RecordingState
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.enums.isLauncherInDarkTheme
 import com.movtery.zalithlauncher.setting.enums.toAction
@@ -167,6 +169,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.movtery.zalithlauncher.game.recorder.MediaProjectionForegroundService
 import org.lwjgl.glfw.CallbackBridge
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
@@ -666,6 +676,52 @@ fun GameScreen(
         }
     )
 
+    // ── Recording launchers ───────────────────────────────────────────────────
+    // Flow: RECORD_AUDIO permission → MediaProjection consent dialog → start.
+    val mediaProjectionManager = remember {
+        context.getSystemService(MediaProjectionManager::class.java)
+    }
+    var pendingStartRecording by remember { mutableStateOf(false) }
+
+    fun stopProjectionService() {
+        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
+    }
+
+    // Step 2: consent dialog result — stopProjectionService is already in scope above.
+    val requestProjection = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        pendingStartRecording = false
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val projection = mediaProjectionManager
+                .getMediaProjection(result.resultCode, result.data!!)
+                ?: run { stopProjectionService(); return@rememberLauncherForActivityResult }
+            GameRecorder.start(context, projection)
+            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+        } else {
+            stopProjectionService()
+        }
+    }
+
+    // launchProjectionConsent references requestProjection, so it must come after it.
+    fun launchProjectionConsent() {
+        context.startForegroundService(
+            Intent(context, MediaProjectionForegroundService::class.java)
+        )
+        requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
+    }
+
+    // Step 1: RECORD_AUDIO permission — launchProjectionConsent is in scope above.
+    val requestAudioPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (pendingStartRecording && granted) {
+            launchProjectionConsent()
+        } else {
+            pendingStartRecording = false
+        }
+    }
+
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -814,7 +870,7 @@ fun GameScreen(
                 .padding(all = 16.dp),
             versionName = version.getVersionName(),
             versionInfo = version.getVersionInfo()?.getInfoString(),
-            visible = showGameInfo
+            visible = showGameInfo && !AllSettings.disableLoadingPopup.state
         )
 
         LogBox(

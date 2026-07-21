@@ -105,6 +105,21 @@ object AllSettings : SettingsRegistry() {
     val vsyncInZink = boolSetting("vsyncInZink", false)
 
     /**
+     * 帧生成（交换链帧加倍）
+     */
+    val frameGeneration = boolSetting("frameGeneration", false)
+
+    /**
+     * 启用帧率上限
+     */
+    val fpsLimitEnabled = boolSetting("fpsLimitEnabled", false)
+
+    /**
+     * 帧率上限
+     */
+    val fpsLimit = intSetting("fpsLimit", 60, 15..240)
+
+    /**
      * 强制在高性能核心运行
      */
     val bigCoreAffinity = boolSetting("bigCoreAffinity", false)
@@ -177,6 +192,11 @@ object AllSettings : SettingsRegistry() {
      * 游戏加载时隐藏控制布局
      */
     val hideControlsDuringLoading = boolSetting("hideControlsDuringLoading", true)
+
+    /**
+     * 禁用加载弹出提示
+     */
+    val disableLoadingPopup = boolSetting("disableLoadingPopup", false)
 
     /**
      * 日志字体大小
@@ -422,7 +442,7 @@ object AllSettings : SettingsRegistry() {
     /**
      * 启动器页面切换动画类型
      */
-    val launcherSwapAnimateType = enumSetting("launcherSwapAnimateType", TransitionAnimationType.JELLY_BOUNCE)
+    val launcherSwapAnimateType = enumSetting("launcherSwapAnimateType", TransitionAnimationType.SLICE_IN)
 
     /**
      * 启动器背景元素不透明度

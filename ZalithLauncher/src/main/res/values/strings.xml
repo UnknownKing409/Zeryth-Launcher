@@ -90,6 +90,8 @@
     <string name="generic_edit">Edit</string>
     <string name="generic_view">View</string>
     <string name="generic_info">Info</string>
+    <string name="generic_minimize">Minimize</string>
+    <string name="generic_scroll_top">Scroll to Top</string>
     <!-- Page Title -->
     <string name="page_title_version_list">Version List</string>
     <string name="page_title_version_manage">Manage Versions</string>
@@ -517,6 +519,7 @@
     <string name="game_menu_option_show_menu_hided">Game menu overlay has been disabled. You can open the game menu using the system back button</string>
     <string name="game_menu_option_controls_opacity">Control Layout Opacity</string>
     <string name="game_menu_option_hide_controls_loading">Hide Controls During Loading</string>
+    <string name="game_menu_option_disable_loading_popup">Disable Loading Popup</string>
     <string name="game_styles_joystick">Manage Joystick</string>
     <string name="game_styles_joystick_enable">Enable Joystick</string>
     <string name="game_styles_joystick_x">Joystick X Position</string>
@@ -1104,6 +1107,8 @@
     <string name="settings_renderer_vsync_in_zink_summary">Enable vertical sync for the Zink renderer via the system interface</string>
     <string name="settings_renderer_force_big_core_title">Force High-Performance Cores</string>
     <string name="settings_renderer_force_big_core_summary">Bind Minecraft\'s rendering thread to the CPU\'s high-performance cores (big cores). Enabling this may increase power consumption and heat</string>
+    <string name="settings_renderer_fps_limit_title">Frame Rate Limit</string>
+    <string name="settings_renderer_fps_limit_summary">Caps the frame rate to save battery and reduce heat. When enabled, defaults to your screen\'s refresh rate</string>
     <string name="settings_renderer_surface_title">Use SurfaceView Rendering</string>
     <string name="settings_renderer_surface_summary">Renders using a separate layer outside the UI</string>
     <string name="settings_renderer_surface_summary_kopper_disabled">Unavailable while using the Kopper Zink renderer</string>
@@ -1555,10 +1560,32 @@
     <string name="festivals_april_fools">Happy April Fools\' Day!</string>
     <string name="festivals_christmas">Merry Christmas!</string>
     <!-- Custom Cape Upload -->
-    <string name="account_change_cape_upload">Change Cape</string>
+    <string name="account_change_cape_upload">Upload Cape from Gallery</string>
     <string name="account_change_cape_reset">Reset Cape</string>
     <string name="account_change_cape_invalid">Invalid cape file! Cape must be 64x32 pixels PNG.</string>
     <string name="account_change_cape_failed_to_import">Failed to import cape: %s</string>
+    <string name="account_capes_install">Install Capes</string>
+    <string name="account_capes_install_from_labynet">Install from Laby.net</string>
+    <string name="account_capes_select">Capes</string>
+    <string name="account_capes_source_imported">Gallery</string>
+    <string name="account_capes_saved_toast">Cape saved to capes</string>
+    <string name="account_capes_select_title">My Capes</string>
+    <string name="account_capes_no_capes">No capes installed yet. Tap "Install Capes" to get started.</string>
+    <string name="account_capes_none">No Cape</string>
+    <string name="account_capes_favorite">Favorite</string>
+    <string name="account_capes_unfavorite">Unfavorite</string>
+    <string name="account_capes_activate">Activate</string>
+    <string name="account_capes_rename_hint">Cape name</string>
+    <string name="account_capes_labynet_title">Cape Gallery</string>
+    <string name="account_capes_labynet_loading">Loading capes…</string>
+    <string name="account_capes_labynet_download">Download</string>
+    <string name="account_capes_labynet_downloading">Downloading…</string>
+    <string name="account_capes_labynet_downloaded">Cape \"%s\" downloaded</string>
+    <string name="account_capes_labynet_download_failed">Download failed: %s</string>
+    <string name="account_capes_labynet_failed">Failed to load capes: %s</string>
+    <string name="account_capes_labynet_no_capes">No capes found for this account.</string>
+    <string name="account_capes_delete_title">Delete Cape</string>
+    <string name="account_capes_delete_message">Are you sure you want to delete \"%s\"?</string>
 
     <!-- Rank and Play Time -->
     <string name="rank_novice">Novice</string>
