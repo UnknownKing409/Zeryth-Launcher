@@ -87,6 +87,7 @@ import com.movtery.zalithlauncher.ui.vulkan_checker.VulkanChecker
 import com.movtery.zalithlauncher.upgrade.TooFrequentOperationException
 import com.movtery.zalithlauncher.utils.compareLangTag
 import com.movtery.zalithlauncher.utils.copyText
+import com.movtery.zalithlauncher.utils.device.VulkanChecker as VulkanCapabilityChecker
 import com.movtery.zalithlauncher.utils.festival.getTodayFestivals
 import com.movtery.zalithlauncher.utils.file.shareFile
 import com.movtery.zalithlauncher.utils.isChinese
@@ -520,9 +521,9 @@ class MainActivity : BaseAppCompatActivity() {
         withContext(Dispatchers.Main) {
             val result = if (useTurnip) {
                 val tempDir = File(PathManager.DIR_CACHE, "vulkan_temp")
-                VulkanChecker.checkCapabilities(null, driver.path, tempDir.absolutePath)
+                VulkanCapabilityChecker.checkCapabilities(null, driver.path, tempDir.absolutePath)
             } else {
-                VulkanChecker.checkCapabilities(null, null, null)
+                VulkanCapabilityChecker.checkCapabilities(null, null, null)
             }
             vulkanCheckerViewModel.changeOperation(VCOperation.Result(result, useTurnip))
         }

@@ -665,52 +665,6 @@ fun GameScreen(
         }
     )
 
-    // ── Recording launchers ───────────────────────────────────────────────────
-    // Flow: RECORD_AUDIO permission → MediaProjection consent dialog → start.
-    val mediaProjectionManager = remember {
-        context.getSystemService(MediaProjectionManager::class.java)
-    }
-    var pendingStartRecording by remember { mutableStateOf(false) }
-
-    fun stopProjectionService() {
-        context.stopService(Intent(context, MediaProjectionForegroundService::class.java))
-    }
-
-    // Step 2: consent dialog result — stopProjectionService is already in scope above.
-    val requestProjection = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        pendingStartRecording = false
-        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
-            val projection = mediaProjectionManager
-                .getMediaProjection(result.resultCode, result.data!!)
-                ?: run { stopProjectionService(); return@rememberLauncherForActivityResult }
-            GameRecorder.start(context, projection)
-            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
-        } else {
-            stopProjectionService()
-        }
-    }
-
-    // launchProjectionConsent references requestProjection, so it must come after it.
-    fun launchProjectionConsent() {
-        context.startForegroundService(
-            Intent(context, MediaProjectionForegroundService::class.java)
-        )
-        requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
-    }
-
-    // Step 1: RECORD_AUDIO permission — launchProjectionConsent is in scope above.
-    val requestAudioPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (pendingStartRecording && granted) {
-            launchProjectionConsent()
-        } else {
-            pendingStartRecording = false
-        }
-    }
-
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
     ) {
