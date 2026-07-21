@@ -186,6 +186,8 @@
     <string name="crash_link_share_uploading">Uploading logs to %s</string>
     <string name="crash_link_share_failed">Upload Failed</string>
     <string name="crash_link_share_failed_link_not_found">No available link found. Please try again later.</string>
+    <string name="crash_analysis_main_crash">Main Crashes (%d)</string>
+    <string name="crash_analysis_found_errors">Errors Found (%d)</string>
     <string name="crash_launch_crash_title">App Launch Failed</string>
     <string name="crash_launch_crash_message">The launcher encountered a serious problem and crashed during startup</string>
     <!-- Errors -->
@@ -1304,6 +1306,8 @@
     <string name="settings_launcher_mirror_assets_download_title">Asset Platform Download Source</string>
     <string name="settings_launcher_mirror_official_first">Prefer Official Source</string>
     <string name="settings_launcher_mirror_mirror_first">Prefer Mirror Source</string>
+    <string name="settings_launcher_show_snapshot_versions_title">Show Snapshot Versions</string>
+    <string name="settings_launcher_show_snapshot_versions_summary">Show snapshot, old, and experimental versions in the version filter on the asset download page</string>
     <string name="settings_launcher_background_title">Launcher Background</string>
     <string name="settings_launcher_background_summary">Choose an image or video as the launcher background</string>
     <string name="settings_launcher_background_importing">Importing launcher background file</string>
