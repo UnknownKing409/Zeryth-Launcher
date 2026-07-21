@@ -86,6 +86,7 @@ import com.movtery.zalithlauncher.game.launch.handler.JVMHandler
 import com.movtery.zalithlauncher.game.path.getGameHome
 import com.movtery.zalithlauncher.game.multirt.RuntimesManager
 import com.movtery.zalithlauncher.game.plugin.PluginLoader
+import com.movtery.zalithlauncher.game.recorder.GameRecorder
 import com.movtery.zalithlauncher.game.recorder.GameSurfaceRegistry
 import com.movtery.zalithlauncher.game.renderer.Renderers
 import com.movtery.zalithlauncher.game.renderer.renderers.KopperZinkRenderer
@@ -690,6 +691,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+        (GameSurfaceRegistry.getView() as? TextureView)?.let { tv ->
+            GameRecorder.onTextureFrameAvailable(tv)
+        }
     }
 
     private var surfaceGeneration = 0L
