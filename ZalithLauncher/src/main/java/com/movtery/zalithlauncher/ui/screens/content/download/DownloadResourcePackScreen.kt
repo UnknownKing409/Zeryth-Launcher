@@ -49,7 +49,6 @@ import com.movtery.zalithlauncher.ui.screens.onBack
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.screens.rememberTransitionSpec
 import com.movtery.zalithlauncher.utils.network.isUsingMobileData
-import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import kotlinx.coroutines.launch

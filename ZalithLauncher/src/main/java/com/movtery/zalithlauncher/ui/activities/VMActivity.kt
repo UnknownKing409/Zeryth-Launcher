@@ -31,7 +31,6 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.TextureView
-import com.movtery.zalithlauncher.game.recorder.GameSurfaceRegistry
 import android.view.TextureView.SurfaceTextureListener
 import android.view.WindowManager
 import android.widget.Toast

@@ -75,8 +75,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.movtery.zalithlauncher.game.recorder.GameRecorder
-import com.movtery.zalithlauncher.game.recorder.RecordingState
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.movtery.layer_controller.ControlBoxLayout
@@ -169,17 +167,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import com.movtery.zalithlauncher.game.recorder.MediaProjectionForegroundService
 import org.lwjgl.glfw.CallbackBridge
 import java.io.File
-import kotlin.time.Duration.Companion.milliseconds
 
 private const val TAG = "GameScreen"
 

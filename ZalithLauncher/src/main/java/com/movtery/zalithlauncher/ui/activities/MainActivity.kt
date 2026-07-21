@@ -34,19 +34,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.context.COPY_LABEL_LINK
@@ -88,7 +87,6 @@ import com.movtery.zalithlauncher.ui.vulkan_checker.VulkanChecker
 import com.movtery.zalithlauncher.upgrade.TooFrequentOperationException
 import com.movtery.zalithlauncher.utils.compareLangTag
 import com.movtery.zalithlauncher.utils.copyText
-import com.movtery.zalithlauncher.utils.device.VulkanChecker
 import com.movtery.zalithlauncher.utils.festival.getTodayFestivals
 import com.movtery.zalithlauncher.utils.file.shareFile
 import com.movtery.zalithlauncher.utils.isChinese
@@ -883,4 +881,35 @@ class MainActivity : BaseAppCompatActivity() {
           }
       }
   
+}
+
+/**
+ * Shows a dismissible notice fetched from the player notice URL.
+ * Uses [PlayerNoticeManager] to fetch the content, check if it has been
+ * dismissed before, and persist the dismissal state.
+ */
+@Composable
+private fun PlayerNoticeDialog() {
+    var noticeContent by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val content = PlayerNoticeManager.fetchNotice()
+        if (content.isNotEmpty() && !PlayerNoticeManager.isDismissed(content)) {
+            noticeContent = content
+            showDialog = true
+        }
+    }
+
+    if (showDialog && noticeContent.isNotEmpty()) {
+        SimpleAlertDialog(
+            title = stringResource(R.string.generic_tip),
+            text = noticeContent,
+            onConfirm = {
+                PlayerNoticeManager.dismiss(noticeContent)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false }
+        )
+    }
 }

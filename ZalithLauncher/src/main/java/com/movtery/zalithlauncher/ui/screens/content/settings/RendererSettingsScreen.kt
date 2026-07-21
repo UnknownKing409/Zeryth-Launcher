@@ -60,7 +60,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -884,48 +883,6 @@ fun DriverSummaryLayout(driver: Driver) {
             Text(
                 modifier = Modifier.alpha(0.7f),
                 text = text, style = MaterialTheme.typography.labelSmall
-            )
-        }
-    }
-}
-
-@Composable
-private fun RunBenchmarkPill(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val gradient = remember(colorScheme) {
-        Brush.horizontalGradient(
-            listOf(colorScheme.primary, colorScheme.tertiary)
-        )
-    }
-
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = Color.Transparent,
-        shadowElevation = 3.dp,
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier
-                .background(brush = gradient, shape = CircleShape)
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_rocket_launch_filled),
-                contentDescription = null,
-                tint = colorScheme.onPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                modifier = Modifier.padding(start = 10.dp),
-                text = stringResource(R.string.benchmark_run),
-                style = MaterialTheme.typography.titleSmall,
-                color = colorScheme.onPrimary
             )
         }
     }
