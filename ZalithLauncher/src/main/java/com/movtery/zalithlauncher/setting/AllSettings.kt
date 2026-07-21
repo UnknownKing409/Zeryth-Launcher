@@ -442,7 +442,7 @@ object AllSettings : SettingsRegistry() {
     /**
      * 启动器页面切换动画类型
      */
-    val launcherSwapAnimateType = enumSetting("launcherSwapAnimateType", TransitionAnimationType.SLICE_IN)
+    val launcherSwapAnimateType = enumSetting("launcherSwapAnimateType", TransitionAnimationType.JELLY_BOUNCE)
 
     /**
      * 启动器背景元素不透明度
