@@ -403,19 +403,24 @@ fun TitleTaskFlowDialog(
                         }
                     }
 
-                    if (onMinimize != null) {
-                        OutlinedButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = onMinimize
-                        ) {
-                            MarqueeText(text = stringResource(R.string.generic_minimize))
-                        }
-                    }
-                    Button(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = onCancel
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        MarqueeText(text = stringResource(R.string.generic_cancel))
+                        if (onMinimize != null) {
+                            OutlinedButton(
+                                modifier = Modifier.weight(1f),
+                                onClick = onMinimize
+                            ) {
+                                MarqueeText(text = stringResource(R.string.generic_minimize))
+                            }
+                        }
+                        Button(
+                            modifier = if (onMinimize != null) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                            onClick = onCancel
+                        ) {
+                            MarqueeText(text = stringResource(R.string.generic_cancel))
+                        }
                     }
                 }
             }
