@@ -52,6 +52,7 @@ sig_sodium_optifine_001, sig_native_sigabrt_001, sig_corrupted_world_001, sig_ne
 ### Integration
 - [x] `ErrorActivity.showExitMessage()` now calls `launchCrashAnalyzer()` for game crashes
 - [x] `AndroidManifest.xml` — CrashAnalyzerActivity registered
+- [x] Analysis failures now degrade to a transparent low-confidence Unknown Crash report instead of showing a generic error screen
 
 ## Not Yet Implemented (future work)
 
@@ -65,6 +66,7 @@ sig_sodium_optifine_001, sig_native_sigabrt_001, sig_corrupted_world_001, sig_ne
 - [ ] Interactive AI troubleshooting chat
 
 ## Known Limitations
+- Analyzer execution is intentionally fail-safe: if collection or a specialist throws, the UI still receives a report, but the report may contain only normalized metadata and an internal-error indicator
 
 - `CrashDataCollector.parseMcVersionAndLoader()` uses a simple heuristic (newest version dir + JSON regex); works for standard installs but may misidentify version on non-standard layouts
 - JVM args collection is stubbed (`jvmArgs = ""`) — needs to be wired to the launcher's JVM config settings

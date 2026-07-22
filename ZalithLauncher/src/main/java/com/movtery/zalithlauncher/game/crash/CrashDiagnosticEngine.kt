@@ -33,6 +33,18 @@ import com.movtery.zalithlauncher.game.crash.model.SignaturePattern
 object CrashDiagnosticEngine {
 
     /**
+     * The analyzer must always return a report. A malformed updateable signature or an
+     * unexpected specialist failure must not replace the crash report with an error screen.
+     */
+    fun diagnose(context: Context, session: CrashSession): CrashDiagnosis {
+        return try {
+            diagnoseInternal(context, session)
+        } catch (error: Exception) {
+            CrashFallback.diagnosis(session, error)
+        }
+    }
+
+    /**
      * Run the full deterministic diagnostic pipeline on a collected [CrashSession].
      * This is the only entry point for rule-based analysis.
      *
@@ -40,7 +52,7 @@ object CrashDiagnosticEngine {
      * @param session The normalized crash session
      * @return A [CrashDiagnosis] with all evidence and recommended repairs
      */
-    fun diagnose(context: Context, session: CrashSession): CrashDiagnosis {
+    private fun diagnoseInternal(context: Context, session: CrashSession): CrashDiagnosis {
         CrashSignatureDatabase.load(context)
 
         // 1. Signature matching
@@ -91,6 +103,39 @@ object CrashDiagnosticEngine {
             matchedSignatureIds = matchedIds,
             aiEnhanced = false
         )
+    }
+
+    private object CrashFallback {
+        fun diagnosis(session: CrashSession, error: Throwable): CrashDiagnosis {
+            val technical = buildString {
+                append("No known signature matched the collected evidence.\n")
+                append("Exit code: ${session.exitCode}")
+                if (session.isSignal) append(" (signal)")
+                append("\n")
+                if (session.renderer != null) append("Renderer: ${session.renderer}\n")
+                if (session.javaVersion != null) append("Java: ${session.javaVersion}\n")
+                if (session.mcVersion != null) {
+                    append("MC: ${session.mcVersion} (${session.loader ?: "vanilla"})\n")
+                }
+                append("Analyzer component unavailable: ${error::class.java.simpleName}")
+            }
+            return CrashDiagnosis(
+                category = CrashCategory.UNKNOWN_CRASH,
+                severity = CrashSeverity.UNKNOWN,
+                confidence = 10,
+                rootCause = "Crash analysis encountered an internal problem.",
+                rootCauseDetail = "The launcher collected the crash information, but one analysis component was unavailable. No deterministic cause is being claimed.",
+                technicalDetail = technical,
+                evidence = listOf(
+                    CrashEvidenceItem(
+                        text = "Crash artifacts were collected; no reliable diagnosis was produced.",
+                        weight = 0.2f,
+                        source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
+                    )
+                ),
+                startupStage = CrashDiagnosis.StartupStage.UNKNOWN
+            )
+        }
     }
 
     // ── Signature Matching ────────────────────────────────────────────────────

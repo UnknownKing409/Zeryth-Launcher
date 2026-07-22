@@ -6,6 +6,7 @@
 package com.movtery.zalithlauncher.viewmodel
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,15 +16,19 @@ import com.movtery.zalithlauncher.game.crash.CrashDataCollector
 import com.movtery.zalithlauncher.game.crash.CrashDiagnosticEngine
 import com.movtery.zalithlauncher.game.crash.CrashHistoryManager
 import com.movtery.zalithlauncher.game.crash.CrashRepairExecutor
+import com.movtery.zalithlauncher.game.crash.model.CrashCategory
 import com.movtery.zalithlauncher.game.crash.model.CrashDiagnosis
+import com.movtery.zalithlauncher.game.crash.model.CrashEvidenceItem
 import com.movtery.zalithlauncher.game.crash.model.CrashHistoryEntry
 import com.movtery.zalithlauncher.game.crash.model.CrashSession
+import com.movtery.zalithlauncher.game.crash.model.CrashSeverity
 import com.movtery.zalithlauncher.game.crash.model.RepairAction
 import com.movtery.zalithlauncher.utils.logging.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.io.File
 
 private const val TAG = "CrashAnalyzerViewModel"
 
@@ -85,16 +90,35 @@ class CrashAnalyzerViewModel @Inject constructor() : ViewModel() {
                 Logger.info(TAG, "Starting crash analysis…")
 
                 // 1. Collect all crash artifacts
-                val collectedSession = CrashDataCollector.collect(
-                    context = context,
-                    exitCode = exitCode,
-                    isSignal = isSignal,
-                    logPath = logPath,
-                    gameHome = gameHome,
-                    allocatedRamMb = allocatedRamMb,
-                    renderer = renderer,
-                    javaVersion = javaVersion
-                )
+                val collectedSession = runCatching {
+                    CrashDataCollector.collect(
+                        context = context,
+                        exitCode = exitCode,
+                        isSignal = isSignal,
+                        logPath = logPath,
+                        gameHome = gameHome,
+                        allocatedRamMb = allocatedRamMb,
+                        renderer = renderer,
+                        javaVersion = javaVersion
+                    )
+                }.getOrElse { collectionError ->
+                    Logger.error(TAG, "Crash artifact collection failed; using minimal session.", collectionError)
+                    CrashSession(
+                        exitCode = exitCode,
+                        isSignal = isSignal,
+                        javaVersion = javaVersion.ifBlank { System.getProperty("java.version") },
+                        allocatedRamMb = allocatedRamMb,
+                        renderer = renderer.ifBlank { null },
+                        androidVersion = Build.VERSION.RELEASE,
+                        androidApiLevel = Build.VERSION.SDK_INT,
+                        deviceManufacturer = Build.MANUFACTURER,
+                        deviceModel = Build.MODEL,
+                        cpuAbi = Build.SUPPORTED_ABIS.firstOrNull(),
+                        gameHome = gameHome,
+                        primaryLogFile = logPath.takeIf { it.isNotBlank() }?.let(::File),
+                        missingArtifacts = listOf("crash artifacts (${collectionError::class.java.simpleName})")
+                    )
+                }
                 session = collectedSession
 
                 // 2. Run the rule-based diagnostic engine
@@ -109,7 +133,33 @@ class CrashAnalyzerViewModel @Inject constructor() : ViewModel() {
 
             } catch (e: Exception) {
                 Logger.error(TAG, "Analysis failed.", e)
-                analysisState = AnalysisState.Error(e.localizedMessage ?: "Analysis failed")
+                // This is a last-resort guard for failures outside collection/diagnosis/history.
+                // Never hide the crash behind the generic "Analysis failed" screen.
+                val fallbackSession = session ?: CrashSession(
+                    exitCode = exitCode,
+                    isSignal = isSignal,
+                    javaVersion = javaVersion.ifBlank { System.getProperty("java.version") },
+                    allocatedRamMb = allocatedRamMb,
+                    renderer = renderer.ifBlank { null },
+                    gameHome = gameHome,
+                    primaryLogFile = logPath.takeIf { it.isNotBlank() }?.let(::File)
+                )
+                session = fallbackSession
+                diagnosis = CrashDiagnosis(
+                    category = CrashCategory.UNKNOWN_CRASH,
+                    severity = CrashSeverity.UNKNOWN,
+                    confidence = 10,
+                    rootCause = "Crash analysis encountered an internal problem.",
+                    rootCauseDetail = "The launcher could not complete every analysis step. No deterministic cause is being claimed.",
+                    technicalDetail = "Exit code: $exitCode\nAnalyzer error: ${e::class.java.simpleName}",
+                    evidence = listOf(
+                        CrashEvidenceItem(
+                            text = "Crash analysis was interrupted before a reliable diagnosis was available.",
+                            weight = 0.2f
+                        )
+                    )
+                )
+                analysisState = AnalysisState.Complete
             }
         }
     }
