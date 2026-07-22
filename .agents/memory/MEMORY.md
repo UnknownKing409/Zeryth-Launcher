@@ -13,3 +13,6 @@
 - [Recorder frozen-first-frame fix](recorder-frozen-first-frame.md) — drain all residual priming output before enabling PixelCopy capture; start encode jobs before isCapturing=true.
 - [Microphone mixing in GameRecorder](mic-mixing-recorder.md) — mix mic PCM in-place into internal-audio buffer before AAC encoding; never add a second muxer track.
 - [PR #86 sync decisions](pr86_sync.md) — full conflict resolution log for star1xr/main → Zeryth-Main; recorder AA files kept Zeryth over upstream stubs.
+- [Crash Analyzer Architecture](crash_analyzer_architecture.md) — full package map, entry flow, intent extras, signature schema; read before any crash analyzer work.
+- [Crash Analyzer Status](crash_analyzer_status.md) — what is complete, what remains (exports, AI, history UI, GPU compat DB), and known limitations.
+- [Crash Analyzer Signature DB](crash_analyzer_signatures.md) — JSON schema, pattern types/fields, all 14 built-in signatures; extend DB only, no code change needed.
