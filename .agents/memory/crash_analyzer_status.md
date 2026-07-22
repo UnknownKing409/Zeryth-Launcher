@@ -9,8 +9,9 @@ description: Tracks what is complete, what remains, and known limitations for th
 
 ### Core Pipeline
 - [x] `CrashSession` normalized data object (all fields from spec)
-- [x] `CrashDataCollector` — collects JVM log, game log, crash-reports/, hs_err_pid, mods, resource packs, shader packs, device info
+- [x] `CrashDataCollector` — collects JVM/debug/game logs, up to five crash reports, hs_err_pid, mods, resource packs, shader packs, device/storage/RAM/GPU metadata
 - [x] `CrashSignatureDatabase` — loads from assets/crash_signatures.json; lazy load, @Synchronized, reload hook for future remote updates
+- [x] `GpuCompatibilityDatabase` — offline, asset-backed GPU family and renderer recommendations
 - [x] `CrashDiagnosticEngine` — full rule engine: signature matching, specialist orchestration, evidence merge, confidence calculation, startup stage inference, repair de-dup
 
 ### Specialist Analyzers
@@ -42,6 +43,7 @@ sig_sodium_optifine_001, sig_native_sigabrt_001, sig_corrupted_world_001, sig_ne
 - [x] `CrashTimelineCard` — visual startup timeline, crash stage highlighted
 - [x] `CrashRepairsCard` — repairs list, confirmation AlertDialog, reversible/irreversible warning
 - [x] `ExpandableAnalyzerCard` — shared expandable card component
+- [x] Local report actions — copy plain summary, copy technical report, and share a generated report file
 
 ### Persistence
 - [x] `CrashHistoryManager` — saves to crash_history.json (max 50), CRUD, repair recording

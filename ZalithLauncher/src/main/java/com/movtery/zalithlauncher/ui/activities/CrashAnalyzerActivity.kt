@@ -20,6 +20,8 @@ import com.movtery.zalithlauncher.ui.screens.main.crash.CrashAnalyzerScreen
 import com.movtery.zalithlauncher.ui.theme.ZalithLauncherTheme
 import com.movtery.zalithlauncher.ui.theme.backgroundColor
 import com.movtery.zalithlauncher.ui.theme.onBackgroundColor
+import com.movtery.zalithlauncher.game.crash.CrashReportFormatter
+import com.movtery.zalithlauncher.utils.copyText
 import com.movtery.zalithlauncher.utils.file.shareFile
 import com.movtery.zalithlauncher.viewmodel.CrashAnalyzerViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -116,6 +118,37 @@ class CrashAnalyzerActivity : BaseAppCompatActivity() {
                         },
                         onShareLogsClick = {
                             if (logFile?.exists() == true) shareFile(this@CrashAnalyzerActivity, logFile)
+                        },
+                        onCopySummaryClick = {
+                            viewModel.diagnosis?.let { diagnosis ->
+                                viewModel.session?.let { session ->
+                                    copyText(
+                                        getString(com.movtery.zalithlauncher.R.string.crash_summary_title),
+                                        CrashReportFormatter.plain(session, diagnosis),
+                                        this@CrashAnalyzerActivity
+                                    )
+                                }
+                            }
+                        },
+                        onCopyTechnicalClick = {
+                            viewModel.diagnosis?.let { diagnosis ->
+                                viewModel.session?.let { session ->
+                                    copyText(
+                                        getString(com.movtery.zalithlauncher.R.string.crash_view_technical),
+                                        CrashReportFormatter.technical(session, diagnosis),
+                                        this@CrashAnalyzerActivity
+                                    )
+                                }
+                            }
+                        },
+                        onShareReportClick = {
+                            viewModel.diagnosis?.let { diagnosis ->
+                                viewModel.session?.let { session ->
+                                    val reportFile = File(cacheDir, "zeryth-crash-report.txt")
+                                    reportFile.writeText(CrashReportFormatter.technical(session, diagnosis))
+                                    shareFile(this@CrashAnalyzerActivity, reportFile)
+                                }
+                            }
                         },
                         onRestartClick   = {
                             if (canRestart) ProcessPhoenix.triggerRebirth(this@CrashAnalyzerActivity)

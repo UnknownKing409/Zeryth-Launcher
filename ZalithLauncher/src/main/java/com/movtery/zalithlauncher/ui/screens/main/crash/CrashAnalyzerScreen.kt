@@ -59,6 +59,9 @@ fun CrashAnalyzerScreen(
     viewModel: CrashAnalyzerViewModel,
     onShowLogsClick: () -> Unit,
     onShareLogsClick: () -> Unit,
+    onCopySummaryClick: () -> Unit,
+    onCopyTechnicalClick: () -> Unit,
+    onShareReportClick: () -> Unit,
     onRestartClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
@@ -264,6 +267,12 @@ private fun DiagnosisContent(
         }
 
         // Action buttons
+        ReportActions(
+            onCopySummaryClick = onCopySummaryClick,
+            onCopyTechnicalClick = onCopyTechnicalClick,
+            onShareReportClick = onShareReportClick
+        )
+
         ActionButtons(
             onRestartClick = onRestartClick,
             onExitClick = onExitClick
@@ -280,6 +289,37 @@ private fun DiagnosisContent(
             },
             onDismiss = { viewModel.pendingRepair = null }
         )
+    }
+}
+
+@Composable
+private fun ReportActions(
+    onCopySummaryClick: () -> Unit,
+    onCopyTechnicalClick: () -> Unit,
+    onShareReportClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.crash_report_actions),
+            style = MaterialTheme.typography.titleSmall
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(onClick = onCopySummaryClick, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.crash_copy_summary))
+            }
+            OutlinedButton(onClick = onCopyTechnicalClick, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.crash_copy_technical))
+            }
+        }
+        FilledTonalButton(
+            onClick = onShareReportClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.crash_share_report))
+        }
     }
 }
 

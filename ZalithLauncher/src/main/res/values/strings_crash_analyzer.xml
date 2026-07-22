@@ -6,6 +6,10 @@
     <string name="crash_analyzer_title">Crash Analyzer</string>
     <string name="crash_analyzer_analyzing">Analyzing crash…</string>
     <string name="crash_analyzer_error">Analysis Failed</string>
+    <string name="crash_report_actions">Crash Report</string>
+    <string name="crash_copy_summary">Copy Summary</string>
+    <string name="crash_copy_technical">Copy Technical</string>
+    <string name="crash_share_report">Share Report</string>
 
     <!-- ── Categories ────────────────────────────────────────────────────── -->
     <string name="crash_category_renderer">Renderer Crash</string>
