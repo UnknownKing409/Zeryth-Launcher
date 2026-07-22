@@ -24,7 +24,7 @@ data class CrashSession(
     // ── Collected log content (normalized text, never original paths) ─────────
     val gameLog: String = "",
     val jvmLog: String = "",
-    /** Content of the newest crash-reports/*.txt file, if any */
+    /** Content of the newest Minecraft crash-report file (crash-reports dir), if any. */
     val crashReportContent: String = "",
     /** Content of hs_err_pid*.log if present */
     val hsErrLog: String = "",
