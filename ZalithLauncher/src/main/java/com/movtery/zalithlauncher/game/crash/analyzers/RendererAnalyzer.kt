@@ -8,6 +8,7 @@ package com.movtery.zalithlauncher.game.crash.analyzers
 import com.movtery.zalithlauncher.game.crash.model.CrashCategory
 import com.movtery.zalithlauncher.game.crash.model.CrashEvidenceItem
 import com.movtery.zalithlauncher.game.crash.model.CrashSession
+import com.movtery.zalithlauncher.game.crash.model.GpuCompatibility
 import com.movtery.zalithlauncher.game.crash.model.RepairAction
 
 /**
@@ -49,8 +50,8 @@ object RendererAnalyzer {
         "Fatal signal 8 (SIGFPE)"
     )
 
-    fun analyze(session: CrashSession): Result {
-        val allLogs = "${session.gameLog}\n${session.jvmLog}\n${session.hsErrLog}"
+    fun analyze(session: CrashSession, gpuCompatibility: GpuCompatibility? = null): Result {
+        val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.hsErrLog}"
         val evidence = mutableListOf<CrashEvidenceItem>()
         var score = 0
 
@@ -106,6 +107,23 @@ object RendererAnalyzer {
             ))
         }
 
+        gpuCompatibility?.let { compatibility ->
+            val active = session.renderer
+            val isAvoided = active != null && compatibility.avoidRenderers.any {
+                active.contains(it, ignoreCase = true)
+            }
+            evidence.add(CrashEvidenceItem(
+                text = if (isAvoided) {
+                    "${compatibility.gpuFamily} compatibility data recommends ${compatibility.recommendedRenderer ?: "another renderer"} instead of ${active}."
+                } else {
+                    "GPU compatibility profile matched: ${compatibility.gpuFamily}."
+                },
+                weight = if (isAvoided) 0.85f else 0.55f,
+                source = CrashEvidenceItem.EvidenceSource.RENDERER_ANALYZER
+            ))
+            if (isAvoided) score += 20
+        }
+
         // Check GPU string for known problematic combinations
         val gpuRenderer = session.gpuRenderer?.lowercase() ?: ""
         if (gpuRenderer.contains("adreno") && allLogs.contains("angle", ignoreCase = true)) {
@@ -157,7 +175,7 @@ object RendererAnalyzer {
             isRendererCrash = isRendererCrash,
             confidence = confidence,
             evidence = evidence,
-            suggestedRenderer = null, // GPU compatibility DB lookup handled in DiagnosticEngine
+            suggestedRenderer = gpuCompatibility?.recommendedRenderer,
             repairs = repairs
         )
     }

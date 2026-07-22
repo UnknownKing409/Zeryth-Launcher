@@ -54,12 +54,20 @@ object CrashDiagnosticEngine {
      */
     private fun diagnoseInternal(context: Context, session: CrashSession): CrashDiagnosis {
         CrashSignatureDatabase.load(context)
+        GpuCompatibilityDatabase.load(context)
 
         // 1. Signature matching
         val signatureResults = matchSignatures(session)
 
         // 2. Specialist analyzers
-        val rendererResult = RendererAnalyzer.analyze(session)
+        val rendererResult = RendererAnalyzer.analyze(
+            session,
+            GpuCompatibilityDatabase.findMatch(
+                gpu = session.gpuRenderer,
+                manufacturer = session.deviceManufacturer,
+                renderer = session.renderer
+            )
+        )
         val javaResult = JavaAnalyzer.analyze(session)
         val modResult = ModAnalyzer.analyze(session)
         val nativeResult = NativeAnalyzer.analyze(session)
@@ -222,7 +230,7 @@ object CrashDiagnosticEngine {
             "jvmLog"              -> session.jvmLog
             "crashReportContent"  -> session.crashReportContent
             "hsErrLog"            -> session.hsErrLog
-            "allLogs"             -> "${session.gameLog}\n${session.jvmLog}\n${session.crashReportContent}\n${session.hsErrLog}"
+            "allLogs"             -> "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.crashReportContent}\n${session.hsErrLog}"
             "exitCode"            -> session.exitCode.toString()
             "renderer"            -> session.renderer ?: ""
             "javaVersion"         -> session.javaVersion ?: ""
@@ -279,7 +287,7 @@ object CrashDiagnosticEngine {
             }
         }
         if (javaResult.hasJavaIssue) {
-            val allLogs = "${session.gameLog}\n${session.jvmLog}"
+            val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}"
             if (allLogs.contains("OutOfMemoryError") || session.exitCode == 137) {
                 scores[CrashCategory.OUT_OF_MEMORY] = javaResult.confidence
             } else if (allLogs.contains("Wrong Java version") || allLogs.contains("Unsupported class file major version")) {
@@ -289,7 +297,7 @@ object CrashDiagnosticEngine {
             }
         }
         if (modResult.hasModIssue) {
-            val allLogs = "${session.gameLog}\n${session.jvmLog}"
+            val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}"
             val loaderLower = session.loader?.lowercase() ?: ""
             when {
                 loaderLower.contains("fabric") && allLogs.contains("fabric", ignoreCase = true) ->
@@ -428,7 +436,7 @@ object CrashDiagnosticEngine {
         session: CrashSession,
         category: CrashCategory
     ): CrashDiagnosis.StartupStage {
-        val allLogs = "${session.gameLog}\n${session.jvmLog}\n${session.crashReportContent}"
+        val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.crashReportContent}"
         return when {
             category == CrashCategory.RENDERER_CRASH || category == CrashCategory.GPU_DRIVER_CRASH ->
                 CrashDiagnosis.StartupStage.RENDERER_INIT

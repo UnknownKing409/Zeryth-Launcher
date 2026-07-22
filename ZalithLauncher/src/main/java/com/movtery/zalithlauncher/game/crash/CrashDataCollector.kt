@@ -7,6 +7,7 @@ package com.movtery.zalithlauncher.game.crash
 
 import android.content.Context
 import android.os.Build
+import android.os.StatFs
 import com.movtery.zalithlauncher.game.crash.model.CrashSession
 import com.movtery.zalithlauncher.game.launch.LogName
 import com.movtery.zalithlauncher.path.PathManager
@@ -52,12 +53,21 @@ object CrashDataCollector {
         val primaryLogFile = File(logPath)
         val jvmLog = safeReadFile(primaryLogFile, missing, "primary log ($logPath)")
 
-        // ── Latest game log ───────────────────────────────────────────────────
-        val gameLogFile = File(PathManager.DIR_LAUNCHER_LOGS, LogName.GAME.fileName)
+        // ── Minecraft logs ────────────────────────────────────────────────────
+        // Prefer the instance's logs directory, then retain the launcher copy as a fallback.
+        val gameLogsDir = File(gameHome, "logs")
+        val gameLogFile = newestNamedFile(gameLogsDir, "latest.log")
+            ?: File(PathManager.DIR_LAUNCHER_LOGS, LogName.GAME.fileName)
         val gameLog = safeReadFile(gameLogFile, missing, "game log")
+        val debugLog = safeReadFile(
+            File(gameLogsDir, "debug.log"),
+            missing,
+            "debug log"
+        )
 
         // ── Crash reports directory ───────────────────────────────────────────
-        val crashReportContent = readNewestCrashReport(gameHome, missing)
+        val crashReports = readCrashReports(gameHome, missing)
+        val crashReportContent = crashReports.firstOrNull().orEmpty()
 
         // ── hs_err_pid log ────────────────────────────────────────────────────
         val hsErrLog = findAndReadHsErr(PathManager.DIR_LAUNCHER_LOGS, missing)
@@ -77,14 +87,19 @@ object CrashDataCollector {
 
         // ── Device information ────────────────────────────────────────────────
         val totalRamMb = getTotalRamMb(context)
+        val availableRamMb = getAvailableRamMb(context)
+        val availableStorageMb = getAvailableStorageMb(gameHome)
+        val gpuRenderer = detectGpuFromLogs("$gameLog\n$debugLog\n$jvmLog")
 
         return CrashSession(
             timestamp         = System.currentTimeMillis(),
             exitCode          = exitCode,
             isSignal          = isSignal,
             gameLog           = gameLog,
+            debugLog          = debugLog,
             jvmLog            = jvmLog,
             crashReportContent = crashReportContent,
+            olderCrashReports = crashReports.drop(1),
             hsErrLog          = hsErrLog,
             mcVersion         = mcVersion,
             loader            = loader,
@@ -96,9 +111,14 @@ object CrashDataCollector {
             androidVersion    = Build.VERSION.RELEASE,
             androidApiLevel   = Build.VERSION.SDK_INT,
             deviceManufacturer = Build.MANUFACTURER,
+            deviceBrand       = Build.BRAND,
             deviceModel       = Build.MODEL,
             cpuAbi            = Build.SUPPORTED_ABIS.firstOrNull(),
+            gpuRenderer       = gpuRenderer,
+            gpuDriverVersion  = readSystemProperty("ro.gfx.driver.0"),
             totalRamMb        = totalRamMb,
+            availableRamMb    = availableRamMb,
+            availableStorageMb = availableStorageMb,
             installedMods     = installedMods,
             installedResourcePacks = installedResourcePacks,
             installedShaderPacks   = installedShaderPacks,
@@ -125,13 +145,17 @@ object CrashDataCollector {
         }
     }
 
-    private fun readNewestCrashReport(gameHome: String, missing: MutableList<String>): String {
-        if (gameHome.isBlank()) return ""
+    private fun readCrashReports(gameHome: String, missing: MutableList<String>): List<String> {
+        if (gameHome.isBlank()) return emptyList()
         val crashDir = File(gameHome, "crash-reports")
-        if (!crashDir.exists()) return ""
-        val newest = crashDir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }
-            ?.maxByOrNull { it.lastModified() } ?: return ""
-        return safeReadFile(newest, missing, "crash report (${newest.name})")
+        if (!crashDir.exists()) return emptyList()
+        val reports = crashDir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }
+            ?.sortedByDescending { it.lastModified() }
+            ?: return emptyList()
+        return reports.mapIndexedNotNull { index, file ->
+            safeReadFile(file, missing, "crash report (${file.name})")
+                .takeIf { it.isNotBlank() }
+        }.take(5)
     }
 
     private fun findAndReadHsErr(logsDir: File, missing: MutableList<String>): String {
@@ -192,5 +216,52 @@ object CrashDataCollector {
         } catch (e: Exception) {
             0L
         }
+    }
+
+    private fun getAvailableRamMb(context: Context): Long {
+        return try {
+            val manager = context.getSystemService(Context.ACTIVITY_SERVICE)
+                    as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            manager.getMemoryInfo(info)
+            info.availMem / (1024L * 1024L)
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    private fun getAvailableStorageMb(gameHome: String): Long {
+        return try {
+            val path = File(gameHome.ifBlank { PathManager.DIR_FILES_EXTERNAL.absolutePath })
+            val stat = StatFs(path.absolutePath)
+            stat.availableBytes / (1024L * 1024L)
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    private fun newestNamedFile(dir: File, name: String): File? {
+        return dir.listFiles { file -> file.isFile && file.name == name }
+            ?.maxByOrNull { it.lastModified() }
+    }
+
+    private fun detectGpuFromLogs(logs: String): String? {
+        val line = logs.lineSequence().firstOrNull {
+            it.contains("GL_RENDERER", ignoreCase = true) ||
+                    it.contains("GPU renderer", ignoreCase = true) ||
+                    it.contains("Adreno", ignoreCase = true) ||
+                    it.contains("Mali", ignoreCase = true)
+        } ?: return null
+        return line.substringAfter(':', line).trim().takeIf { it.isNotBlank() }
+    }
+
+    private fun readSystemProperty(name: String): String? {
+        return try {
+            Class.forName("android.os.SystemProperties")
+                .getMethod("get", String::class.java)
+                .invoke(null, name) as? String
+        } catch (_: Exception) {
+            null
+        }?.takeIf { it.isNotBlank() }
     }
 }

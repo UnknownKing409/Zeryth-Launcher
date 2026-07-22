@@ -23,9 +23,13 @@ data class CrashSession(
 
     // ── Collected log content (normalized text, never original paths) ─────────
     val gameLog: String = "",
+    /** Full normalized debug log when available. */
+    val debugLog: String = "",
     val jvmLog: String = "",
     /** Content of the newest Minecraft crash-report file (crash-reports dir), if any. */
     val crashReportContent: String = "",
+    /** Older crash reports, newest first, retained for context without changing originals. */
+    val olderCrashReports: List<String> = emptyList(),
     /** Content of hs_err_pid*.log if present */
     val hsErrLog: String = "",
     /** Launcher internal log excerpt relevant to this launch */
@@ -50,11 +54,15 @@ data class CrashSession(
     val androidVersion: String? = null,
     val androidApiLevel: Int = 0,
     val deviceManufacturer: String? = null,
+    val deviceBrand: String? = null,
     val deviceModel: String? = null,
     val cpuAbi: String? = null,
     val gpuRenderer: String? = null,   // GL_RENDERER string if available
     val gpuVendor: String? = null,
+    val gpuDriverVersion: String? = null,
     val totalRamMb: Long = 0L,
+    val availableRamMb: Long = 0L,
+    val availableStorageMb: Long = 0L,
 
     // ── Installed content ─────────────────────────────────────────────────────
     /** List of mod filenames (not full paths) */
