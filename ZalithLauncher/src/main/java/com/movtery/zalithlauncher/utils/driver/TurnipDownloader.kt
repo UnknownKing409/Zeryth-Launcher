@@ -25,7 +25,6 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.setting.AllSettings
-import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.game.plugin.driver.DriverPluginManager
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.upgrade.GithubReleaseApi
@@ -54,7 +53,7 @@ object TurnipDownloader {
     private val client = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun getRepo(): String = AllSettings.turnipRepo.state ?: "K11MCH1/AdrenoToolsDrivers"
+    fun getRepo(): String = AllSettings.turnipRepo.state ?: "StevenMXZ/Adreno-Tools-Drivers"
 
     private fun getRepoApi(): String = "https://api.github.com/repos/${getRepo()}/releases"
 
@@ -96,16 +95,11 @@ object TurnipDownloader {
             }
 
             releases.forEach { release ->
-                val version = parseVersion(release.tagName)
-                if (version >= 23) {
-                    val zipAssets = release.assets.filter { it.name.endsWith(".zip", ignoreCase = true) }
-                    if (zipAssets.isNotEmpty()) {
-                        result.add(TurnipRelease(release.tagName, zipAssets))
-                    }
-                } else if (version < 23) {
-                    hasMore = false
+                val zipAssets = release.assets.filter { it.name.endsWith(".zip", ignoreCase = true) }
+                if (zipAssets.isNotEmpty()) {
+                    result.add(TurnipRelease(release.tagName, zipAssets))
                 }
-            }
+            } // being more spesific isnt good -revon
 
             page++
         }

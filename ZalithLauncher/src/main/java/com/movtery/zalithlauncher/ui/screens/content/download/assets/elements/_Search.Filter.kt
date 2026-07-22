@@ -58,6 +58,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,6 +78,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.layer_controller.utils.animateShapeAsState
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
@@ -91,12 +93,10 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.backgroundGlass
 import com.movtery.zalithlauncher.ui.theme.cardColor
 import com.movtery.zalithlauncher.ui.theme.onCardColor
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
-  import androidx.compose.runtime.LaunchedEffect
-  import androidx.lifecycle.compose.collectAsStateWithLifecycle
-  import com.movtery.zalithlauncher.game.versioninfo.MinecraftVersion
-  import com.movtery.zalithlauncher.game.versioninfo.MinecraftVersions
-  import com.movtery.zalithlauncher.game.versioninfo.popularVersions
-  import com.movtery.zalithlauncher.utils.logging.Logger
+import com.movtery.zalithlauncher.game.versioninfo.MinecraftVersion
+import com.movtery.zalithlauncher.game.versioninfo.MinecraftVersions
+import com.movtery.zalithlauncher.game.versioninfo.popularVersions
+import com.movtery.zalithlauncher.utils.logging.Logger
 
 /**
  * 搜索资源过滤器UI

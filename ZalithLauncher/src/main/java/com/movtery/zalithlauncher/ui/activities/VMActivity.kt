@@ -31,7 +31,6 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.TextureView
-import com.movtery.zalithlauncher.game.recorder.GameSurfaceRegistry
 import android.view.TextureView.SurfaceTextureListener
 import android.view.WindowManager
 import android.widget.Toast
@@ -87,7 +86,10 @@ import com.movtery.zalithlauncher.game.launch.handler.JVMHandler
 import com.movtery.zalithlauncher.game.path.getGameHome
 import com.movtery.zalithlauncher.game.multirt.RuntimesManager
 import com.movtery.zalithlauncher.game.plugin.PluginLoader
+import com.movtery.zalithlauncher.game.recorder.GameRecorder
+import com.movtery.zalithlauncher.game.recorder.GameSurfaceRegistry
 import com.movtery.zalithlauncher.game.renderer.Renderers
+import com.movtery.zalithlauncher.game.renderer.renderers.KopperZinkRenderer
 import com.movtery.zalithlauncher.game.version.installed.PlayTimeRepository
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.setting.AllSettings
@@ -689,6 +691,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+        (GameSurfaceRegistry.getView() as? TextureView)?.let { tv ->
+            GameRecorder.onTextureFrameAvailable(tv)
+        }
     }
 
     private var surfaceGeneration = 0L
@@ -776,7 +781,10 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
                         IntOffset(0, -bottomPadding)
                     },
                 factory = { context ->
-                    if (AllSettings.useSurfaceView.getValue()) {
+                    val useSurfaceView = AllSettings.useSurfaceView.getValue() &&
+                        (!Renderers.isCurrentRendererValid() ||
+                        Renderers.getCurrentRenderer().getUniqueIdentifier() != KopperZinkRenderer.getUniqueIdentifier())
+                    if (useSurfaceView) {
                         SurfaceView(context).apply {
                             holder.addCallback(this@VMActivity)
                         }.also { view ->

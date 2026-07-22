@@ -69,7 +69,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.commons.io.FileUtils
 import java.io.File
@@ -210,7 +209,8 @@ class GameInstaller(
         val fabricDir: File?,
         val legacyFabricDir: File?,
         val quiltDir: File?,
-        val cleanroomDir: File?
+        val cleanroomDir: File?,
+        val babricDir: File?
     )
 
     /**
@@ -263,6 +263,7 @@ class GameInstaller(
         val legacyFabricDir = info.legacyFabric?.let { File(tempGameVersionsDir, "legacy-fabric-loader-${it.version}-${info.gameVersion}") }
         val quiltDir = info.quilt?.let { File(tempGameVersionsDir, "quilt-loader-${it.version}-${info.gameVersion}") }
         val cleanroomDir = info.cleanroom?.let { File(tempGameVersionsDir, "cleanroom-${it.version}-${info.gameVersion}") }
+        val babricDir = info.babric?.let { File(tempGameVersionsDir, "babric-loader-${it.version}-${info.gameVersion}") }
 
         //Mods临时目录
         val tempModsDir = File(tempGameDir, ".temp_mods")
@@ -280,7 +281,8 @@ class GameInstaller(
             fabricDir = fabricDir,
             legacyFabricDir = legacyFabricDir,
             quiltDir = quiltDir,
-            cleanroomDir = cleanroomDir
+            cleanroomDir = cleanroomDir,
+            babricDir = babricDir
         )
     }
 
@@ -312,6 +314,7 @@ class GameInstaller(
                     pathConfig.legacyFabricDir?.createDirAndLog()
                     pathConfig.quiltDir?.createDirAndLog()
                     pathConfig.cleanroomDir?.createDirAndLog()
+                    pathConfig.babricDir?.createDirAndLog()
                     pathConfig.tempModsDir.createDirAndLog()
                 }
 
@@ -331,6 +334,7 @@ class GameInstaller(
                     legacyFabricDir = pathConfig.legacyFabricDir,
                     quiltDir = pathConfig.quiltDir,
                     cleanroomDir = pathConfig.cleanroomDir,
+                    babricDir = pathConfig.babricDir,
                     tempModsDir = pathConfig.tempModsDir
                 )
 
@@ -347,6 +351,7 @@ class GameInstaller(
                         pathConfig.legacyFabricDir != null ||
                         pathConfig.quiltDir != null ||
                         pathConfig.cleanroomDir != null ||
+                        pathConfig.babricDir != null ||
                         pathConfig.tempModsDir.listFiles()?.isNotEmpty() == true
                     ) {
                         createGameInstalledTask(
@@ -363,6 +368,7 @@ class GameInstaller(
                             legacyFabricFolder = pathConfig.legacyFabricDir,
                             quiltFolder = pathConfig.quiltDir,
                             cleanroomFolder = pathConfig.cleanroomDir,
+                            babricFolder = pathConfig.babricDir,
                             onComplete = {
                                 onInstalled(pathConfig.targetClientDir)
                                 targetClientDir = null
@@ -409,6 +415,7 @@ class GameInstaller(
                     pathConfig.legacyFabricDir?.createDirAndLog()
                     pathConfig.quiltDir?.createDirAndLog()
                     pathConfig.cleanroomDir?.createDirAndLog()
+                    pathConfig.babricDir?.createDirAndLog()
                     pathConfig.tempModsDir.createDirAndLog()
                 }
 
@@ -479,6 +486,7 @@ class GameInstaller(
                     legacyFabricDir = pathConfig.legacyFabricDir,
                     quiltDir = pathConfig.quiltDir,
                     cleanroomDir = pathConfig.cleanroomDir,
+                    babricDir = pathConfig.babricDir,
                     tempModsDir = pathConfig.tempModsDir
                 )
 
@@ -500,6 +508,7 @@ class GameInstaller(
                         legacyFabricFolder = pathConfig.legacyFabricDir,
                         quiltFolder = pathConfig.quiltDir,
                         cleanroomFolder = pathConfig.cleanroomDir,
+                        babricFolder = pathConfig.babricDir,
                         onComplete = {
                             onInstalled()
                             targetClientDir = null
@@ -519,6 +528,7 @@ class GameInstaller(
         legacyFabricDir: File?,
         quiltDir: File?,
         cleanroomDir: File?,
+        babricDir: File?,
         tempModsDir: File
     ) {
         // OptiFine 安装
@@ -675,6 +685,11 @@ class GameInstaller(
                     addTask(title = title, icon = icon, task = task)
                 }
             )
+        }
+
+        // Babric 安装
+        info.babric?.let { babricVersion ->
+            addFabricLike(babricVersion, babricDir!!.name)
         }
     }
 
@@ -980,6 +995,7 @@ class GameInstaller(
         legacyFabricFolder: File? = null,
         quiltFolder: File? = null,
         cleanroomFolder: File? = null,
+        babricFolder: File? = null,
         onComplete: suspend () -> Unit = {}
     ) = Task.runTask(
         id = GAME_JSON_MERGER_ID,
@@ -997,7 +1013,8 @@ class GameInstaller(
                 fabricFolder = fabricFolder,
                 legacyFabricFolder = legacyFabricFolder,
                 quiltFolder = quiltFolder,
-                cleanroomFolder = cleanroomFolder
+                cleanroomFolder = cleanroomFolder,
+                babricFolder = babricFolder
             )
 
             //迁移游戏文件

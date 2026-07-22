@@ -59,6 +59,7 @@ const val URL_WEBLATE: String = "https://hosted.weblate.org/projects/zalithlaunc
 const val URL_SUPPORT: String = "https://ifdian.net/a/MovTery"
 const val URL_ELY_BY_AUTH: String = "https://account.ely.by/api/authlib-injector/"
 const val URL_EASYTIER: String = "https://easytier.cn/"
+const val URL_PLAYER_NOTICE: String = "https://raw.githubusercontent.com/Star1xr/ZalithLauncher2Plus/refs/heads/main/ZalithLauncher/src/main/assets/player_notice.txt"
 
 const val URL_GITHUB_RENDERER_PLUGINS = "https://github.com/ShirosakiMio/FCLRendererPlugin/releases/tag/Renderer"
 const val URL_GITHUB_DRIVER_PLUGINS = "https://github.com/FCL-Team/FCLDriverPlugin/releases/tag/Turnip"

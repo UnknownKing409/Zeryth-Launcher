@@ -26,6 +26,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -51,6 +52,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -58,7 +60,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +89,7 @@ import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.utils.animation.getAnimateTween
 import com.movtery.zalithlauncher.R
 import kotlinx.coroutines.Dispatchers
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.movtery.zalithlauncher.game.plugin.driver.Driver
@@ -103,6 +105,7 @@ import com.movtery.zalithlauncher.path.URL_CLOUD_RENDERER_PLUGINS
 import com.movtery.zalithlauncher.path.URL_GITHUB_DRIVER_PLUGINS
 import com.movtery.zalithlauncher.utils.driver.TurnipDownloader
 import com.movtery.zalithlauncher.path.URL_GITHUB_RENDERER_PLUGINS
+import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.setting.unit.floatRange
 import com.movtery.zalithlauncher.ui.base.BaseScreen
@@ -432,14 +435,53 @@ fun RendererSettingsScreen(
                         summary = stringResource(R.string.settings_renderer_force_big_core_summary)
                     )
 
+                    val display = LocalContext.current.display
+
+                    SwitchSettingsCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        position = CardPosition.Middle,
+                        unit = AllSettings.fpsLimitEnabled,
+                        title = stringResource(R.string.settings_renderer_fps_limit_title),
+                        summary = stringResource(R.string.settings_renderer_fps_limit_summary),
+                        onCheckedChange = { checked ->
+                            AllSettings.fpsLimitEnabled.save(checked)
+                            if (checked) {
+                                val hz = display?.refreshRate?.roundToInt() ?: 60
+                                AllSettings.fpsLimit.save(hz)
+                                ZLBridge.fpsLimitSet(hz)
+                            } else {
+                                ZLBridge.fpsLimitSet(0)
+                            }
+                        }
+                    )
+
+                    if (AllSettings.fpsLimitEnabled.state) {
+                        IntSliderSettingsCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            position = CardPosition.Middle,
+                            value = AllSettings.fpsLimit.state,
+                            onValueChange = { AllSettings.fpsLimit.updateState(it) },
+                            onValueChangeFinished = {
+                                val fps = AllSettings.fpsLimit.state
+                                AllSettings.fpsLimit.save(fps)
+                                ZLBridge.fpsLimitSet(fps)
+                            },
+                            title = stringResource(R.string.settings_renderer_fps_limit_title),
+                            valueRange = AllSettings.fpsLimit.floatRange,
+                            suffix = " FPS",
+                            fineTuningControl = false
+                        )
+                    }
+
                     val isKopperZinkSelected = AllSettings.renderer.state == KopperZinkRenderer.getUniqueIdentifier()
                     var surfaceViewAutoDisabledAlert by remember { mutableStateOf(false) }
 
-                    //切换到 Kopper Zink 时，如果 SurfaceView 原本是开启的，仅提示用户已被关闭；
-                    //注意：这里不修改实际保存的偏好值，所以切换回其他渲染器时会自动恢复原来的开启状态
                     LaunchedEffect(isKopperZinkSelected) {
-                        if (isKopperZinkSelected && AllSettings.useSurfaceView.state && !AllSettings.surfaceViewKopperWarningDontShow.state) {
-                            surfaceViewAutoDisabledAlert = true
+                        if (isKopperZinkSelected && AllSettings.useSurfaceView.state) {
+                            AllSettings.useSurfaceView.save(false)
+                            if (!AllSettings.surfaceViewKopperWarningDontShow.state) {
+                                surfaceViewAutoDisabledAlert = true
+                            }
                         }
                     }
 

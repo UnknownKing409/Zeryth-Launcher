@@ -149,6 +149,11 @@ object GameRecorder {
     private var captureHandler: Handler?       = null
     private val isCapturing = AtomicBoolean(false)
 
+    // ── TextureView event-driven capture ──────────────────────────────────────
+    // Wall-clock ms of the last frame captured via onTextureFrameAvailable().
+    // Used to throttle to FRAME_RATE when the renderer produces frames faster.
+    @Volatile private var lastTextureCaptureMs = 0L
+
     // ── Reusable capture bitmap (avoids per-frame allocation / GC pressure) ───
     // Dimensions are checked on each frame; if the view is resized the bitmap
     // is recreated.  Access is confined to captureHandler thread only.
@@ -268,9 +273,10 @@ object GameRecorder {
 
             // State → RECORDING now: UI shows indicator and the guard at the top
             // of start() prevents re-entry during the async priming below.
-            accumulatedMs    = 0L
-            resumeTimeMs     = System.currentTimeMillis()
-            _elapsedMs.value = 0L
+            accumulatedMs        = 0L
+            resumeTimeMs         = System.currentTimeMillis()
+            _elapsedMs.value     = 0L
+            lastTextureCaptureMs = 0L
             _state.value = RecordingState.RECORDING
             startTimerTick()
 
@@ -855,6 +861,35 @@ object GameRecorder {
 
     // ──────────────────────────────────────────── Frame capture loop ──────────
 
+    /**
+     * Called from the **main thread** by `VMActivity.onSurfaceTextureUpdated` every time
+     * KopperZink (or any TextureView-backed renderer) commits a new frame and
+     * [TextureView] has finished calling [android.graphics.SurfaceTexture.updateTexImage].
+     *
+     * This is the event-driven capture path for [TextureView].  Polling [TextureView.getBitmap]
+     * from [captureHandler] reads a potentially stale hardware layer and causes 1–2 seconds
+     * of frozen frames at recording start: the Compose recomposition triggered by
+     * [RecordingState.RECORDING] competes with TextureView draw passes on the main thread,
+     * so the hardware layer lags behind and [getBitmap] returns the same frame repeatedly.
+     * Capturing here — on the same thread that just completed [android.graphics.SurfaceTexture.updateTexImage]
+     * — guarantees we always read the freshly rendered frame with no duplicate-frame window.
+     *
+     * Calls are throttled to [FRAME_RATE] so the recorder is unaffected when the renderer
+     * runs faster than the target frame rate (e.g. 60 or 120 fps).
+     */
+    fun onTextureFrameAvailable(tv: TextureView) {
+        if (!isCapturing.get() || _state.value != RecordingState.RECORDING) return
+        val now = System.currentTimeMillis()
+        if (now - lastTextureCaptureMs < 1000L / FRAME_RATE) return
+        lastTextureCaptureMs = now
+        val surface = inputSurface ?: return
+        val bmp = tv.getBitmap(tv.width.coerceAtLeast(1), tv.height.coerceAtLeast(1)) ?: return
+        captureHandler?.post {
+            drawToSurface(bmp, surface)
+            bmp.recycle()
+        }
+    }
+
     private fun scheduleNextFrame() {
         if (!isCapturing.get() || _state.value != RecordingState.RECORDING) return
         captureHandler?.postDelayed({ captureFrame() }, 1000L / FRAME_RATE)
@@ -889,9 +924,11 @@ object GameRecorder {
     }
 
     private fun captureFromTextureView(tv: TextureView, out: android.view.Surface) {
-        val bmp = tv.getBitmap(tv.width.coerceAtLeast(1), tv.height.coerceAtLeast(1))
-        if (bmp != null) { drawToSurface(bmp, out); bmp.recycle() }
-        scheduleNextFrame()
+        // Capture is event-driven via onTextureFrameAvailable(), called by
+        // VMActivity.onSurfaceTextureUpdated() on the main thread immediately after
+        // updateTexImage() completes — see onTextureFrameAvailable() for the full rationale.
+        // Polling getBitmap() here from captureHandler read a stale hardware layer and
+        // produced 1–2 seconds of frozen frames at recording start.
     }
 
     @Suppress("DEPRECATION")
