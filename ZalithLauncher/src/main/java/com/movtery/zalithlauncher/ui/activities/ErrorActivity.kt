@@ -71,13 +71,18 @@ fun showExitMessage(
     renderer: String = "",
     javaVersion: String = System.getProperty("java.version") ?: ""
 ) {
-    val intent = Intent(context, ErrorActivity::class.java).apply {
-        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        putExtra(BUNDLE_EXIT_TYPE, EXIT_JVM)
-        putExtra(BUNDLE_JVM_CRASH, JvmCrash(code, isSignal, logPath, gameHome, allocatedRamMb, renderer, javaVersion))
-    }
-    context.startActivity(intent)
+    // Launch the full Crash Analyzer for game crashes
+    launchCrashAnalyzer(
+        context       = context,
+        exitCode      = code,
+        isSignal      = isSignal,
+        logPath       = logPath,
+        gameHome      = gameHome,
+        allocatedRamMb = allocatedRamMb,
+        renderer      = renderer,
+        javaVersion   = javaVersion,
+        canRestart    = true
+    )
 }
 
 @Parcelize
