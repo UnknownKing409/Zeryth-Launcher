@@ -86,10 +86,6 @@
     <string name="crash_view_plain">Plain Language</string>
     <string name="crash_view_technical">Technical</string>
 
-    <!-- ── Action buttons ────────────────────────────────────────────────── -->
-    <string name="crash_show_logs">View Logs</string>
-    <string name="crash_share_logs">Share Logs</string>
-    <string name="crash_exit">Exit</string>
-    <string name="crash_restart">Restart Launcher</string>
+    <!-- crash_show_logs, crash_share_logs, crash_exit, crash_restart already defined in strings.xml -->
 
 </resources>
