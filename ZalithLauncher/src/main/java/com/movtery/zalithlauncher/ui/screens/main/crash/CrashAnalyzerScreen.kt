@@ -135,6 +135,9 @@ fun CrashAnalyzerScreen(
                         DiagnosisContent(
                             viewModel = viewModel,
                             diagnosis = diagnosis,
+                            onCopySummaryClick = onCopySummaryClick,
+                            onCopyTechnicalClick = onCopyTechnicalClick,
+                            onShareReportClick = onShareReportClick,
                             onRestartClick = onRestartClick,
                             onExitClick = onExitClick
                         )
@@ -213,6 +216,9 @@ private fun ErrorPlaceholder(
 private fun DiagnosisContent(
     viewModel: CrashAnalyzerViewModel,
     diagnosis: CrashDiagnosis,
+    onCopySummaryClick: () -> Unit,
+    onCopyTechnicalClick: () -> Unit,
+    onShareReportClick: () -> Unit,
     onRestartClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
