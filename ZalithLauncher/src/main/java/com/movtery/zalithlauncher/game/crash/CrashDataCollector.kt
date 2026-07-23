@@ -48,12 +48,20 @@ object CrashDataCollector {
         javaVersion: String
     ): CrashSession {
         val missing = mutableListOf<String>()
+        val launcherLogsDir = PathManager.DIR_LAUNCHER_LOGS
 
-        // ── Primary log ───────────────────────────────────────────────────────
-        // In ZalithLauncher, latest_jvm.log captures the full JVM process stdout/stderr,
-        // which includes all Minecraft output. This IS the canonical game log.
-        val primaryLogFile = File(logPath)
-        val jvmLog = safeReadFile(primaryLogFile, missing, "primary log ($logPath)")
+        // ── JVM/process log ────────────────────────────────────────────────────
+        // The path passed by ErrorActivity can be stale after a delayed flush or
+        // process restart. Try it first, then the launcher-managed copies.
+        val (jvmLog, primaryLogFile) = readFirstAvailable(
+            candidates = listOfNotNull(
+                logPath.takeIf { it.isNotBlank() }?.let(::File),
+                File(launcherLogsDir, LogName.JVM.fileName),
+                File(PathManager.DIR_FILES_EXTERNAL, LogName.JVM.fileName)
+            ),
+            missing = missing,
+            label = "JVM log"
+        )
 
         // ── Minecraft logs ────────────────────────────────────────────────────
         // Try the instance's log4j output first (gameHome/logs/latest.log),
@@ -61,17 +69,27 @@ object CrashDataCollector {
         // If neither exists (common when the game crashes early), promote jvmLog
         // so that all downstream analyzers have content to work with.
         val gameLogsDir = if (gameHome.isNotBlank()) File(gameHome, "logs") else null
-        val gameLogFile = gameLogsDir?.let { newestNamedFile(it, "latest.log") }
-            ?: File(PathManager.DIR_LAUNCHER_LOGS, LogName.GAME.fileName).takeIf { it.exists() }
-        val rawGameLog = if (gameLogFile != null)
-            safeReadFile(gameLogFile, mutableListOf(), "game log")
-        else ""
+        val (rawGameLog, _) = readFirstAvailable(
+            candidates = listOfNotNull(
+                gameLogsDir?.let { newestNamedFile(it, "latest.log") },
+                File(launcherLogsDir, LogName.GAME.fileName),
+                File(PathManager.DIR_FILES_EXTERNAL, LogName.GAME.fileName)
+            ),
+            missing = missing,
+            label = "Minecraft log (latest.log/latest_game.log)"
+        )
         // Promote jvmLog when no separate game log exists: it contains the same content.
         val gameLog = rawGameLog.ifBlank { jvmLog }
 
-        val debugLog = if (gameLogsDir != null)
-            safeReadFile(File(gameLogsDir, "debug.log"), mutableListOf(), "debug log")
-        else ""
+        val (debugLog, _) = readFirstAvailable(
+            candidates = listOfNotNull(
+                gameLogsDir?.let { File(it, "debug.log") },
+                File(launcherLogsDir, "debug.log"),
+                File(PathManager.DIR_FILES_EXTERNAL, "debug.log")
+            ),
+            missing = missing,
+            label = "debug log"
+        )
 
         // ── Crash reports directory ───────────────────────────────────────────
         val crashReports = readCrashReports(gameHome, missing)
@@ -79,9 +97,12 @@ object CrashDataCollector {
 
         // ── hs_err_pid log ────────────────────────────────────────────────────
         // Search launcher logs dir, native logs subdir, and external root.
-        val hsErrLog = findAndReadHsErr(PathManager.DIR_LAUNCHER_LOGS, missing)
-            .ifBlank { findAndReadHsErr(PathManager.DIR_NATIVE_LOGS, mutableListOf()) }
-            .ifBlank { findAndReadHsErr(PathManager.DIR_FILES_EXTERNAL, mutableListOf()) }
+        val hsErrLog = findAndReadHsErr(launcherLogsDir, missing)
+            .ifBlank { findAndReadHsErr(PathManager.DIR_NATIVE_LOGS, missing) }
+            .ifBlank { findAndReadHsErr(PathManager.DIR_FILES_EXTERNAL, missing) }
+            .ifBlank { findAndReadHsErr(File(gameHome), missing) }
+
+        val launcherLogExcerpt = newestLauncherLog(launcherLogsDir, missing)
 
         // ── Minecraft version & loader from game home ─────────────────────────
         val (mcVersion, loader, loaderVersion) = parseMcVersionAndLoader(gameHome)
@@ -135,7 +156,8 @@ object CrashDataCollector {
             installedShaderPacks   = installedShaderPacks,
             missingArtifacts  = missing,
             gameHome          = gameHome,
-            primaryLogFile    = primaryLogFile.takeIf { it.exists() }
+            primaryLogFile    = primaryLogFile,
+            launcherLogExcerpt = launcherLogExcerpt
         )
     }
 
@@ -156,31 +178,87 @@ object CrashDataCollector {
         }
     }
 
+    private fun readFirstAvailable(
+        candidates: List<File>,
+        missing: MutableList<String>,
+        label: String
+    ): Pair<String, File?> {
+        val uniqueCandidates = candidates
+            .filter { it.path.isNotBlank() }
+            .distinctBy { it.absolutePath }
+        var sawExisting = false
+        var sawEmptyOrUnreadable = false
+        for (candidate in uniqueCandidates) {
+            if (!candidate.exists() || !candidate.isFile) continue
+            sawExisting = true
+            val content = try {
+                candidate.readText(Charsets.UTF_8).takeLast(1_048_576)
+            } catch (error: Exception) {
+                Logger.error(TAG, "Failed to read $label at ${candidate.absolutePath}", error)
+                sawEmptyOrUnreadable = true
+                ""
+            }
+            if (content.isNotBlank()) return content to candidate
+            sawEmptyOrUnreadable = true
+        }
+        when {
+            !sawExisting -> missing.add("$label (not found)")
+            sawEmptyOrUnreadable -> missing.add("$label (empty or unreadable)")
+        }
+        return "" to null
+    }
+
     private fun readCrashReports(gameHome: String, missing: MutableList<String>): List<String> {
-        if (gameHome.isBlank()) return emptyList()
+        if (gameHome.isBlank()) {
+            missing.add("crash report (game home unavailable)")
+            return emptyList()
+        }
         val crashDir = File(gameHome, "crash-reports")
-        if (!crashDir.exists()) return emptyList()
+        if (!crashDir.exists() || !crashDir.isDirectory) {
+            missing.add("crash report (directory not found)")
+            return emptyList()
+        }
         val reports = crashDir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }
-            ?.sortedByDescending { it.lastModified() }
-            ?: return emptyList()
-        return reports.mapIndexedNotNull { index, file ->
+            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+        if (reports.isEmpty()) missing.add("crash report (no reports found)")
+        return reports.mapNotNull { file ->
             safeReadFile(file, missing, "crash report (${file.name})")
                 .takeIf { it.isNotBlank() }
         }.take(5)
     }
 
     private fun findAndReadHsErr(logsDir: File, missing: MutableList<String>): String {
-        val hsErr = logsDir.listFiles { f ->
-            f.isFile && f.name.startsWith("hs_err_pid") && f.name.endsWith(".log")
-        }?.maxByOrNull { it.lastModified() } ?: return ""
+        val hsErr = try {
+            logsDir.listFiles { f ->
+                f.isFile && f.name.startsWith("hs_err_pid") && f.name.endsWith(".log")
+            }?.maxByOrNull { it.lastModified() }
+        } catch (error: Exception) {
+            Logger.error(TAG, "Failed to inspect native crash logs at ${logsDir.absolutePath}", error)
+            missing.add("hs_err logs (${logsDir.name}, listing error)")
+            null
+        } ?: return ""
         return safeReadFile(hsErr, missing, "hs_err log (${hsErr.name})")
+    }
+
+    private fun newestLauncherLog(logsDir: File, missing: MutableList<String>): String {
+        val file = try {
+            logsDir.listFiles { candidate ->
+                candidate.isFile && candidate.name.endsWith(".log") &&
+                    candidate.name != LogName.JVM.fileName &&
+                    candidate.name != LogName.GAME.fileName
+            }?.maxByOrNull { it.lastModified() }
+        } catch (error: Exception) {
+            Logger.error(TAG, "Failed to inspect launcher logs", error)
+            null
+        } ?: return ""
+        return safeReadFile(file, missing, "launcher log (${file.name})")
     }
 
     private fun listFilenames(dir: File, extension: String?, missing: MutableList<String>): List<String> {
         if (!dir.exists()) return emptyList()
         return try {
             dir.listFiles { f ->
-                f.isFile && (extension == null || f.name.endsWith(".$extension"))
+                f.isFile && (extension == null || f.name.endsWith(".$extension", ignoreCase = true))
             }?.map { it.name } ?: emptyList()
         } catch (e: Exception) {
             missing.add("listing ${dir.name}")

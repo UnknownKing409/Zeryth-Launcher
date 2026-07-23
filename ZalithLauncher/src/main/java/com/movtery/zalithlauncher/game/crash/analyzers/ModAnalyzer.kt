@@ -69,7 +69,7 @@ object ModAnalyzer {
     )
 
     fun analyze(session: CrashSession): Result {
-        val allLogs = "${session.gameLog}\n${session.jvmLog}\n${session.crashReportContent}"
+        val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.crashReportContent}"
         val evidence = mutableListOf<CrashEvidenceItem>()
         var score = 0
         var offendingMod: String? = null

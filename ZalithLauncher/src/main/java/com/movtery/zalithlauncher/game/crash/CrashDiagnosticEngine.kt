@@ -18,6 +18,9 @@ import com.movtery.zalithlauncher.game.crash.model.CrashSeverity
 import com.movtery.zalithlauncher.game.crash.model.CrashSignature
 import com.movtery.zalithlauncher.game.crash.model.RepairAction
 import com.movtery.zalithlauncher.game.crash.model.SignaturePattern
+import com.movtery.zalithlauncher.utils.logging.Logger
+
+private const val TAG = "CrashDiagnosticEngine"
 
 /**
  * Rule-Based Diagnostic Engine.
@@ -38,8 +41,10 @@ object CrashDiagnosticEngine {
      */
     fun diagnose(context: Context, session: CrashSession): CrashDiagnosis {
         return try {
+            Logger.info(TAG, "Starting analysis: exit=${session.exitCode}, artifacts=${artifactCount(session)}")
             diagnoseInternal(context, session)
         } catch (error: Exception) {
+            Logger.error(TAG, "Crash analysis pipeline failed; preserving collected artifacts.", error)
             CrashFallback.diagnosis(session, error)
         }
     }
@@ -53,24 +58,35 @@ object CrashDiagnosticEngine {
      * @return A [CrashDiagnosis] with all evidence and recommended repairs
      */
     private fun diagnoseInternal(context: Context, session: CrashSession): CrashDiagnosis {
-        CrashSignatureDatabase.load(context)
-        GpuCompatibilityDatabase.load(context)
+        val warnings = mutableListOf<String>()
+        isolated("signature database load", warnings) { CrashSignatureDatabase.load(context) }
+        isolated("GPU compatibility database load", warnings) { GpuCompatibilityDatabase.load(context) }
 
         // 1. Signature matching
-        val signatureResults = matchSignatures(session)
+        val signatureResults = isolated("signature matching", warnings) {
+            matchSignatures(session)
+        } ?: emptyList()
 
         // 2. Specialist analyzers
-        val rendererResult = RendererAnalyzer.analyze(
-            session,
+        val gpuCompatibility = isolated("GPU compatibility lookup", warnings) {
             GpuCompatibilityDatabase.findMatch(
                 gpu = session.gpuRenderer,
                 manufacturer = session.deviceManufacturer,
                 renderer = session.renderer
             )
-        )
-        val javaResult = JavaAnalyzer.analyze(session)
-        val modResult = ModAnalyzer.analyze(session)
-        val nativeResult = NativeAnalyzer.analyze(session)
+        }
+        val rendererResult = isolated("renderer analyzer", warnings) {
+            RendererAnalyzer.analyze(session, gpuCompatibility)
+        } ?: RendererAnalyzer.Result(false, 0, emptyList(), null, emptyList())
+        val javaResult = isolated("Java analyzer", warnings) {
+            JavaAnalyzer.analyze(session)
+        } ?: JavaAnalyzer.Result(false, 0, emptyList(), emptyList())
+        val modResult = isolated("mod analyzer", warnings) {
+            ModAnalyzer.analyze(session)
+        } ?: ModAnalyzer.Result(false, 0, emptyList(), null, emptyList())
+        val nativeResult = isolated("native analyzer", warnings) {
+            NativeAnalyzer.analyze(session)
+        } ?: NativeAnalyzer.Result(false, 0, emptyList(), null, null)
 
         // 3. Merge all evidence
         val allEvidence = mutableListOf<CrashEvidenceItem>()
@@ -79,6 +95,14 @@ object CrashDiagnosticEngine {
         allEvidence.addAll(javaResult.evidence)
         allEvidence.addAll(modResult.evidence)
         allEvidence.addAll(nativeResult.evidence)
+        allEvidence.addAll(artifactEvidence(session))
+        warnings.forEach { warning ->
+            allEvidence.add(CrashEvidenceItem(
+                text = warning,
+                weight = 0.1f,
+                source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
+            ))
+        }
         allEvidence.sortByDescending { it.weight }
 
         // 4. Determine category and confidence
@@ -109,6 +133,7 @@ object CrashDiagnosticEngine {
             recommendedRepairs = repairs,
             startupStage = stage,
             matchedSignatureIds = matchedIds,
+            analyzerWarnings = warnings,
             aiEnhanced = false
         )
     }
@@ -116,7 +141,7 @@ object CrashDiagnosticEngine {
     private object CrashFallback {
         fun diagnosis(session: CrashSession, error: Throwable): CrashDiagnosis {
             val technical = buildString {
-                append("No known signature matched the collected evidence.\n")
+                append("The analyzer retained the collected evidence but could not complete every analysis step.\n")
                 append("Exit code: ${session.exitCode}")
                 if (session.isSignal) append(" (signal)")
                 append("\n")
@@ -125,23 +150,28 @@ object CrashDiagnosticEngine {
                 if (session.mcVersion != null) {
                     append("MC: ${session.mcVersion} (${session.loader ?: "vanilla"})\n")
                 }
-                append("Analyzer component unavailable: ${error::class.java.simpleName}")
+                append("Analyzer component unavailable: ${error::class.java.simpleName}\n")
+                if (session.missingArtifacts.isNotEmpty()) {
+                    append("Missing artifacts: ${session.missingArtifacts.joinToString()}")
+                }
             }
+            val confidence = (10 + artifactCount(session) * 5).coerceIn(10, 50)
             return CrashDiagnosis(
                 category = CrashCategory.UNKNOWN_CRASH,
-                severity = CrashSeverity.UNKNOWN,
-                confidence = 10,
+                severity = if (confidence >= 30) CrashSeverity.MEDIUM else CrashSeverity.UNKNOWN,
+                confidence = confidence,
                 rootCause = "Crash analysis encountered an internal problem.",
-                rootCauseDetail = "The launcher collected the crash information, but one analysis component was unavailable. No deterministic cause is being claimed.",
+                rootCauseDetail = "The launcher encountered an internal analyzer error. The crash artifacts below were still collected and remain available for diagnosis.",
                 technicalDetail = technical,
-                evidence = listOf(
+                evidence = artifactEvidence(session) + listOf(
                     CrashEvidenceItem(
-                        text = "Crash artifacts were collected; no reliable diagnosis was produced.",
-                        weight = 0.2f,
+                        text = "Crash analyzer internal error: ${error::class.java.simpleName}",
+                        weight = 0.1f,
                         source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
                     )
                 ),
-                startupStage = CrashDiagnosis.StartupStage.UNKNOWN
+                startupStage = inferStartupStage(session, CrashCategory.UNKNOWN_CRASH),
+                analyzerWarnings = listOf("Crash analyzer pipeline: ${error::class.java.simpleName}")
             )
         }
     }
@@ -164,7 +194,7 @@ object CrashDiagnosticEngine {
             val evidence = mutableListOf<CrashEvidenceItem>()
 
             for (pattern in sig.patterns) {
-                if (matchesPattern(session, pattern)) {
+                if (runCatching { matchesPattern(session, pattern) }.getOrDefault(false)) {
                     matchCount++
                     // Build an evidence item from the matched pattern
                     val evidenceText = sig.evidenceTemplates.getOrElse(matchCount - 1) {
@@ -210,7 +240,9 @@ object CrashDiagnosticEngine {
             "contains"            -> fieldValue.contains(pattern.value)
             "containsIgnoreCase"  -> fieldValue.contains(pattern.value, ignoreCase = true)
             "equals"              -> fieldValue == pattern.value
-            "regex"               -> Regex(pattern.value).containsMatchIn(fieldValue)
+            "regex"               -> runCatching {
+                Regex(pattern.value).containsMatchIn(fieldValue)
+            }.getOrDefault(false)
             "exitCode"            -> session.exitCode.toString() == pattern.value
             "exitCodeRange"       -> {
                 val parts = pattern.value.split("-")
@@ -230,7 +262,16 @@ object CrashDiagnosticEngine {
             "jvmLog"              -> session.jvmLog
             "crashReportContent"  -> session.crashReportContent
             "hsErrLog"            -> session.hsErrLog
-            "allLogs"             -> "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.crashReportContent}\n${session.hsErrLog}"
+            // Signature matching must use artifacts from this launch only.
+            // Historical reports and the general launcher log are retained as
+            // context/evidence, but must never cause a stale diagnosis.
+            "allLogs"             -> listOf(
+                session.gameLog,
+                session.debugLog,
+                session.jvmLog,
+                session.crashReportContent,
+                session.hsErrLog
+            ).joinToString("\n")
             "exitCode"            -> session.exitCode.toString()
             "renderer"            -> session.renderer ?: ""
             "javaVersion"         -> session.javaVersion ?: ""
@@ -264,17 +305,18 @@ object CrashDiagnosticEngine {
 
         // Signature DB is authoritative when confidence is high
         val topSig = sigMatches.firstOrNull()
-        if (topSig != null && topSig.signature.confidence >= 85) {
-            val cat = runCatching { CrashCategory.valueOf(topSig.signature.category) }
-                .getOrDefault(CrashCategory.UNKNOWN_CRASH)
-            return CategoryResolution(
-                category = cat,
-                confidence = topSig.signature.confidence,
-                rootCause = topSig.signature.rootCause,
-                rootCauseDetail = topSig.signature.rootCauseDetail,
-                technicalDetail = topSig.signature.technicalDetail,
-                matchedIds = sigMatches.map { it.signature.id }
-            )
+        if (topSig != null) {
+            val cat = runCatching { CrashCategory.valueOf(topSig.signature.category) }.getOrNull()
+            if (cat != null && cat != CrashCategory.UNKNOWN_CRASH) {
+                return CategoryResolution(
+                    category = cat,
+                    confidence = topSig.signature.confidence.coerceIn(1, 100),
+                    rootCause = topSig.signature.rootCause,
+                    rootCauseDetail = topSig.signature.rootCauseDetail,
+                    technicalDetail = topSig.signature.technicalDetail,
+                    matchedIds = sigMatches.map { it.signature.id }
+                )
+            }
         }
 
         // Specialist analyzers determine category when DB is insufficient
@@ -287,7 +329,7 @@ object CrashDiagnosticEngine {
             }
         }
         if (javaResult.hasJavaIssue) {
-            val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}"
+            val allLogs = currentSessionLogs(session)
             if (allLogs.contains("OutOfMemoryError") || session.exitCode == 137) {
                 scores[CrashCategory.OUT_OF_MEMORY] = javaResult.confidence
             } else if (allLogs.contains("Wrong Java version") || allLogs.contains("Unsupported class file major version")) {
@@ -297,7 +339,7 @@ object CrashDiagnosticEngine {
             }
         }
         if (modResult.hasModIssue) {
-            val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}"
+            val allLogs = currentSessionLogs(session)
             val loaderLower = session.loader?.lowercase() ?: ""
             when {
                 loaderLower.contains("fabric") && allLogs.contains("fabric", ignoreCase = true) ->
@@ -318,26 +360,31 @@ object CrashDiagnosticEngine {
 
         val topEntry = scores.maxByOrNull { it.value }
         if (topEntry != null && topEntry.value >= 30) {
-            val rootCause = buildRootCause(topEntry.key, session, nativeResult, modResult, rendererResult)
+            val rootCause = buildRootCause(topEntry.key, session, nativeResult, modResult, rendererResult, javaResult)
             return CategoryResolution(
                 category = topEntry.key,
                 confidence = topEntry.value,
                 rootCause = rootCause,
                 rootCauseDetail = buildPlainLanguageExplanation(topEntry.key),
-                technicalDetail = buildTechnicalDetail(session, nativeResult, modResult),
+                technicalDetail = buildTechnicalDetail(session, nativeResult, modResult, javaResult),
                 matchedIds = sigMatches.map { it.signature.id }
             )
         }
 
-        // Unknown crash fallback
-        val techDetail = buildTechnicalDetail(session, nativeResult, modResult)
+        // UNKNOWN_CRASH is reserved for evidence that did not match a supported
+        // category. Confidence is derived from collected artifacts and parser
+        // signals instead of a fixed placeholder value.
+        val techDetail = buildTechnicalDetail(session, nativeResult, modResult, javaResult)
+        val evidenceConfidence = evidenceConfidence(
+            session, sigMatches, rendererResult, javaResult, modResult, nativeResult
+        )
         return CategoryResolution(
             category = CrashCategory.UNKNOWN_CRASH,
-            confidence = 20,
+            confidence = evidenceConfidence,
             rootCause = "No known crash signature matched the available evidence.",
             rootCauseDetail = "The crash could not be categorized with confidence. The technical details below may help you or a developer diagnose the problem.",
             technicalDetail = techDetail,
-            matchedIds = emptyList()
+            matchedIds = sigMatches.map { it.signature.id }
         )
     }
 
@@ -346,7 +393,8 @@ object CrashDiagnosticEngine {
         session: CrashSession,
         native: NativeAnalyzer.Result,
         mod: ModAnalyzer.Result,
-        renderer: RendererAnalyzer.Result
+        renderer: RendererAnalyzer.Result,
+        java: JavaAnalyzer.Result
     ): String {
         return when (category) {
             CrashCategory.RENDERER_CRASH ->
@@ -360,6 +408,9 @@ object CrashDiagnosticEngine {
             CrashCategory.JVM_NATIVE_CRASH ->
                 "The JVM crashed due to a native error (${native.crashSignal ?: "unknown signal"}" +
                         "${if (native.crashingLibrary != null) " in ${native.crashingLibrary}" else ""})."
+            CrashCategory.JAVA_RUNTIME_CRASH ->
+                "Minecraft stopped because of ${java.exceptionClass ?: "a Java runtime exception"}" +
+                        "${java.exceptionMessage?.let { ": $it" } ?: "."}"
             CrashCategory.MISSING_DEPENDENCY ->
                 "A required mod dependency is missing${if (mod.offendingMod != null) " (${mod.offendingMod})" else ""}."
             CrashCategory.MOD_CONFLICT ->
@@ -408,13 +459,19 @@ object CrashDiagnosticEngine {
     private fun buildTechnicalDetail(
         session: CrashSession,
         native: NativeAnalyzer.Result,
-        mod: ModAnalyzer.Result
+        mod: ModAnalyzer.Result,
+        java: JavaAnalyzer.Result
     ): String {
         return buildString {
             if (session.exitCode != 0) append("Exit code: ${session.exitCode}${if (session.isSignal) " (signal)" else ""}\n")
+            java.exceptionClass?.let { append("Java exception: $it${java.exceptionMessage?.let { message -> ": $message" } ?: ""}\n") }
+            java.stackTrace?.let { append("Stack trace:\n$it\n") }
             native.crashSignal?.let { append("Signal: $it\n") }
             native.crashingLibrary?.let { append("Crashing library: $it\n") }
             mod.offendingMod?.let { append("Offending mod: $it\n") }
+            if (session.missingArtifacts.isNotEmpty()) {
+                append("Missing artifacts: ${session.missingArtifacts.joinToString()}\n")
+            }
             if (session.renderer != null) append("Renderer: ${session.renderer}\n")
             if (session.javaVersion != null) append("Java: ${session.javaVersion}\n")
             if (session.mcVersion != null) append("MC: ${session.mcVersion} (${session.loader ?: "vanilla"})\n")
@@ -462,5 +519,88 @@ object CrashDiagnosticEngine {
         return repairs
             .filter { seen.add(it.type) }
             .sortedBy { it.difficulty }
+    }
+
+    private fun artifactCount(session: CrashSession): Int {
+        return listOf(
+            session.gameLog,
+            session.debugLog,
+            session.jvmLog,
+            session.crashReportContent,
+            session.hsErrLog,
+            session.launcherLogExcerpt
+        ).count { it.isNotBlank() } + session.olderCrashReports.count { it.isNotBlank() }
+    }
+
+    private fun currentSessionLogs(session: CrashSession): String {
+        return listOf(
+            session.gameLog,
+            session.debugLog,
+            session.jvmLog,
+            session.crashReportContent,
+            session.hsErrLog
+        ).joinToString("\n")
+    }
+
+    private fun artifactEvidence(session: CrashSession): List<CrashEvidenceItem> {
+        val evidence = mutableListOf<CrashEvidenceItem>()
+        listOf(
+            "latest.log" to session.gameLog,
+            "debug.log" to session.debugLog,
+            "JVM log" to session.jvmLog,
+            "crash report" to session.crashReportContent,
+            "hs_err_pid log" to session.hsErrLog,
+            "launcher log" to session.launcherLogExcerpt
+        ).filter { it.second.isNotBlank() }.forEach { (name, _) ->
+            evidence.add(CrashEvidenceItem(
+                text = "Crash artifact collected: $name",
+                weight = 0.25f,
+                source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
+            ))
+        }
+        session.olderCrashReports.forEachIndexed { index, content ->
+            if (content.isNotBlank()) evidence.add(CrashEvidenceItem(
+                text = "Older crash report collected (#${index + 2})",
+                weight = 0.2f,
+                source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
+            ))
+        }
+        session.missingArtifacts.forEach { missing ->
+            evidence.add(CrashEvidenceItem(
+                text = "Artifact unavailable: $missing",
+                weight = 0.05f,
+                source = CrashEvidenceItem.EvidenceSource.RULE_ENGINE
+            ))
+        }
+        return evidence
+    }
+
+    private fun evidenceConfidence(
+        session: CrashSession,
+        signatures: List<SignatureMatch>,
+        renderer: RendererAnalyzer.Result,
+        java: JavaAnalyzer.Result,
+        mod: ModAnalyzer.Result,
+        native: NativeAnalyzer.Result
+    ): Int {
+        val strongestSpecialist = listOf(
+            renderer.confidence, java.confidence, mod.confidence, native.confidence
+        ).maxOrNull() ?: 0
+        val artifactContribution = minOf(20, artifactCount(session) * 3)
+        val signatureContribution = minOf(20, signatures.sumOf { it.matchCount } * 5)
+        return maxOf(strongestSpecialist / 2, artifactContribution + signatureContribution)
+            .coerceIn(1, 79)
+    }
+
+    private fun <T> isolated(name: String, warnings: MutableList<String>, block: () -> T): T? {
+        Logger.info(TAG, "Starting $name")
+        return try {
+            block().also { Logger.info(TAG, "Completed $name") }
+        } catch (error: Exception) {
+            val warning = "$name failed: ${error::class.java.simpleName}"
+            warnings.add(warning)
+            Logger.error(TAG, warning, error)
+            null
+        }
     }
 }

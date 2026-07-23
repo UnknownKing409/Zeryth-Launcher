@@ -36,6 +36,7 @@ object CrashReportFormatter {
         appendLine()
         appendLine("Matched signatures: ${diagnosis.matchedSignatureIds.joinToString().ifBlank { "None" }}")
         appendLine("Startup stage: ${diagnosis.startupStage.name}")
+        appendLine("Analyzer warnings: ${diagnosis.analyzerWarnings.joinToString().ifBlank { "None" }}")
         appendLine("Exit code: ${session.exitCode} (signal=${session.isSignal})")
         appendLine("Missing artifacts: ${session.missingArtifacts.joinToString().ifBlank { "None" }}")
         appendLine()

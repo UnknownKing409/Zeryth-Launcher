@@ -34,6 +34,8 @@ data class CrashDiagnosis(
     val recommendedRepairs: List<RepairAction> = emptyList(),
     val startupStage: StartupStage = StartupStage.UNKNOWN,
     val matchedSignatureIds: List<String> = emptyList(),
+    /** Non-fatal failures from individual analyzers or report persistence. */
+    val analyzerWarnings: List<String> = emptyList(),
     val aiEnhanced: Boolean = false,
     val aiExplanation: String? = null
 ) {

@@ -18,7 +18,10 @@ object JavaAnalyzer {
         val hasJavaIssue: Boolean,
         val confidence: Int,
         val evidence: List<CrashEvidenceItem>,
-        val repairs: List<RepairAction>
+        val repairs: List<RepairAction>,
+        val exceptionClass: String? = null,
+        val exceptionMessage: String? = null,
+        val stackTrace: String? = null
     )
 
     /** MC version → minimum required Java major version */
@@ -54,9 +57,29 @@ object JavaAnalyzer {
     )
 
     fun analyze(session: CrashSession): Result {
-        val allLogs = "${session.gameLog}\n${session.jvmLog}\n${session.crashReportContent}"
+        val allLogs = "${session.gameLog}\n${session.debugLog}\n${session.jvmLog}\n${session.crashReportContent}"
         val evidence = mutableListOf<CrashEvidenceItem>()
         var score = 0
+        var exceptionClass: String? = null
+        var exceptionMessage: String? = null
+
+        // Extract a deterministic Java exception even when the signature database has
+        // no exact entry for it. Keep this deliberately line-oriented so malformed
+        // user logs cannot make a regular expression scan consume the whole file.
+        val exceptionRegex = Regex(
+            """(?m)^(?:Caused by:\s*)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:Exception|Error))(?::\s*(.*))?$"""
+        )
+        val exceptionMatch = exceptionRegex.find(allLogs)
+        if (exceptionMatch != null) {
+            exceptionClass = exceptionMatch.groupValues.getOrNull(1)
+            exceptionMessage = exceptionMatch.groupValues.getOrNull(2)?.trim()?.takeIf { it.isNotBlank() }
+            evidence.add(CrashEvidenceItem(
+                text = "Java exception detected: $exceptionClass${exceptionMessage?.let { ": $it" } ?: ""}",
+                weight = 0.85f,
+                source = CrashEvidenceItem.EvidenceSource.JAVA_ANALYZER
+            ))
+            score += 45
+        }
 
         // ── Out of Memory ─────────────────────────────────────────────────────
         for (pattern in OOM_PATTERNS) {
@@ -188,8 +211,19 @@ object JavaAnalyzer {
             hasJavaIssue = score >= 20,
             confidence = minOf(score, 98),
             evidence = evidence,
-            repairs = repairs
+            repairs = repairs,
+            exceptionClass = exceptionClass,
+            exceptionMessage = exceptionMessage,
+            stackTrace = extractStackTrace(allLogs)
         )
+    }
+
+    private fun extractStackTrace(logs: String): String? {
+        val lines = logs.lineSequence()
+            .filter { it.trimStart().startsWith("at ") || it.trimStart().startsWith("Caused by:") }
+            .take(12)
+            .toList()
+        return lines.joinToString("\n").takeIf { it.isNotBlank() }
     }
 
     private fun extractJavaMajor(version: String): Int? {

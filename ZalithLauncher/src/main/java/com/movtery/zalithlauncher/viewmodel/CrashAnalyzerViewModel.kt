@@ -126,9 +126,23 @@ class CrashAnalyzerViewModel @Inject constructor() : ViewModel() {
                 diagnosis = result
 
                 // 3. Save to history
-                CrashHistoryManager.save(collectedSession, result)
+                runCatching {
+                    CrashHistoryManager.save(collectedSession, result)
+                }.onFailure { historyError ->
+                    Logger.error(TAG, "Could not save crash analysis history; report remains available.", historyError)
+                    diagnosis = result.copy(
+                        rootCauseDetail = result.rootCauseDetail +
+                                "\n\nHistory warning: this report could not be saved locally.",
+                        analyzerWarnings = result.analyzerWarnings +
+                                "Crash history save failed: ${historyError::class.java.simpleName}",
+                        evidence = result.evidence + CrashEvidenceItem(
+                            text = "Crash history could not be saved; the diagnosis itself completed.",
+                            weight = 0.1f
+                        )
+                    )
+                }
 
-                Logger.info(TAG, "Analysis complete. Category=${result.category}, Confidence=${result.confidence}%")
+                Logger.info(TAG, "Analysis complete. Category=${diagnosis?.category}, Confidence=${diagnosis?.confidence}%")
                 analysisState = AnalysisState.Complete
 
             } catch (e: Exception) {
@@ -145,19 +159,42 @@ class CrashAnalyzerViewModel @Inject constructor() : ViewModel() {
                     primaryLogFile = logPath.takeIf { it.isNotBlank() }?.let(::File)
                 )
                 session = fallbackSession
+                val fallbackConfidence = (
+                        10 + listOf(
+                            fallbackSession.gameLog,
+                            fallbackSession.debugLog,
+                            fallbackSession.jvmLog,
+                            fallbackSession.crashReportContent,
+                            fallbackSession.hsErrLog,
+                            fallbackSession.launcherLogExcerpt
+                        ).count { it.isNotBlank() } * 5
+                        ).coerceIn(10, 50)
                 diagnosis = CrashDiagnosis(
                     category = CrashCategory.UNKNOWN_CRASH,
-                    severity = CrashSeverity.UNKNOWN,
-                    confidence = 10,
+                    severity = if (fallbackConfidence >= 30) CrashSeverity.MEDIUM else CrashSeverity.UNKNOWN,
+                    confidence = fallbackConfidence,
                     rootCause = "Crash analysis encountered an internal problem.",
-                    rootCauseDetail = "The launcher could not complete every analysis step. No deterministic cause is being claimed.",
+                    rootCauseDetail = "The launcher encountered an internal analyzer error. Collected artifacts remain available below.",
                     technicalDetail = "Exit code: $exitCode\nAnalyzer error: ${e::class.java.simpleName}",
                     evidence = listOf(
                         CrashEvidenceItem(
-                            text = "Crash analysis was interrupted before a reliable diagnosis was available.",
-                            weight = 0.2f
+                            text = "Crash analyzer internal error: ${e::class.java.simpleName}",
+                            weight = 0.1f
                         )
-                    )
+                    ) + listOf(
+                        "latest.log" to fallbackSession.gameLog,
+                        "debug.log" to fallbackSession.debugLog,
+                        "JVM log" to fallbackSession.jvmLog,
+                        "crash report" to fallbackSession.crashReportContent,
+                        "hs_err_pid log" to fallbackSession.hsErrLog,
+                        "launcher log" to fallbackSession.launcherLogExcerpt
+                    ).filter { it.second.isNotBlank() }.map { (name, _) ->
+                        CrashEvidenceItem(
+                            text = "Crash artifact collected: $name",
+                            weight = 0.25f
+                        )
+                    },
+                    analyzerWarnings = listOf("Crash analysis lifecycle failed: ${e::class.java.simpleName}")
                 )
                 analysisState = AnalysisState.Complete
             }
