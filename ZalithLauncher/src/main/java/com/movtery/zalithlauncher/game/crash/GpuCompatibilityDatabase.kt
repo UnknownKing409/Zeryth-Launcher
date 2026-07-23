@@ -7,7 +7,7 @@ package com.movtery.zalithlauncher.game.crash
 
 import android.content.Context
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.google.gson.JsonArray
 import com.movtery.zalithlauncher.game.crash.model.GpuCompatibility
 import com.movtery.zalithlauncher.utils.logging.Logger
 
@@ -25,8 +25,11 @@ object GpuCompatibilityDatabase {
         if (entries.isNotEmpty()) return
         try {
             val json = context.assets.open(ASSET_PATH).bufferedReader().use { it.readText() }
-            val type = object : TypeToken<List<GpuCompatibility>>() {}.type
-            entries = Gson().fromJson<List<GpuCompatibility>>(json, type) ?: emptyList()
+            // Deserialize element-by-element to avoid Gson returning LinkedTreeMap objects
+            // when the JVM cannot verify the element type through type erasure at runtime.
+            val gson = Gson()
+            val array = gson.fromJson(json, JsonArray::class.java) ?: JsonArray()
+            entries = (0 until array.size()).map { gson.fromJson(array[it], GpuCompatibility::class.java) }
             Logger.info(TAG, "Loaded ${entries.size} GPU compatibility entries.")
         } catch (error: Exception) {
             Logger.error(TAG, "Unable to load GPU compatibility database.", error)

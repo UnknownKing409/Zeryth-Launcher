@@ -50,27 +50,38 @@ object CrashDataCollector {
         val missing = mutableListOf<String>()
 
         // ── Primary log ───────────────────────────────────────────────────────
+        // In ZalithLauncher, latest_jvm.log captures the full JVM process stdout/stderr,
+        // which includes all Minecraft output. This IS the canonical game log.
         val primaryLogFile = File(logPath)
         val jvmLog = safeReadFile(primaryLogFile, missing, "primary log ($logPath)")
 
         // ── Minecraft logs ────────────────────────────────────────────────────
-        // Prefer the instance's logs directory, then retain the launcher copy as a fallback.
-        val gameLogsDir = File(gameHome, "logs")
-        val gameLogFile = newestNamedFile(gameLogsDir, "latest.log")
-            ?: File(PathManager.DIR_LAUNCHER_LOGS, LogName.GAME.fileName)
-        val gameLog = safeReadFile(gameLogFile, missing, "game log")
-        val debugLog = safeReadFile(
-            File(gameLogsDir, "debug.log"),
-            missing,
-            "debug log"
-        )
+        // Try the instance's log4j output first (gameHome/logs/latest.log),
+        // then the launcher's own game log copy (latest_game.log).
+        // If neither exists (common when the game crashes early), promote jvmLog
+        // so that all downstream analyzers have content to work with.
+        val gameLogsDir = if (gameHome.isNotBlank()) File(gameHome, "logs") else null
+        val gameLogFile = gameLogsDir?.let { newestNamedFile(it, "latest.log") }
+            ?: File(PathManager.DIR_LAUNCHER_LOGS, LogName.GAME.fileName).takeIf { it.exists() }
+        val rawGameLog = if (gameLogFile != null)
+            safeReadFile(gameLogFile, mutableListOf(), "game log")
+        else ""
+        // Promote jvmLog when no separate game log exists: it contains the same content.
+        val gameLog = rawGameLog.ifBlank { jvmLog }
+
+        val debugLog = if (gameLogsDir != null)
+            safeReadFile(File(gameLogsDir, "debug.log"), mutableListOf(), "debug log")
+        else ""
 
         // ── Crash reports directory ───────────────────────────────────────────
         val crashReports = readCrashReports(gameHome, missing)
         val crashReportContent = crashReports.firstOrNull().orEmpty()
 
         // ── hs_err_pid log ────────────────────────────────────────────────────
+        // Search launcher logs dir, native logs subdir, and external root.
         val hsErrLog = findAndReadHsErr(PathManager.DIR_LAUNCHER_LOGS, missing)
+            .ifBlank { findAndReadHsErr(PathManager.DIR_NATIVE_LOGS, mutableListOf()) }
+            .ifBlank { findAndReadHsErr(PathManager.DIR_FILES_EXTERNAL, mutableListOf()) }
 
         // ── Minecraft version & loader from game home ─────────────────────────
         val (mcVersion, loader, loaderVersion) = parseMcVersionAndLoader(gameHome)
