@@ -28,6 +28,7 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion
 import com.movtery.zalithlauncher.game.download.assets.platform.getVersions
 import com.movtery.zalithlauncher.game.download.assets.platform.mcim.mapMCIMMirrorUrls
 import com.movtery.zalithlauncher.game.version.installed.Version
+import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
@@ -224,18 +225,30 @@ suspend fun downloadDependenciesBatch(
     gameVersions: List<Version>,
     folder: String,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
-    onEachError: (name: String, error: String) -> Unit
+    onEachError: (name: String, error: String) -> Unit,
+    onEachSkipped: (name: String) -> Unit = {}
 ) = withContext(Dispatchers.IO) {
-    val targetGameVersions = gameVersions
-        .mapNotNull { it.getVersionInfo()?.minecraftVersion }
-        .distinct()
-    val targetLoaders = gameVersions
-        .mapNotNull { it.getVersionInfo()?.loaderInfo?.loader?.displayName }
-        .distinct()
+    val plan = if (folder == VersionFolders.MOD.folderName) {
+        planDependencyDownloads(deps, gameVersions)
+    } else {
+        val requirements = planDependencyRequirements(deps)
+        DependencyInstallPlan(
+            work = requirements.dependencies.map { (dependency, project) ->
+                DependencyInstallWork(dependency, project, gameVersions.distinctBy { it.getVersionName() })
+            },
+            skippedDependencyNames = emptyList(),
+            planningErrors = requirements.planningErrors
+        )
+    }
 
-    fun normalizeLoaderName(name: String) = name.replace(" ", "").replace("-", "").lowercase()
+    plan.skippedDependencyNames.forEach(onEachSkipped)
+    plan.planningErrors.forEach { (name, error) -> onEachError(name, error) }
 
-    for ((dep, project) in deps) {
+    fun normalizeLoaderName(name: String) = name.filter(Char::isLetterOrDigit).lowercase()
+
+    for (planned in plan.work) {
+        val dep = planned.dependency
+        val project = planned.project
         val name = project.platformTitle()
         runCatching {
             // Fetch all versions for this dependency project
@@ -255,43 +268,79 @@ suspend fun downloadDependenciesBatch(
                 return@runCatching
             }
 
-            // Filter by installed Minecraft version, falling back to the full set if nothing matches
-            var matchingVersions = if (targetGameVersions.isNotEmpty()) {
-                initializedVersions
-                    .filter { v -> v.platformGameVersion().any { it in targetGameVersions } }
-                    .ifEmpty { initializedVersions }
-            } else {
-                initializedVersions
-            }
+            val selectedByTarget = planned.targetVersions.mapNotNull { target ->
+                try {
+                    val targetInfo = target.getVersionInfo()
+                        ?: throw IOException("Selected game instance has no Minecraft metadata")
+                    val targetMinecraft = targetInfo.minecraftVersion
+                    val targetLoader = targetInfo.loaderInfo?.loader?.displayName
 
-            // Further filter by mod loader, again falling back if that empties the set
-            if (targetLoaders.isNotEmpty()) {
-                val filteredByLoader = matchingVersions.filter { ver ->
-                    val loaders = ver.platformLoaders()
-                    loaders.isEmpty() || loaders.any { loader ->
-                        val loaderName = normalizeLoaderName(loader.getDisplayName())
-                        targetLoaders.any { target ->
-                            val targetName = normalizeLoaderName(target)
-                            loaderName.contains(targetName) || targetName.contains(loaderName)
-                        }
+                    // A pinned dependency is strict: never install a different file
+                    // merely because the pinned file is unavailable.
+                    val candidates = dep.versionId?.let { versionId ->
+                        initializedVersions.filter { it.platformId().equals(versionId, ignoreCase = true) }
+                            .also {
+                                if (it.isEmpty()) {
+                                    throw IOException("Pinned dependency version is unavailable: $versionId")
+                                }
+                            }
+                    } ?: initializedVersions
+
+                    val gameCompatible = candidates.filter { candidate ->
+                        val supportedVersions = candidate.platformGameVersion()
+                        supportedVersions.isEmpty() || targetMinecraft in supportedVersions
                     }
-                }
-                if (filteredByLoader.isNotEmpty()) {
-                    matchingVersions = filteredByLoader
+                    if (gameCompatible.isEmpty()) {
+                        throw IOException("No compatible Minecraft version found")
+                    }
+
+                    val loaderCompatible = gameCompatible.filter { candidate ->
+                        val supportedLoaders = candidate.platformLoaders()
+                        targetLoader == null ||
+                            supportedLoaders.isEmpty() ||
+                            supportedLoaders.any { loader ->
+                                val candidateName = normalizeLoaderName(loader.getDisplayName())
+                                val targetName = normalizeLoaderName(targetLoader)
+                                candidateName == targetName ||
+                                    candidateName.contains(targetName) ||
+                                    targetName.contains(candidateName)
+                            }
+                    }
+                    if (loaderCompatible.isEmpty()) {
+                        throw IOException("No compatible loader version found")
+                    }
+
+                    target to (loaderCompatible.maxByOrNull { it.platformDatePublished() }
+                        ?: throw IOException("No available version found"))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val targetName = "${name} [${target.getVersionName()}]"
+                    onEachError(targetName, mapExceptionToMessage(e).toAndroidString(context))
+                    null
                 }
             }
 
-            val best = matchingVersions.maxByOrNull { it.platformDatePublished() }
-                ?: throw IOException("No available version found for dependency: $name")
+            if (selectedByTarget.isEmpty()) return@runCatching
 
-            // Submit the download task (runs in TaskSystem background)
-            downloadSingleForVersions(
-                context = context,
-                version = best,
-                versions = gameVersions,
-                folder = folder,
-                submitError = submitError
-            )
+            // Group instances that selected the same file so one download task
+            // still serves all compatible targets without copying across
+            // incompatible instances.
+            selectedByTarget
+                .groupBy { (_, selected) ->
+                    selected.platformSha1() ?: selected.platformId()
+                }
+                .values
+                .forEach { selections ->
+                    val selected = selections.first().second
+                    downloadSingleForVersions(
+                        context = context,
+                        version = selected,
+                        versions = selections.map { it.first },
+                        folder = folder,
+                        submitError = submitError
+                    )
+                }
         }.onFailure { e ->
             if (e !is CancellationException) {
                 Logger.warning(TAG, "Failed to prepare batch download for dependency: $name", e)

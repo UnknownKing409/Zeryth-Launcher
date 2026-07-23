@@ -51,7 +51,9 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +66,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.game.download.assets.planDependencyDownloads
 import com.movtery.zalithlauncher.ui.components.SimpleTaskDialog
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
 import com.movtery.zalithlauncher.game.download.assets.platform.PlatformDependencyType
@@ -291,6 +294,20 @@ private fun DownloadDialog(
         }
         val hasDeps = dependencies.isNotEmpty() || optionals.isNotEmpty()
 
+        // Scan the selected instances to count already-installed required dependencies.
+        // Resets and re-runs whenever the selected versions or required deps change.
+        var alreadyInstalledCount by remember { mutableStateOf<Int?>(null) }
+        LaunchedEffect(selectedVersions.toList(), dependencies) {
+            alreadyInstalledCount = null
+            if (dependencies.isNotEmpty() && selectedVersions.isNotEmpty()) {
+                val plan = planDependencyDownloads(
+                    dependencies = dependencies,
+                    gameVersions = selectedVersions.toList()
+                )
+                alreadyInstalledCount = plan.skippedDependencyNames.size
+            }
+        }
+
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
@@ -393,6 +410,22 @@ private fun DownloadDialog(
                                     onVersionSelected = { selectedVersions.add(it) },
                                     onVersionUnSelected = { selectedVersions.remove(it) },
                                     listState = listState
+                                )
+                            }
+                        }
+
+                        // Show "X of Y already installed" summary above action buttons
+                        // when the background scan has completed and found installed deps.
+                        alreadyInstalledCount?.let { count ->
+                            if (count > 0 && dependencies.isNotEmpty()) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.download_assets_deps_already_installed,
+                                        count,
+                                        dependencies.size
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
                                 )
                             }
                         }

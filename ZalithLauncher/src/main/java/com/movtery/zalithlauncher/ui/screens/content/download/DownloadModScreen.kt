@@ -49,6 +49,7 @@ import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.screens.onBack
 import com.movtery.zalithlauncher.ui.screens.rememberTransitionSpec
 import com.movtery.zalithlauncher.utils.network.isUsingMobileData
+import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
 import kotlinx.coroutines.launch
@@ -103,6 +104,9 @@ fun DownloadModScreen(
                     submitError = submitError,
                     onEachError = { name, error ->
                         failedDependencies += "${name}: ${error}"
+                    },
+                    onEachSkipped = { name ->
+                        Logger.info("DownloadMod", "Skipping already installed dependency: $name")
                     }
                 )
                 if (failedDependencies.isNotEmpty()) {
@@ -135,6 +139,9 @@ fun DownloadModScreen(
                         submitError = submitError,
                         onEachError = { name, error ->
                             failedDependencies += "${name}: ${error}"
+                        },
+                        onEachSkipped = { name ->
+                            Logger.info("DownloadMod", "Skipping already installed dependency: $name")
                         }
                     )
                     if (failedDependencies.isNotEmpty()) {

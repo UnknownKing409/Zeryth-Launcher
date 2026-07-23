@@ -331,6 +331,7 @@
     <string name="download_assets_optional_projects">Optional Projects</string>
     <string name="download_assets_download_all_deps">Download All Dependencies</string>
     <string name="download_assets_install_with_deps">Install with Dependencies</string>
+    <string name="download_assets_deps_already_installed">%1$d of %2$d already installed</string>
     <string name="download_assets_loading_page_data">Starting to load paged data</string>
     <string name="download_assets_loaded_chunk_page">Paged data loaded, chunk %1$d, page %2$d</string>
     <string name="download_assets_loading_dep_project">Loading and caching dependency project, ID: %s</string>
