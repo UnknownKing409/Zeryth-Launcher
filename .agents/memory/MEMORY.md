@@ -16,3 +16,4 @@
 - [Crash Analyzer Architecture](crash_analyzer_architecture.md) — full package map, entry flow, intent extras, signature schema; read before any crash analyzer work.
 - [Crash Analyzer Status](crash_analyzer_status.md) — what is complete, what remains (exports, AI, history UI, GPU compat DB), and known limitations.
 - [Crash Analyzer Signature DB](crash_analyzer_signatures.md) — JSON schema, pattern types/fields, all 14 built-in signatures; extend DB only, no code change needed.
+- [Smart Dependency Detection](smart-dep-detection.md) — DependencyInstallPlanner.kt is authoritative; 4-tier matching; planDependencyDownloads only for MOD folder.
