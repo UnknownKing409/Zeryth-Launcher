@@ -56,6 +56,11 @@ sig_sodium_optifine_001, sig_native_sigabrt_001, sig_corrupted_world_001, sig_ne
 - [x] `AndroidManifest.xml` — CrashAnalyzerActivity registered
 - [x] Analysis failures now degrade to a transparent low-confidence Unknown Crash report instead of showing a generic error screen
 
+### Reliability rules
+- [x] Analyzer modules execute independently; a parser or signature failure is retained as a warning while successful evidence remains in the report
+- [x] Signature matching uses only current-session artifacts; historical crash reports and general launcher logs are context evidence, not decisive inputs
+- [x] Artifact discovery records missing, empty, and unreadable candidates instead of silently treating them as absent
+
 ## Not Yet Implemented (future work)
 
 - [ ] AI/Gemini analysis layer (hooks exist: `aiEnhanced`, `aiExplanation` fields in CrashDiagnosis; AI activation rules documented)
