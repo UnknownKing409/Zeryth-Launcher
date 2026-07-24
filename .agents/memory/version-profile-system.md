@@ -1,0 +1,27 @@
+---
+name: Version Profile System
+description: Architecture and integration points for the per-instance Version Profile System added to Zeryth Launcher.
+---
+
+# Version Profile System
+
+## Rule
+Each installed game instance has its own independent list of named profiles stored in `.zalith/version.profiles` (JSON). Profiles never cross instance boundaries.
+
+## Key files
+- `game/version/profile/VersionProfile.kt` — `VersionProfile` data class + `VersionProfileFile` container; nullable future-expansion fields (javaRuntime, jvmArguments, renderer, resolution, launchArguments, controllerSettings) are reserved but not populated.
+- `game/version/profile/VersionProfileManager.kt` — singleton object; CRUD (create/rename/duplicate/delete), capture (snapshot disk+account state), apply (rename files + write options.txt), in-memory cache keyed by version path.
+- `ui/.../elements/VersionProfileElements.kt` — `VersionProfileMenu` (dropdown for version cards) and `VersionProfilePanel` (full radio-button panel for LauncherScreen right panel).
+
+## Integration points
+- `VersionsManager.kt`: Before `_currentVersion.update { version }`, capture old version's active profile; after update, call `VersionProfileManager.activate(version)`.
+- `LauncherScreen.kt` (`RightMenuContent`): `showProfiles` state toggled by icon button (left of Gear); when true + version valid, shows `VersionProfilePanel` instead of `AccountAvatar`.
+- `VersionsManageElements.kt`: `VersionProfileMenu` added to all three version card layouts (list 48dp, grid 48dp, compact 40dp).
+- `strings.xml`: keys `version_profile`, `version_profile_create`, `version_profile_rename`, `version_profile_duplicate`, `version_profile_delete`, `version_profile_delete_warning`, `version_profile_manage`.
+
+## How state is captured/applied
+- **Mods/ResourcePacks/Shaders**: file scan of respective folders; enabled = file does NOT end in `.disabled`; apply = rename to add/remove `.disabled` suffix.
+- **ResourcePack order + selected shader**: read/write `options.txt` lines (`resourcePacks:`, `shaderPack:`).
+- **Account**: store `uniqueUUID`; restore via `AccountsManager.setCurrentAccount(account)`.
+
+**Why:** Profiles are a lightweight config layer above existing systems; no duplicate managers, no hardcoded data, no breaking changes to existing functionality.

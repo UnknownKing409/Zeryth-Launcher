@@ -17,3 +17,4 @@
 - [Crash Analyzer Status](crash_analyzer_status.md) — what is complete, what remains (exports, AI, history UI, GPU compat DB), and known limitations.
 - [Crash Analyzer Signature DB](crash_analyzer_signatures.md) — JSON schema, pattern types/fields, all 14 built-in signatures; extend DB only, no code change needed.
 - [Smart Dependency Detection](smart-dep-detection.md) — DependencyInstallPlanner.kt is authoritative; 4-tier matching; planDependencyDownloads only for MOD folder.
+- [Version Profile System](version-profile-system.md) — per-instance profiles store mod/resource/shader/account state; integrate via VersionsManager currentVersion change hook + LauncherScreen right panel icon.
