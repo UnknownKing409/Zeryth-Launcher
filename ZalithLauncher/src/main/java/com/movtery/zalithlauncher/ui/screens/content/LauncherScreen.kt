@@ -123,6 +123,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.constraintlayout.compose.Dimension
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -1494,6 +1495,7 @@ private fun RightMenuContent(
     toAccountManageScreen: () -> Unit,
     toVersionManageScreen: () -> Unit,
     toVersionSettingsScreen: () -> Unit,
+    onShowPanelChange: (Boolean) -> Unit = {},
     launchButton: @Composable (
         innerModifier: Modifier,
         onClick: () -> Unit,
@@ -1511,12 +1513,16 @@ private fun RightMenuContent(
         val (accountAvatar, versionManagerLayout, launchButton) = createRefs()
 
         val showPanel = showProfiles && version?.isValid() == true
+        LaunchedEffect(showPanel) { onShowPanelChange(showPanel) }
+
         Box(
             modifier = Modifier.constrainAs(accountAvatar) {
                 top.linkTo(parent.top)
-                bottom.linkTo(launchButton.top, margin = 32.dp)
+                bottom.linkTo(versionManagerLayout.top)
                 start.linkTo(parent.start)
                 end.linkTo(parent.end)
+                width = Dimension.fillToConstraints
+                height = Dimension.fillToConstraints
             },
             contentAlignment = Alignment.Center
         ) {
@@ -1534,6 +1540,7 @@ private fun RightMenuContent(
             }
             AnimatedVisibility(
                 visible = showPanel,
+                modifier = Modifier.fillMaxSize(),
                 enter = fadeIn(animationSpec = tween(200)) +
                         slideInVertically(animationSpec = tween(200)) { -it / 6 },
                 exit = fadeOut(animationSpec = tween(150)) +
@@ -1541,6 +1548,9 @@ private fun RightMenuContent(
             ) {
                 version?.let {
                     VersionProfilePanel(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         version = it,
                         onSelected = { showProfiles = false }
                     )
@@ -1751,6 +1761,8 @@ private fun RightMenu(
         isHorizontal = true
     )
 
+    var panelShown by remember { mutableStateOf(false) }
+
     Box(modifier = modifier) {
         BackgroundCard(
             modifier = Modifier
@@ -1764,6 +1776,7 @@ private fun RightMenu(
                 toAccountManageScreen = toAccountManageScreen,
                 toVersionManageScreen = toVersionManageScreen,
                 toVersionSettingsScreen = toVersionSettingsScreen,
+                onShowPanelChange = { panelShown = it },
             ) { innerModifier, onClick, text ->
                 ScalingActionButton(
                     modifier = innerModifier,
@@ -1774,26 +1787,33 @@ private fun RightMenu(
             }
         }
 
-        // Small collapse arrow -- tap to hide the right panel
-        Box(
+        // Small collapse arrow -- hidden when profile panel is open
+        AnimatedVisibility(
+            visible = !panelShown,
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(top = 14.dp, start = 6.dp)
-                .size(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onCollapse
-                ),
-            contentAlignment = Alignment.Center
+                .align(Alignment.TopStart),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_arrow_right_rounded),
-                contentDescription = stringResource(R.string.generic_collapse),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-            )
+            Box(
+                modifier = Modifier
+                    .padding(top = 14.dp, start = 6.dp)
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCollapse
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_right_rounded),
+                    contentDescription = stringResource(R.string.generic_collapse),
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                )
+            }
         }
     }
 }
