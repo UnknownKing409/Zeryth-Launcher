@@ -99,10 +99,15 @@ fun VersionProfileMenu(
     var refreshKey by remember(version) { mutableIntStateOf(0) }
     var editor by remember { mutableStateOf<ProfileEditor?>(null) }
     var deleteTarget by remember { mutableStateOf<VersionProfile?>(null) }
-    val profiles = remember(version, refreshKey) {
+    val profileChange by VersionProfileManager.profileChanges.collectAsStateWithLifecycle()
+    val profileRevision = profileChange
+        ?.takeIf { it.versionPath == version.getVersionPath().absolutePath }
+        ?.revision
+        ?: 0L
+    val profiles = remember(version, refreshKey, profileRevision) {
         VersionProfileManager.listProfiles(version)
     }
-    val activeName = remember(version, refreshKey) {
+    val activeName = remember(version, refreshKey, profileRevision) {
         VersionProfileManager.activeProfileName(version)
     }
 

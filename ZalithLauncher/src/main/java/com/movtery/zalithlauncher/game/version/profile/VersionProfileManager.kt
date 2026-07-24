@@ -20,6 +20,8 @@ import com.movtery.zalithlauncher.utils.logging.Logger
 import java.io.File
 import java.io.FileWriter
 import java.lang.reflect.Type
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +42,7 @@ object VersionProfileManager {
     private val cache = ConcurrentHashMap<String, VersionProfileFile>()
     private val profileFileType: Type = object : TypeToken<VersionProfileFile>() {}.type
     private var profileChangeRevision = 0L
+    private var isApplyingProfile = false
     private val _profileChanges = MutableStateFlow<VersionProfileChange?>(null)
 
     /** Emits after a profile selection or activation has applied new files. */
@@ -50,7 +53,9 @@ object VersionProfileManager {
         // so that account switches are persisted into the current profile without
         // any manual "save" step from the user.
         AccountsManager.addOnAccountChangedListener { _ ->
-            VersionsManager.currentVersion.value?.let { captureCurrentState(it) }
+            if (!isApplyingProfile) {
+                VersionsManager.currentVersion.value?.let { captureCurrentState(it) }
+            }
         }
     }
 
@@ -81,11 +86,15 @@ object VersionProfileManager {
     @Synchronized
     fun selectProfile(version: Version, name: String): Boolean {
         var file = read(version)
-        val target = file.profiles.firstOrNull { it.name == name } ?: return false
+        var target = file.profiles.firstOrNull { it.name == name } ?: return false
         val current = VersionsManager.currentVersion.value
         if (current != null && current.getVersionName() == version.getVersionName()) {
             captureCurrentState(version)
             file = read(version)
+            // Capturing may replace the active profile in the cache. Always
+            // apply the freshly-read target so selecting a profile cannot
+            // restore stale state from before the capture.
+            target = file.profiles.firstOrNull { it.name == name } ?: return false
             apply(target, version)
         }
         write(version, file.copy(activeProfile = target.name))
@@ -173,6 +182,21 @@ object VersionProfileManager {
         notifyProfileChanged(version)
     }
 
+    /**
+     * Re-applies the active profile immediately before a game launch.
+     *
+     * Launches can be initiated from shortcuts and other entry points that do
+     * not necessarily pass through the normal version-selection UI. Keeping
+     * this boundary here guarantees that the files, options, and account used
+     * by the launch pipeline come from the active profile.
+     */
+    @Synchronized
+    fun synchronizeForLaunch(version: Version) {
+        ensure(version)
+        apply(activeProfile(version), version)
+        notifyProfileChanged(version)
+    }
+
     private fun notifyProfileChanged(version: Version) {
         profileChangeRevision++
         _profileChanges.value = VersionProfileChange(
@@ -206,15 +230,20 @@ object VersionProfileManager {
         )
 
     private fun apply(profile: VersionProfile, version: Version) {
-        applyStates(VersionFolders.MOD.getDir(version.getGameDir()), profile.modStates)
-        applyStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir()), profile.resourcePackStates)
-        applyStates(VersionFolders.SHADERS.getDir(version.getGameDir()), profile.shaderStates)
-        writeOptionList(version, RESOURCE_PACK_OPTION, profile.resourcePackOrder)
-        writeOptionValue(version, SHADER_OPTION, if (profile.shaderEnabled) profile.selectedShader.orEmpty() else "")
-        profile.accountId?.let { id ->
-            AccountsManager.accountsFlow.value.firstOrNull { it.uniqueUUID == id }?.let {
-                AccountsManager.setCurrentAccount(it)
+        isApplyingProfile = true
+        try {
+            applyStates(VersionFolders.MOD.getDir(version.getGameDir()), profile.modStates)
+            applyStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir()), profile.resourcePackStates)
+            applyStates(VersionFolders.SHADERS.getDir(version.getGameDir()), profile.shaderStates)
+            writeOptionList(version, RESOURCE_PACK_OPTION, profile.resourcePackOrder)
+            writeOptionValue(version, SHADER_OPTION, if (profile.shaderEnabled) profile.selectedShader.orEmpty() else "")
+            profile.accountId?.let { id ->
+                AccountsManager.accountsFlow.value.firstOrNull { it.uniqueUUID == id }?.let {
+                    AccountsManager.setCurrentAccount(it)
+                }
             }
+        } finally {
+            isApplyingProfile = false
         }
     }
 
@@ -230,12 +259,42 @@ object VersionProfileManager {
             val enabled = states[key] ?: false
             if (enabled == file.isEnabled()) return@forEach
             val targetName = if (enabled) key else "$key$DISABLED_SUFFIX"
-            file.renameTo(File(directory, targetName))
+            val target = File(directory, targetName)
+            moveFile(file, target)
+
+            // A profile change must change the real filename, not only the
+            // cached indicator. Verify the move because a stale visual state
+            // is worse than a visible warning about a failed switch.
+            if (!target.exists() || target.isEnabled() != enabled) {
+                Logger.warning(
+                    TAG,
+                    "Profile state move did not produce the requested state: " +
+                        "$file -> $target (enabled=$enabled)"
+                )
+            }
         }
     }
 
     private fun File.profileKey(): String =
-        name.removeSuffix(DISABLED_SUFFIX)
+        name.removeSuffixIgnoreCase(DISABLED_SUFFIX)
+
+    private fun String.removeSuffixIgnoreCase(suffix: String): String =
+        if (endsWith(suffix, ignoreCase = true)) dropLast(suffix.length) else this
+
+    private fun moveFile(source: File, target: File): Boolean {
+        if (source == target) return true
+        return runCatching {
+            target.parentFile?.mkdirs()
+            Files.move(
+                source.toPath(),
+                target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+            true
+        }.onFailure {
+            Logger.warning(TAG, "Failed to apply profile file state: $source -> $target", it)
+        }.getOrDefault(false)
+    }
 
     private fun optionValue(version: Version, key: String): String? =
         optionsFile(version).takeIf { it.exists() }?.readLines()

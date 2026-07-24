@@ -37,6 +37,7 @@ import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.mod.AllModReader
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.activities.runGame
@@ -69,6 +70,7 @@ object LaunchGame {
         submitError: (ErrorViewModel.ThrowableMessage) -> Unit
     ) {
         if (isLaunching) return
+        VersionProfileManager.synchronizeForLaunch(version)
         val account = AccountsManager.currentAccountFlow.value ?: return
         isLaunching = true
 
