@@ -25,3 +25,15 @@ Each installed game instance has its own independent list of named profiles stor
 - **Account**: store `uniqueUUID`; restore via `AccountsManager.setCurrentAccount(account)`.
 
 **Why:** Profiles are a lightweight config layer above existing systems; no duplicate managers, no hardcoded data, no breaking changes to existing functionality.
+
+## Reactive profile changes
+
+`VersionProfileManager` is also the source of truth for profile-change notifications. Consumers that display
+filesystem-backed profile state should collect its change flow and refresh their existing ViewModel data for the
+matching version path; they should not recreate navigation destinations or maintain a second profile state.
+
+**Why:** Profile activation renames files and updates options synchronously, but Compose screens otherwise have no
+observable state change to trigger rereading those files.
+
+**How to apply:** Any future profile-aware screen should subscribe to the manager's reactive change stream and use
+its current ViewModel refresh mechanism, filtering notifications to its displayed version.
