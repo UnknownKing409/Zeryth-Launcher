@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
@@ -419,9 +420,15 @@ fun ResourcePackManageScreen(
         Triple(NormalNavKey.Versions.ResourcePackManager, versionsScreenKey, false)
     ) { isVisible ->
         val viewModel = rememberResourcePackManageViewModel(resourcePackDir, version)
+        val profileChange by VersionProfileManager.profileChanges.collectAsStateWithLifecycle()
 
         LaunchedEffect(Unit) {
             viewModel.checkCountAndRefresh()
+        }
+        LaunchedEffect(profileChange, version) {
+            if (profileChange?.versionPath == version.getVersionPath().absolutePath) {
+                viewModel.refresh(checkCount = false)
+            }
         }
 
         DeleteAllOperation(

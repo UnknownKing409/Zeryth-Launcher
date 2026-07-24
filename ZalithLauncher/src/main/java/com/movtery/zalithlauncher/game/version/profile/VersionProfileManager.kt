@@ -22,6 +22,8 @@ import java.io.FileWriter
 import java.lang.reflect.Type
 import java.util.concurrent.ConcurrentHashMap
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 private const val TAG = "VersionProfileManager"
 private const val PROFILE_FILE_NAME = "version.profiles"
@@ -37,6 +39,11 @@ private const val RESOURCE_PACK_OPTION = "resourcePacks"
 object VersionProfileManager {
     private val cache = ConcurrentHashMap<String, VersionProfileFile>()
     private val profileFileType: Type = object : TypeToken<VersionProfileFile>() {}.type
+    private var profileChangeRevision = 0L
+    private val _profileChanges = MutableStateFlow<VersionProfileChange?>(null)
+
+    /** Emits after a profile selection or activation has applied new files. */
+    val profileChanges = _profileChanges.asStateFlow()
 
     init {
         // Auto-capture the active profile whenever the selected account changes,
@@ -82,6 +89,7 @@ object VersionProfileManager {
             apply(target, version)
         }
         write(version, file.copy(activeProfile = target.name))
+        notifyProfileChanged(version)
         return true
     }
 
@@ -95,6 +103,7 @@ object VersionProfileManager {
         val name = uniqueName(file.profiles, requestedName)
         val profile = capture(version).copy(name = name)
         write(version, file.copy(activeProfile = name, profiles = file.profiles + profile))
+        notifyProfileChanged(version)
         return profile
     }
 
@@ -113,6 +122,7 @@ object VersionProfileManager {
             apply(profile, version)
         }
         write(version, file.copy(activeProfile = profile.name, profiles = file.profiles + profile))
+        notifyProfileChanged(version)
         return profile
     }
 
@@ -129,6 +139,7 @@ object VersionProfileManager {
                 profiles = file.profiles.map { if (it.name == oldName) renamed else it }
             )
         )
+        notifyProfileChanged(version)
         return renamed
     }
 
@@ -147,6 +158,7 @@ object VersionProfileManager {
         if (file.activeProfile == name && VersionsManager.currentVersion.value?.getVersionName() == version.getVersionName()) {
             apply(remaining.first(), version)
         }
+        notifyProfileChanged(version)
         return true
     }
 
@@ -158,6 +170,15 @@ object VersionProfileManager {
         version ?: return
         ensure(version)
         apply(activeProfile(version), version)
+        notifyProfileChanged(version)
+    }
+
+    private fun notifyProfileChanged(version: Version) {
+        profileChangeRevision++
+        _profileChanges.value = VersionProfileChange(
+            versionPath = version.getVersionPath().absolutePath,
+            revision = profileChangeRevision
+        )
     }
 
     private fun capture(version: Version): VersionProfile {

@@ -46,4 +46,14 @@ data class VersionProfileFile(
     val profiles: List<VersionProfile> = emptyList()
 )
 
+/**
+ * Reactive notification that the files for a version's active profile changed.
+ * Management screens use this as their refresh trigger instead of recreating
+ * their navigation destination.
+ */
+data class VersionProfileChange(
+    val versionPath: String,
+    val revision: Long
+)
+
 const val DEFAULT_VERSION_PROFILE_NAME = "Default"

@@ -98,6 +98,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.addons.modloader.ModLoader
@@ -628,11 +629,17 @@ fun ModsManagerScreen(
     ) { isVisible ->
         val viewModel = rememberModsManageViewModel(version, modsDir)
         val updaterViewModel = rememberModsUpdaterViewModel(version, modsDir)
+        val profileChange by VersionProfileManager.profileChanges.collectAsStateWithLifecycle()
 
         //页面创建时，检查一次模组数量，如果不同，则说明有增删
         //可自动刷新一次模组列表
         LaunchedEffect(Unit) {
             viewModel.checkCountAndRefresh(context)
+        }
+        LaunchedEffect(profileChange, version) {
+            if (profileChange?.versionPath == version.getVersionPath().absolutePath) {
+                viewModel.refresh(context)
+            }
         }
 
         DeleteAllOperation(

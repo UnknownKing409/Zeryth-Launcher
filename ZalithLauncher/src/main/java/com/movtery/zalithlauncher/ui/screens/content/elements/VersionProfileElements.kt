@@ -24,18 +24,24 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -48,7 +54,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.profile.VersionProfile
@@ -271,9 +277,14 @@ private fun BoxWithProfileMenu(
                         )
                     },
                     leadingIcon = {
-                        RadioButton(
-                            selected = isActive,
-                            onClick = null
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = if (isActive) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(50)
+                                )
                         )
                     },
                     trailingIcon = if (isActive) ({
@@ -449,8 +460,17 @@ fun VersionProfilePanel(
     modifier: Modifier = Modifier,
     onSelected: () -> Unit = {}
 ) {
-    val profiles = VersionProfileManager.listProfiles(version)
-    val active = VersionProfileManager.activeProfileName(version)
+    val profileChange by VersionProfileManager.profileChanges.collectAsStateWithLifecycle()
+    val profileRevision = profileChange
+        ?.takeIf { it.versionPath == version.getVersionPath().absolutePath }
+        ?.revision
+        ?: 0L
+    val profiles = remember(version, profileRevision) {
+        VersionProfileManager.listProfiles(version)
+    }
+    val active = remember(version, profileRevision) {
+        VersionProfileManager.activeProfileName(version)
+    }
     val primary = MaterialTheme.colorScheme.primary
 
     Surface(
@@ -510,11 +530,22 @@ fun VersionProfilePanel(
             Spacer(Modifier.height(4.dp))
 
             // ── Profile list ─────────────────────────────────────────────────
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            LazyVerticalGrid(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 276.dp),
+                columns = GridCells.Fixed(2),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 8.dp,
+                    vertical = 4.dp
+                )
             ) {
-                profiles.forEach { profile ->
+                items(
+                    items = profiles,
+                    key = { it.name }
+                ) { profile ->
                     val isActive = profile.name == active
                     val rowBgColor by animateColorAsState(
                         targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
@@ -522,37 +553,38 @@ fun VersionProfilePanel(
                         animationSpec = tween(200),
                         label = "profileRowBg"
                     )
+                    val chipBorderColor by animateColorAsState(
+                        targetValue = if (isActive) primary
+                                      else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                        animationSpec = tween(200),
+                        label = "profileChipBorder"
+                    )
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
+                            .animateContentSize(animationSpec = tween(200)),
                         shape = MaterialTheme.shapes.large,
                         color = rowBgColor,
+                        border = BorderStroke(1.dp, chipBorderColor),
                         onClick = {
                             VersionProfileManager.selectProfile(version, profile.name)
                             onSelected()
                         }
                     ) {
                         Row(
-                            modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Colored left-edge accent for active row
                             Box(
                                 modifier = Modifier
-                                    .width(3.dp)
-                                    .height(24.dp)
+                                    .size(8.dp)
                                     .background(
                                         color = if (isActive) primary
-                                                else primary.copy(alpha = 0f),
+                                                else MaterialTheme.colorScheme.outlineVariant,
                                         shape = RoundedCornerShape(50)
                                     )
                             )
-                            Spacer(Modifier.width(4.dp))
-                            RadioButton(
-                                selected = isActive,
-                                onClick = null
-                            )
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = profile.name,
                                 maxLines = 1,
