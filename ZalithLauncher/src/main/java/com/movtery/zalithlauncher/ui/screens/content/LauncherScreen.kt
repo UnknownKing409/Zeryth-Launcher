@@ -155,7 +155,6 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcut
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcutGrid
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionIconImage
-import com.movtery.zalithlauncher.ui.screens.content.elements.VersionProfileMenu
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionProfilePanel
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
@@ -1558,45 +1557,98 @@ private fun RightMenuContent(
                 bottom.linkTo(launchButton.top)
             },
         ) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                val pillCanInteract = !isRefreshing && version?.isValid() == true
+                val pillWidth by animateDpAsState(
+                    targetValue = if (showPanel) 36.dp else 28.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
+                    label = "pillWidth"
+                )
+                val pillAlpha by animateFloatAsState(
+                    targetValue = if (showPanel) 0.75f else 0.48f,
+                    animationSpec = tween(200),
+                    label = "pillAlpha"
+                )
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .onGloballyPositioned { coordinates ->
-                            versionManagerRow = coordinates
+                        .padding(top = 2.dp, bottom = 0.dp)
+                        .size(width = 42.dp, height = 16.dp)
+                        .clip(RoundedCornerShape(50))
+                        .pointerInput(version, isRefreshing, showProfiles) {
+                            var dragDistance = 0f
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    if (pillCanInteract) {
+                                        if (dragDistance < -24f) {
+                                            showProfiles = true
+                                        } else if (dragDistance > 24f && showProfiles) {
+                                            showProfiles = false
+                                        }
+                                    }
+                                    dragDistance = 0f
+                                },
+                                onDragCancel = { dragDistance = 0f },
+                                onVerticalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragDistance += dragAmount
+                                }
+                            )
                         }
+                        .clickable(
+                            enabled = pillCanInteract,
+                            role = Role.Button,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showProfiles = !showProfiles }
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    VersionManagerLayout(
-                        isRefreshing = isRefreshing,
-                        version = version,
+                    Box(
                         modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxWidth(),
-                        swapToVersionManage = toVersionManageScreen,
-                        openListMenu = { showList = true },
+                            .size(width = pillWidth, height = 3.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = pillAlpha)
+                            )
                     )
                 }
-                version?.takeIf { !isRefreshing && it.isValid() }?.let {
-                    IconButton(
-                        modifier = Modifier.padding(start = 2.dp),
-                        onClick = { showProfiles = !showProfiles }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .onGloballyPositioned { coordinates ->
+                                versionManagerRow = coordinates
+                            }
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_style_outlined),
-                            contentDescription = stringResource(R.string.version_profile)
+                        VersionManagerLayout(
+                            isRefreshing = isRefreshing,
+                            version = version,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .fillMaxWidth(),
+                            swapToVersionManage = toVersionManageScreen,
+                            openListMenu = { showList = true },
                         )
                     }
-                    IconButton(
-                        modifier = Modifier.padding(end = 8.dp),
-                        onClick = toVersionSettingsScreen
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings_filled),
-                            contentDescription = stringResource(R.string.versions_manage_settings)
-                        )
+                    version?.takeIf { !isRefreshing && it.isValid() }?.let {
+                        IconButton(
+                            modifier = Modifier.padding(end = 8.dp),
+                            onClick = toVersionSettingsScreen
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_settings_filled),
+                                contentDescription = stringResource(R.string.versions_manage_settings)
+                            )
+                        }
                     }
                 }
             }
