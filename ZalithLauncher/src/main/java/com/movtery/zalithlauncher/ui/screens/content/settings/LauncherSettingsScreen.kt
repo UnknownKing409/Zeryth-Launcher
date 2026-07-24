@@ -84,6 +84,7 @@ import com.movtery.zalithlauncher.coroutine.Task
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.enums.AccountTypeDisplayMode
 import com.movtery.zalithlauncher.setting.enums.AppLanguage
 import com.movtery.zalithlauncher.setting.enums.BackgroundBlur
 import com.movtery.zalithlauncher.setting.enums.DarkMode
@@ -748,6 +749,47 @@ fun LauncherSettingsScreen(
                                     }
                                 )
                             )
+                        }
+                    )
+                }
+            }
+
+            AnimatedItem(scope) { yOffset ->
+                SettingsCardColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(x = 0, y = yOffset.roundToPx()) }
+                ) {
+                    val showAccountType = AllSettings.showAccountType.state
+                    SwitchSettingsCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        position = CardPosition.Single,
+                        unit = AllSettings.showAccountType,
+                        title = stringResource(R.string.settings_launcher_show_account_type_title),
+                        summary = stringResource(R.string.settings_launcher_show_account_type_summary),
+                        columnLayout = {
+                            AnimatedVisibility(visible = showAccountType) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp, bottom = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        val displayModeUnit = AllSettings.accountTypeDisplayMode
+                                        AccountTypeDisplayMode.entries.forEach { mode ->
+                                            FilterChip(
+                                                selected = displayModeUnit.state == mode,
+                                                onClick = { displayModeUnit.save(mode) },
+                                                label = { Text(text = stringResource(mode.textRes)) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     )
                 }

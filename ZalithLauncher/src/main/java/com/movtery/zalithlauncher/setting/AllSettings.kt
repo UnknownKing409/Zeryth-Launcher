@@ -37,6 +37,7 @@ import com.movtery.zalithlauncher.setting.enums.DarkMode
 import com.movtery.zalithlauncher.setting.enums.GestureActionType
 import com.movtery.zalithlauncher.setting.enums.HomePageType
 import com.movtery.zalithlauncher.setting.enums.MainScreenMode
+import com.movtery.zalithlauncher.setting.enums.AccountTypeDisplayMode
 import com.movtery.zalithlauncher.setting.enums.MirrorSourceType
 import com.movtery.zalithlauncher.setting.enums.MouseControlMode
 import com.movtery.zalithlauncher.ui.control.HotbarRule
@@ -538,6 +539,16 @@ object AllSettings : SettingsRegistry() {
      * after the feature was repurposed from auto-scrolling to game-version auto-selection.
      */
     val autoSelectGameVersionMigrationDone = boolSetting("autoSelectGameVersionMigrationDone", false)
+
+    /**
+     * 主屏幕账号卡片：是否显示账号类型文字（默认关闭）
+     */
+    val showAccountType = boolSetting("showAccountType", false)
+
+    /**
+     * 主屏幕账号卡片：账号类型文字显示模式
+     */
+    val accountTypeDisplayMode = enumSetting("accountTypeDisplayMode", AccountTypeDisplayMode.HideAfterTimeout)
 
     //Control
     /**

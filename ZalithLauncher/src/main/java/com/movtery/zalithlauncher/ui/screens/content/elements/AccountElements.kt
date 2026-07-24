@@ -148,6 +148,7 @@ import com.movtery.zalithlauncher.game.account.yggdrasil.getFile
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.path.URL_MINECRAFT_PURCHASE
 import com.movtery.zalithlauncher.setting.AllSettings
+import com.movtery.zalithlauncher.setting.enums.AccountTypeDisplayMode
 import com.movtery.zalithlauncher.setting.enums.ChromaMode
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
@@ -357,21 +358,32 @@ fun AccountAvatar(
                     brush = if (useChroma) chromaBrush else null
                 )
             )
-            if (account != null) {
-                val accountTypeAlpha = remember(account) { Animatable(1f) }
-                LaunchedEffect(account) {
-                    accountTypeAlpha.animateTo(
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = 5000, delayMillis = 3000)
-                    )
+            if (account != null && AllSettings.showAccountType.state) {
+                when (AllSettings.accountTypeDisplayMode.state) {
+                    AccountTypeDisplayMode.HideAfterTimeout -> {
+                        val accountTypeAlpha = remember(account) { Animatable(1f) }
+                        LaunchedEffect(account) {
+                            accountTypeAlpha.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(durationMillis = 5000, delayMillis = 3000)
+                            )
+                        }
+                        Text(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .alpha(accountTypeAlpha.value),
+                            text = getAccountTypeName(account),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    AccountTypeDisplayMode.AlwaysShow -> {
+                        Text(
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            text = getAccountTypeName(account),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
-                Text(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .alpha(accountTypeAlpha.value),
-                    text = getAccountTypeName(account),
-                    style = MaterialTheme.typography.labelSmall
-                )
             }
         }
     }

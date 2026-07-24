@@ -1763,6 +1763,12 @@
     <string name="settings_launcher_auto_select_saves">Saves</string>
     <string name="settings_launcher_auto_select_modpacks">Modpacks</string>
 
+    <!-- Account Type Visibility -->
+    <string name="settings_launcher_show_account_type_title">Show Account Type</string>
+    <string name="settings_launcher_show_account_type_summary">Display the account type (e.g. Microsoft) beneath the player name on the main screen account card</string>
+    <string name="settings_launcher_account_type_display_mode_hide_after_timeout">Hide After a Period of Time</string>
+    <string name="settings_launcher_account_type_display_mode_always_show">Always Show</string>
+
     <!-- Quick Access Panel Customization -->
     <string name="settings_launcher_quick_access_advanced_only_title">Advanced Mode Required</string>
     <string name="settings_launcher_quick_access_advanced_only_message">Quick Access Customization is only available when using the Advanced Main Screen. Switch to Advanced mode in the launcher display settings to enable this feature.</string>
