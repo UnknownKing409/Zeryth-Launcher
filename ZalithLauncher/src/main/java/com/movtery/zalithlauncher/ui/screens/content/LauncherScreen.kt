@@ -1563,7 +1563,7 @@ private fun RightMenuContent(
             ) {
                 val pillCanInteract = !isRefreshing && version?.isValid() == true
                 val pillWidth by animateDpAsState(
-                    targetValue = if (showPanel) 36.dp else 28.dp,
+                    targetValue = if (showPanel) 52.dp else 40.dp,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessMediumLow
@@ -1577,8 +1577,8 @@ private fun RightMenuContent(
                 )
                 Box(
                     modifier = Modifier
-                        .padding(top = 2.dp, bottom = 0.dp)
-                        .size(width = 42.dp, height = 16.dp)
+                        .padding(top = 2.dp, bottom = 4.dp)
+                        .size(width = 64.dp, height = 20.dp)
                         .clip(RoundedCornerShape(50))
                         .pointerInput(version, isRefreshing, showProfiles) {
                             var dragDistance = 0f
@@ -1611,43 +1611,50 @@ private fun RightMenuContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = pillWidth, height = 3.dp)
+                            .size(width = pillWidth, height = 4.dp)
                             .clip(RoundedCornerShape(50))
                             .background(
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = pillAlpha)
                             )
                     )
                 }
-                Row(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 1.dp,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .onGloballyPositioned { coordinates ->
-                                versionManagerRow = coordinates
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        VersionManagerLayout(
-                            isRefreshing = isRefreshing,
-                            version = version,
+                        Box(
                             modifier = Modifier
-                                .padding(8.dp)
-                                .fillMaxWidth(),
-                            swapToVersionManage = toVersionManageScreen,
-                            openListMenu = { showList = true },
-                        )
-                    }
-                    version?.takeIf { !isRefreshing && it.isValid() }?.let {
-                        IconButton(
-                            modifier = Modifier.padding(end = 8.dp),
-                            onClick = toVersionSettingsScreen
+                                .weight(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    versionManagerRow = coordinates
+                                }
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_settings_filled),
-                                contentDescription = stringResource(R.string.versions_manage_settings)
+                            VersionManagerLayout(
+                                isRefreshing = isRefreshing,
+                                version = version,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .fillMaxWidth(),
+                                swapToVersionManage = toVersionManageScreen,
+                                openListMenu = { showList = true },
                             )
+                        }
+                        version?.takeIf { !isRefreshing && it.isValid() }?.let {
+                            IconButton(
+                                modifier = Modifier.padding(end = 8.dp),
+                                onClick = toVersionSettingsScreen
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_settings_filled),
+                                    contentDescription = stringResource(R.string.versions_manage_settings)
+                                )
+                            }
                         }
                     }
                 }
