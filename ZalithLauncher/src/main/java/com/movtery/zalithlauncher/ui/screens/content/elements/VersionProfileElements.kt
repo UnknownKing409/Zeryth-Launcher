@@ -19,18 +19,25 @@
 package com.movtery.zalithlauncher.ui.screens.content.elements
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -444,18 +451,24 @@ fun VersionProfilePanel(
 ) {
     val profiles = VersionProfileManager.listProfiles(version)
     val active = VersionProfileManager.activeProfileName(version)
+    val primary = MaterialTheme.colorScheme.primary
+
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
         color = cardColor(false),
-        shadowElevation = 2.dp
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            modifier = Modifier
+                .padding(vertical = 10.dp, horizontal = 4.dp)
+                .animateContentSize(animationSpec = tween(200)),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
+            // ── Header ───────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -463,42 +476,79 @@ fun VersionProfilePanel(
                     modifier = Modifier.size(16.dp),
                     painter = painterResource(R.drawable.ic_style_outlined),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = primary
                 )
                 Text(
                     text = stringResource(R.string.version_profile),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = primary,
+                    modifier = Modifier.weight(1f)
                 )
+                // Profile count badge
+                if (profiles.size > 1) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "${profiles.size}",
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
             }
+
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             )
+
+            Spacer(Modifier.height(4.dp))
+
+            // ── Profile list ─────────────────────────────────────────────────
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 profiles.forEach { profile ->
                     val isActive = profile.name == active
+                    val rowBgColor by animateColorAsState(
+                        targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                                      else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                        animationSpec = tween(200),
+                        label = "profileRowBg"
+                    )
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (isActive) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                        shape = MaterialTheme.shapes.large,
+                        color = rowBgColor,
                         onClick = {
                             VersionProfileManager.selectProfile(version, profile.name)
                             onSelected()
                         }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Colored left-edge accent for active row
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(24.dp)
+                                    .background(
+                                        color = if (isActive) primary
+                                                else primary.copy(alpha = 0f),
+                                        shape = RoundedCornerShape(50)
+                                    )
+                            )
+                            Spacer(Modifier.width(4.dp))
                             RadioButton(
                                 selected = isActive,
                                 onClick = null
@@ -522,7 +572,7 @@ fun VersionProfilePanel(
                                     modifier = Modifier.size(16.dp),
                                     painter = painterResource(R.drawable.ic_check),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                    tint = primary
                                 )
                             }
                         }
