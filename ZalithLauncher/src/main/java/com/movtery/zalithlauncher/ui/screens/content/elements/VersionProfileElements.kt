@@ -529,7 +529,7 @@ fun VersionProfilePanel(
 
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 12.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             Spacer(Modifier.height(4.dp))
@@ -554,13 +554,13 @@ fun VersionProfilePanel(
                     val isActive = profile.name == active
                     val rowBgColor by animateColorAsState(
                         targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
-                                      else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+                                      else MaterialTheme.colorScheme.surfaceContainerHigh,
                         animationSpec = tween(200),
                         label = "profileRowBg"
                     )
                     val chipBorderColor by animateColorAsState(
                         targetValue = if (isActive) primary
-                                      else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                                      else MaterialTheme.colorScheme.outline,
                         animationSpec = tween(200),
                         label = "profileChipBorder"
                     )
