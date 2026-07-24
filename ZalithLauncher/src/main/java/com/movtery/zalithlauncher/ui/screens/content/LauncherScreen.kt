@@ -1511,29 +1511,42 @@ private fun RightMenuContent(
     ) {
         val (accountAvatar, versionManagerLayout, launchButton) = createRefs()
 
-        if (showProfiles && version?.isValid() == true) {
-            VersionProfilePanel(
-                version = version!!,
-                modifier = Modifier.constrainAs(accountAvatar) {
-                    top.linkTo(parent.top)
-                    bottom.linkTo(launchButton.top, margin = 32.dp)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                },
-                onSelected = { showProfiles = false }
-            )
-        } else {
-            AccountAvatar(
-                modifier = Modifier
-                    .constrainAs(accountAvatar) {
-                        top.linkTo(parent.top)
-                        bottom.linkTo(launchButton.top, margin = 32.dp)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                    },
-                account = account,
-                onClick = toAccountManageScreen
-            )
+        val showPanel = showProfiles && version?.isValid() == true
+        Box(
+            modifier = Modifier.constrainAs(accountAvatar) {
+                top.linkTo(parent.top)
+                bottom.linkTo(launchButton.top, margin = 32.dp)
+                start.linkTo(parent.start)
+                end.linkTo(parent.end)
+            },
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedVisibility(
+                visible = !showPanel,
+                enter = fadeIn(animationSpec = tween(200)) +
+                        slideInVertically(animationSpec = tween(200)) { it / 6 },
+                exit = fadeOut(animationSpec = tween(150)) +
+                       slideOutVertically(animationSpec = tween(150)) { -it / 6 }
+            ) {
+                AccountAvatar(
+                    account = account,
+                    onClick = toAccountManageScreen
+                )
+            }
+            AnimatedVisibility(
+                visible = showPanel,
+                enter = fadeIn(animationSpec = tween(200)) +
+                        slideInVertically(animationSpec = tween(200)) { -it / 6 },
+                exit = fadeOut(animationSpec = tween(150)) +
+                       slideOutVertically(animationSpec = tween(150)) { it / 6 }
+            ) {
+                version?.let {
+                    VersionProfilePanel(
+                        version = it,
+                        onSelected = { showProfiles = false }
+                    )
+                }
+            }
         }
 
         var showList by remember { mutableStateOf(false) }

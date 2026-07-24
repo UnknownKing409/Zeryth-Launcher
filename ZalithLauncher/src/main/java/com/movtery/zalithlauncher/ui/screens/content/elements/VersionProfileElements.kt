@@ -6,21 +6,38 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
  */
 
 package com.movtery.zalithlauncher.ui.screens.content.elements
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,12 +55,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.profile.VersionProfile
 import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.ui.components.SimpleEditDialog
+import com.movtery.zalithlauncher.ui.theme.cardColor
 
 private sealed interface ProfileEditor {
     data object Create : ProfileEditor
@@ -108,6 +128,7 @@ fun VersionProfileMenu(
     ProfileManagementDialog(
         open = managementOpen,
         profiles = profiles,
+        activeName = activeName,
         onCreate = {
             managementOpen = false
             editor = ProfileEditor.Create
@@ -163,20 +184,39 @@ fun VersionProfileMenu(
     deleteTarget?.let { profile ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete_filled),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text(stringResource(R.string.version_profile_delete)) },
-            text = { Text(stringResource(R.string.version_profile_delete_warning, profile.name)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.version_profile_delete_warning, profile.name),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             confirmButton = {
-                Button(onClick = {
-                    VersionProfileManager.deleteProfile(version, profile.name)
-                    deleteTarget = null
-                    refresh()
-                }) { Text(stringResource(R.string.generic_delete)) }
+                Button(
+                    onClick = {
+                        VersionProfileManager.deleteProfile(version, profile.name)
+                        deleteTarget = null
+                        refresh()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text(stringResource(R.string.generic_delete)) }
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) {
                     Text(stringResource(R.string.generic_cancel))
                 }
-            }
+            },
+            shape = MaterialTheme.shapes.extraLarge
         )
     }
 }
@@ -193,7 +233,7 @@ private fun BoxWithProfileMenu(
     onManage: () -> Unit,
     onCreate: () -> Unit
 ) {
-    androidx.compose.foundation.layout.Box(modifier) {
+    Box(modifier) {
         IconButton(
             onClick = { onExpandedChanged(!expanded) },
             enabled = version.isValid()
@@ -207,40 +247,74 @@ private fun BoxWithProfileMenu(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChanged(false) },
-            modifier = Modifier.width(280.dp),
+            modifier = Modifier.widthIn(min = 200.dp, max = 300.dp),
             shape = MaterialTheme.shapes.large
         ) {
             profiles.forEach { profile ->
+                val isActive = profile.name == activeName
                 DropdownMenuItem(
-                    text = { Text(profile.name, maxLines = 1) },
-                    leadingIcon = {
-                        RadioButton(
-                            selected = profile.name == activeName,
-                            onClick = { onSelect(profile.name) }
+                    text = {
+                        Text(
+                            text = profile.name,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isActive) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface
                         )
                     },
+                    leadingIcon = {
+                        RadioButton(
+                            selected = isActive,
+                            onClick = null
+                        )
+                    },
+                    trailingIcon = if (isActive) ({
+                        Icon(
+                            modifier = Modifier.size(16.dp),
+                            painter = painterResource(R.drawable.ic_check),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }) else null,
                     onClick = { onSelect(profile.name) }
                 )
             }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.version_profile_create)) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_add_box_outlined), null) },
+                leadingIcon = {
+                    Icon(
+                        modifier = Modifier.size(20.dp),
+                        painter = painterResource(R.drawable.ic_add_box_outlined),
+                        contentDescription = null
+                    )
+                },
                 onClick = onCreate
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.version_profile_manage)) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_settings_filled), null) },
+                leadingIcon = {
+                    Icon(
+                        modifier = Modifier.size(20.dp),
+                        painter = painterResource(R.drawable.ic_settings_filled),
+                        contentDescription = null
+                    )
+                },
                 onClick = onManage
             )
         }
     }
-
 }
 
 @Composable
 private fun ProfileManagementDialog(
     open: Boolean,
     profiles: List<VersionProfile>,
+    activeName: String,
     onCreate: () -> Unit,
     onDuplicate: (VersionProfile) -> Unit,
     onRename: (VersionProfile) -> Unit,
@@ -250,21 +324,101 @@ private fun ProfileManagementDialog(
     if (!open) return
     AlertDialog(
         onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                painter = painterResource(R.drawable.ic_style_outlined),
+                contentDescription = null
+            )
+        },
         title = { Text(stringResource(R.string.version_profile_manage)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                profiles.forEach { profile ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                profiles.forEachIndexed { index, profile ->
+                    val isActive = profile.name == activeName
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp, horizontal = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(profile.name, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { onDuplicate(profile) }) { Text(stringResource(R.string.generic_copy)) }
-                        TextButton(onClick = { onRename(profile) }) { Text(stringResource(R.string.generic_rename)) }
-                        TextButton(onClick = { onDelete(profile) }) { Text(stringResource(R.string.generic_delete)) }
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            painter = painterResource(R.drawable.ic_style_outlined),
+                            contentDescription = null,
+                            tint = if (isActive) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = profile.name,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isActive) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface
+                        )
+                        IconButton(
+                            modifier = Modifier.size(36.dp),
+                            onClick = { onDuplicate(profile) }
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(R.drawable.ic_file_copy_filled),
+                                contentDescription = stringResource(R.string.generic_copy),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier.size(36.dp),
+                            onClick = { onRename(profile) }
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(R.drawable.ic_edit_filled),
+                                contentDescription = stringResource(R.string.generic_rename),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier.size(36.dp),
+                            onClick = { onDelete(profile) }
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(18.dp),
+                                painter = painterResource(R.drawable.ic_delete_filled),
+                                contentDescription = stringResource(R.string.generic_delete),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
-                TextButton(onClick = onCreate) {
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCreate) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        modifier = Modifier.size(16.dp),
+                        painter = painterResource(R.drawable.ic_add_box_outlined),
+                        contentDescription = null
+                    )
                     Text(stringResource(R.string.version_profile_create))
                 }
             }
@@ -273,7 +427,8 @@ private fun ProfileManagementDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.generic_close))
             }
-        }
+        },
+        shape = MaterialTheme.shapes.extraLarge
     )
 }
 
@@ -292,29 +447,86 @@ fun VersionProfilePanel(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = cardColor(false),
+        shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Text(
-                text = stringResource(R.string.version_profile),
-                style = MaterialTheme.typography.titleMedium
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    painter = painterResource(R.drawable.ic_style_outlined),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.version_profile),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             )
-            profiles.forEach { profile ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = profile.name == active,
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                profiles.forEach { profile ->
+                    val isActive = profile.name == active
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
                         onClick = {
                             VersionProfileManager.selectProfile(version, profile.name)
                             onSelected()
                         }
-                    )
-                    Text(profile.name, maxLines = 1)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RadioButton(
+                                selected = isActive,
+                                onClick = null
+                            )
+                            Text(
+                                text = profile.name,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            AnimatedVisibility(
+                                visible = isActive,
+                                enter = fadeIn(animationSpec = tween(150)),
+                                exit = fadeOut(animationSpec = tween(150))
+                            ) {
+                                Icon(
+                                    modifier = Modifier.size(16.dp),
+                                    painter = painterResource(R.drawable.ic_check),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
