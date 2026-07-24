@@ -196,12 +196,20 @@ object AccountsManager {
         return _accounts.find { it.uniqueUUID == currentId } ?: _accounts.firstOrNull()
     }
 
+    // Listeners notified whenever the active account changes (e.g. for profile auto-sync).
+    private val accountChangedListeners = CopyOnWriteArrayList<(Account) -> Unit>()
+
+    fun addOnAccountChangedListener(listener: (Account) -> Unit) {
+        accountChangedListeners.add(listener)
+    }
+
     /**
      * Sets and persists the current active account
      */
     fun setCurrentAccount(account: Account) {
         AllSettings.currentAccount.save(account.uniqueUUID)
         refreshCurrentAccountState()
+        accountChangedListeners.forEach { it(account) }
     }
 
     /**

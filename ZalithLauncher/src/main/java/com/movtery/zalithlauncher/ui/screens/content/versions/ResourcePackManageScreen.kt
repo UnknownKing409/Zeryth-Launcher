@@ -89,6 +89,8 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
+import com.movtery.zalithlauncher.game.version.installed.VersionsManager
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.version.resource_pack.RemoteResourcePack
 import com.movtery.zalithlauncher.game.version.resource_pack.ResourcePackInfo
@@ -206,6 +208,7 @@ private class ResourcePackManageViewModel(
                         info.file.renameTo(File(resourcePackDir, newName))
                     }
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -221,6 +224,7 @@ private class ResourcePackManageViewModel(
                         info.file.renameTo(File(resourcePackDir, "${info.file.name}.disabled"))
                     }
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -237,6 +241,7 @@ private class ResourcePackManageViewModel(
                     val newName = info.file.name.dropLast(9)
                     info.file.renameTo(File(resourcePackDir, newName))
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             refresh(checkCount = false)
         }

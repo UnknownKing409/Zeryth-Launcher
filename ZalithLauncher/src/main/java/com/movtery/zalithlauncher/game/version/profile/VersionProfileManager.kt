@@ -38,6 +38,15 @@ object VersionProfileManager {
     private val cache = ConcurrentHashMap<String, VersionProfileFile>()
     private val profileFileType: Type = object : TypeToken<VersionProfileFile>() {}.type
 
+    init {
+        // Auto-capture the active profile whenever the selected account changes,
+        // so that account switches are persisted into the current profile without
+        // any manual "save" step from the user.
+        AccountsManager.addOnAccountChangedListener { _ ->
+            VersionsManager.currentVersion.value?.let { captureCurrentState(it) }
+        }
+    }
+
     fun listProfiles(version: Version): List<VersionProfile> =
         read(version).profiles
 
@@ -196,7 +205,8 @@ object VersionProfileManager {
     private fun applyStates(directory: File, states: Map<String, Boolean>) {
         directory.listFiles()?.filter { it.exists() }?.forEach { file ->
             val key = file.profileKey()
-            val enabled = states[key] ?: return@forEach
+            // Files not in this profile's snapshot default to disabled (newly installed content).
+            val enabled = states[key] ?: false
             if (enabled == file.isEnabled()) return@forEach
             val targetName = if (enabled) key else "$key$DISABLED_SUFFIX"
             file.renameTo(File(directory, targetName))

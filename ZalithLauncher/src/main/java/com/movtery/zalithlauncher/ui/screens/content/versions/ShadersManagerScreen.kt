@@ -88,6 +88,8 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
+import com.movtery.zalithlauncher.game.version.installed.VersionsManager
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.EdgeDirection
@@ -209,6 +211,7 @@ private class ShadersManageViewModel(
                         info.file.renameTo(File(shadersDir, newName))
                     }
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -224,6 +227,7 @@ private class ShadersManageViewModel(
                         info.file.renameTo(File(shadersDir, "${info.file.name}.disabled"))
                     }
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -240,6 +244,7 @@ private class ShadersManageViewModel(
                     val newName = info.file.name.dropLast(9)
                     info.file.renameTo(File(shadersDir, newName))
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             refresh(checkCount = false)
         }

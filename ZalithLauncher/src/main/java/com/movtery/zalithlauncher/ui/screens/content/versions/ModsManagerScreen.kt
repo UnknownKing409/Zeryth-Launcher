@@ -108,8 +108,10 @@ import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.mod.AllModReader
 import com.movtery.zalithlauncher.game.version.mod.LocalMod
 import com.movtery.zalithlauncher.game.version.mod.RemoteMod
+import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.mod.isDisabled
 import com.movtery.zalithlauncher.game.version.mod.isEnabled
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.game.version.mod.update.ModManifest
 import com.movtery.zalithlauncher.game.version.mod.update.ModUpdater
 import com.movtery.zalithlauncher.game.version.mod.update.SelectableModManifest
@@ -372,6 +374,7 @@ private class ModsManageViewModel(
                 selectedMods.forEach { mod ->
                     if (mod.localMod.file.isDisabled()) mod.localMod.enable()
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) {
                 refreshCounter()
@@ -387,6 +390,7 @@ private class ModsManageViewModel(
                 selectedMods.forEach { mod ->
                     if (mod.localMod.file.isEnabled()) mod.localMod.disable()
                 }
+                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
             }
             withContext(Dispatchers.Main) {
                 refreshCounter()
@@ -806,6 +810,9 @@ fun ModsManagerScreen(
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
                                         mod.localMod.enable()
+                                        VersionsManager.currentVersion.value?.let {
+                                            VersionProfileManager.captureCurrentState(it)
+                                        }
                                     }
                                     withContext(Dispatchers.Main) {
                                         viewModel.refreshCounter()
@@ -816,6 +823,9 @@ fun ModsManagerScreen(
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
                                         mod.localMod.disable()
+                                        VersionsManager.currentVersion.value?.let {
+                                            VersionProfileManager.captureCurrentState(it)
+                                        }
                                     }
                                     withContext(Dispatchers.Main) {
                                         viewModel.refreshCounter()
