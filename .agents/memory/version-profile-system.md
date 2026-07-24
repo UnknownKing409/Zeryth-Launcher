@@ -37,3 +37,18 @@ observable state change to trigger rereading those files.
 
 **How to apply:** Any future profile-aware screen should subscribe to the manager's reactive change stream and use
 its current ViewModel refresh mechanism, filtering notifications to its displayed version.
+
+## Activation invariant
+
+Profile selection must reread the target profile after capturing the current state; applying a
+target object captured before that snapshot can immediately restore stale files. The launch entry
+point must also reapply the active profile so shortcut and non-dashboard launches use the same
+authoritative disk state as the UI.
+
+**Why:** Profile capture updates the manager cache, while launch can be initiated without passing
+through the normal version-selection UI. A stale target or skipped activation creates a mismatch
+between indicators, files, and the configuration Minecraft actually loads.
+
+**How to apply:** Keep capture, apply, notification, and launch synchronization inside
+`VersionProfileManager`; callers should not maintain parallel mod, resource-pack, shader, or
+account state.
