@@ -1563,7 +1563,7 @@ private fun RightMenuContent(
             ) {
                 val pillCanInteract = !isRefreshing && version?.isValid() == true
                 val pillWidth by animateDpAsState(
-                    targetValue = if (showPanel) 52.dp else 40.dp,
+                    targetValue = if (showPanel) 68.dp else 56.dp,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessMediumLow
