@@ -1109,15 +1109,6 @@ private fun ModsActionsHeader(
                         text = stringResource(R.string.generic_download)
                     )
 
-                    IconButton(
-                        onClick = refresh
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_refresh),
-                            contentDescription = stringResource(R.string.generic_refresh)
-                        )
-                    }
-
                     if (canUpdateAll && hasModLoader) {
                         IconButton(
                             onClick = onUpdateAllMods
@@ -1127,6 +1118,15 @@ private fun ModsActionsHeader(
                                 contentDescription = stringResource(R.string.mods_update_all)
                             )
                         }
+                    }
+
+                    IconButton(
+                        onClick = refresh
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_refresh),
+                            contentDescription = stringResource(R.string.generic_refresh)
+                        )
                     }
                 }
             }
@@ -1402,6 +1402,15 @@ private fun ModItemLayout(
                     }
                 }
 
+                //启用/禁用
+                Checkbox(
+                    checked = mod.localMod.file.isEnabled(),
+                    onCheckedChange = { checked ->
+                        if (checked) callbacks.onEnable()
+                        else callbacks.onDisable()
+                    }
+                )
+
                 //详细信息展示
                 if (projectInfo == null) {
                     if (!mod.localMod.notMod) {
@@ -1420,15 +1429,6 @@ private fun ModItemLayout(
                         )
                     }
                 }
-
-                //启用/禁用
-                Checkbox(
-                    checked = mod.localMod.file.isEnabled(),
-                    onCheckedChange = { checked ->
-                        if (checked) callbacks.onEnable()
-                        else callbacks.onDisable()
-                    }
-                )
 
                 IconButton(
                     modifier = Modifier.size(38.dp),
