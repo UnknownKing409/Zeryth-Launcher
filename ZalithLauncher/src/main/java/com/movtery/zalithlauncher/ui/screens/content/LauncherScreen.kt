@@ -1620,9 +1620,10 @@ private fun RightMenuContent(
                 }
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    tonalElevation = 1.dp,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = cardColor(false),
+                    shadowElevation = 4.dp,
+                    tonalElevation = 2.dp,
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
