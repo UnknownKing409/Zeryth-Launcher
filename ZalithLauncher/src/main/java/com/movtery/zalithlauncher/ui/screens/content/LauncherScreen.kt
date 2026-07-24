@@ -1619,7 +1619,9 @@ private fun RightMenuContent(
                     )
                 }
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp),
                     shape = MaterialTheme.shapes.extraLarge,
                     color = cardColor(false),
                     shadowElevation = 4.dp,
@@ -1640,7 +1642,7 @@ private fun RightMenuContent(
                                 isRefreshing = isRefreshing,
                                 version = version,
                                 modifier = Modifier
-                                    .padding(8.dp)
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                                     .fillMaxWidth(),
                                 swapToVersionManage = toVersionManageScreen,
                                 openListMenu = { showList = true },
@@ -1648,12 +1650,15 @@ private fun RightMenuContent(
                         }
                         version?.takeIf { !isRefreshing && it.isValid() }?.let {
                             IconButton(
-                                modifier = Modifier.padding(end = 8.dp),
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .size(36.dp),
                                 onClick = toVersionSettingsScreen
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_settings_filled),
-                                    contentDescription = stringResource(R.string.versions_manage_settings)
+                                    contentDescription = stringResource(R.string.versions_manage_settings),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
