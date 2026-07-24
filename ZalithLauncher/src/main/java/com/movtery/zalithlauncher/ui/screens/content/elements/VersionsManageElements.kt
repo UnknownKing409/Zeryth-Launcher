@@ -792,6 +792,11 @@ fun VersionItemLayout(
                 )
             }
 
+            VersionProfileMenu(
+                version = version,
+                modifier = Modifier.size(48.dp)
+            )
+
             Row {
                 var menuExpanded by remember { mutableStateOf(false) }
 
@@ -1212,6 +1217,11 @@ private fun getLoaderIconRes(
                       }
                   }
 
+                  VersionProfileMenu(
+                      version = version,
+                      modifier = Modifier.size(48.dp)
+                  )
+
                   IconButton(onClick = callbacks.onSettingsClick, enabled = version.isValid()) {
                       Icon(
                           modifier = Modifier.size(20.dp),
@@ -1327,6 +1337,11 @@ private fun getLoaderIconRes(
                       tint = MaterialTheme.colorScheme.primary
                   )
               }
+
+              VersionProfileMenu(
+                  version = version,
+                  modifier = Modifier.size(40.dp)
+              )
 
               var compactMenuExpanded by remember { mutableStateOf(false) }
               Box {

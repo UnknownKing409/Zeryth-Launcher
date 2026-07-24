@@ -155,6 +155,8 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.AboutDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcut
 import com.movtery.zalithlauncher.ui.screens.content.elements.QuickAccessShortcutGrid
 import com.movtery.zalithlauncher.ui.screens.content.elements.VersionIconImage
+import com.movtery.zalithlauncher.ui.screens.content.elements.VersionProfileMenu
+import com.movtery.zalithlauncher.ui.screens.content.elements.VersionProfilePanel
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsDialog
 import com.movtery.zalithlauncher.ui.screens.game.elements.PerformanceSettingsOperation
 import com.movtery.zalithlauncher.ui.screens.main.custom_home.MarkdownBlock
@@ -1502,23 +1504,37 @@ private fun RightMenuContent(
     val account by AccountsManager.currentAccountFlow.collectAsStateWithLifecycle()
     val version by VersionsManager.currentVersion.collectAsStateWithLifecycle()
     val isRefreshing by VersionsManager.isRefreshing.collectAsStateWithLifecycle()
+    var showProfiles by remember(version) { mutableStateOf(false) }
 
     ConstraintLayout(
         modifier = modifier
     ) {
         val (accountAvatar, versionManagerLayout, launchButton) = createRefs()
 
-        AccountAvatar(
-            modifier = Modifier
-                .constrainAs(accountAvatar) {
+        if (showProfiles && version?.isValid() == true) {
+            VersionProfilePanel(
+                version = version!!,
+                modifier = Modifier.constrainAs(accountAvatar) {
                     top.linkTo(parent.top)
                     bottom.linkTo(launchButton.top, margin = 32.dp)
                     start.linkTo(parent.start)
                     end.linkTo(parent.end)
                 },
-            account = account,
-            onClick = toAccountManageScreen
-        )
+                onSelected = { showProfiles = false }
+            )
+        } else {
+            AccountAvatar(
+                modifier = Modifier
+                    .constrainAs(accountAvatar) {
+                        top.linkTo(parent.top)
+                        bottom.linkTo(launchButton.top, margin = 32.dp)
+                        start.linkTo(parent.start)
+                        end.linkTo(parent.end)
+                    },
+                account = account,
+                onClick = toAccountManageScreen
+            )
+        }
 
         var showList by remember { mutableStateOf(false) }
         var versionManagerRow by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -1551,6 +1567,15 @@ private fun RightMenuContent(
                     )
                 }
                 version?.takeIf { !isRefreshing && it.isValid() }?.let {
+                    IconButton(
+                        modifier = Modifier.padding(start = 2.dp),
+                        onClick = { showProfiles = !showProfiles }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_style_outlined),
+                            contentDescription = stringResource(R.string.version_profile)
+                        )
+                    }
                     IconButton(
                         modifier = Modifier.padding(end = 8.dp),
                         onClick = toVersionSettingsScreen

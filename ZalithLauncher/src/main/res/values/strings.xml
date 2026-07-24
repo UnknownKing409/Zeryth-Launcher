@@ -89,6 +89,13 @@
     <string name="generic_edit">Edit</string>
     <string name="generic_view">View</string>
     <string name="generic_info">Info</string>
+    <string name="version_profile">Profile</string>
+    <string name="version_profile_create">Create profile</string>
+    <string name="version_profile_rename">Rename profile</string>
+    <string name="version_profile_duplicate">Duplicate profile</string>
+    <string name="version_profile_delete">Delete profile</string>
+    <string name="version_profile_delete_warning">Delete profile \"%s\"?</string>
+    <string name="version_profile_manage">Manage profiles</string>
     <string name="generic_minimize">Minimize</string>
     <string name="generic_scroll_top">Scroll to Top</string>
     <!-- Page Title -->
