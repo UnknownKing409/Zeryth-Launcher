@@ -52,3 +52,15 @@ between indicators, files, and the configuration Minecraft actually loads.
 **How to apply:** Keep capture, apply, notification, and launch synchronization inside
 `VersionProfileManager`; callers should not maintain parallel mod, resource-pack, shader, or
 account state.
+
+## File-state transition invariant
+
+All profile-aware enable/disable actions must resolve a logical content key at execution time,
+serialize the filesystem move, ensure one canonical file remains, and capture only after success.
+
+**Why:** UI objects can hold paths from before a rapid toggle or profile switch, and interrupted
+moves can leave both enabled and `.disabled` forms. Direct screen-level renames then produce
+nondeterministic snapshots and inconsistent profile application.
+
+**How to apply:** Route Mods, Resource Packs, and Shaders actions through the manager's verified
+state-transition API; do not call `File.renameTo()` from those screens.
