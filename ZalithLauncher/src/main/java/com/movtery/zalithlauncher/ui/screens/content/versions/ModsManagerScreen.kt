@@ -1402,15 +1402,6 @@ private fun ModItemLayout(
                     }
                 }
 
-                //启用/禁用
-                Checkbox(
-                    checked = mod.localMod.file.isEnabled(),
-                    onCheckedChange = { checked ->
-                        if (checked) callbacks.onEnable()
-                        else callbacks.onDisable()
-                    }
-                )
-
                 //详细信息展示
                 if (projectInfo == null) {
                     if (!mod.localMod.notMod) {
@@ -1429,6 +1420,15 @@ private fun ModItemLayout(
                         )
                     }
                 }
+
+                //启用/禁用
+                Checkbox(
+                    checked = mod.localMod.file.isEnabled(),
+                    onCheckedChange = { checked ->
+                        if (checked) callbacks.onEnable()
+                        else callbacks.onDisable()
+                    }
+                )
 
                 IconButton(
                     modifier = Modifier.size(38.dp),

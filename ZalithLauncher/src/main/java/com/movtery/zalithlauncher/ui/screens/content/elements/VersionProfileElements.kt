@@ -552,14 +552,15 @@ fun VersionProfilePanel(
                     key = { it.name }
                 ) { profile ->
                     val isActive = profile.name == active
+                    val selectedBg = MaterialTheme.colorScheme.surfaceContainerHighest
                     val rowBgColor by animateColorAsState(
-                        targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
-                                      else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        targetValue = if (isActive) selectedBg
+                                      else MaterialTheme.colorScheme.surfaceContainer,
                         animationSpec = tween(200),
                         label = "profileRowBg"
                     )
                     val chipBorderColor by animateColorAsState(
-                        targetValue = if (isActive) primary
+                        targetValue = if (isActive) selectedBg
                                       else MaterialTheme.colorScheme.outline,
                         animationSpec = tween(200),
                         label = "profileChipBorder"
@@ -585,7 +586,7 @@ fun VersionProfilePanel(
                                     .size(8.dp)
                                     .background(
                                         color = if (isActive) primary
-                                                else MaterialTheme.colorScheme.outlineVariant,
+                                                else MaterialTheme.colorScheme.outline,
                                         shape = RoundedCornerShape(50)
                                     )
                             )
@@ -596,8 +597,7 @@ fun VersionProfilePanel(
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             AnimatedVisibility(
