@@ -89,7 +89,6 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
-import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
@@ -142,6 +141,7 @@ import java.util.LinkedList
 import kotlin.time.Duration.Companion.milliseconds
 
 private class ShadersManageViewModel(
+    private val version: Version,
     val shadersDir: File
 ) : ViewModel() {
     var nameFilter by mutableStateOf("")
@@ -205,14 +205,11 @@ private class ShadersManageViewModel(
     fun enableSelectedPacks() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                selectedPacks.forEach { pack ->
-                    val info = pack.info
-                    if (!info.isEnabled) {
-                        val newName = info.file.name.dropLast(9) // strip ".disabled"
-                        info.file.renameTo(File(shadersDir, newName))
-                    }
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedPacks.map { it.info.file },
+                    enabled = true
+                )
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -222,13 +219,11 @@ private class ShadersManageViewModel(
     fun disableSelectedPacks() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                selectedPacks.forEach { pack ->
-                    val info = pack.info
-                    if (info.isEnabled) {
-                        info.file.renameTo(File(shadersDir, "${info.file.name}.disabled"))
-                    }
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedPacks.map { it.info.file },
+                    enabled = false
+                )
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -239,13 +234,11 @@ private class ShadersManageViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 val info = pack.info
-                if (info.isEnabled) {
-                    info.file.renameTo(File(shadersDir, "${info.file.name}.disabled"))
-                } else {
-                    val newName = info.file.name.dropLast(9)
-                    info.file.renameTo(File(shadersDir, newName))
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = listOf(info.file),
+                    enabled = !info.isEnabled
+                )
             }
             refresh(checkCount = false)
         }
@@ -400,7 +393,7 @@ private fun rememberShadersManageViewModel(
 ) = viewModel(
     key = version.toString() + "_" + VersionFolders.SHADERS.folderName
 ) {
-    ShadersManageViewModel(shadersDir)
+    ShadersManageViewModel(version, shadersDir)
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

@@ -21,7 +21,6 @@ import java.io.File
 import java.io.FileWriter
 import java.lang.reflect.Type
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -197,6 +196,37 @@ object VersionProfileManager {
         notifyProfileChanged(version)
     }
 
+    /**
+     * Applies a user-requested enabled/disabled state to files and immediately
+     * persists the resulting filesystem state into the active profile.
+     *
+     * The management screens use this instead of calling File.renameTo()
+     * directly. Keeping the operation synchronized prevents two quick taps or
+     * a profile switch from interleaving moves and capturing a half-applied
+     * state.
+     */
+    @Synchronized
+    fun setFilesEnabled(version: Version, files: Collection<File>, enabled: Boolean): Boolean {
+        val requests = files
+            .map { it.parentFile to it.profileKey() }
+            .distinctBy { (directory, key) -> "${directory?.absolutePath}\u0000$key" }
+
+        if (requests.isEmpty()) return false
+
+        var changed = false
+        requests.forEach { (directory, key) ->
+            if (directory != null) {
+                changed = setGroupEnabled(directory, key, enabled) || changed
+            }
+        }
+
+        if (changed) {
+            captureCurrentState(version)
+            notifyProfileChanged(version)
+        }
+        return changed
+    }
+
     private fun notifyProfileChanged(version: Version) {
         profileChangeRevision++
         _profileChanges.value = VersionProfileChange(
@@ -248,31 +278,78 @@ object VersionProfileManager {
     }
 
     private fun snapshotStates(directory: File): Map<String, Boolean> =
-        directory.listFiles()?.filter { it.exists() }?.associate { file ->
-            file.profileKey() to file.isEnabled()
-        } ?: emptyMap()
+        directory.listFiles()?.filter { it.exists() }?.groupBy { it.profileKey() }
+            ?.mapValues { (key, files) ->
+                // A previous interrupted move can leave both forms on disk.
+                // Prefer the canonical filename; otherwise prefer an enabled
+                // entry so the snapshot is deterministic and usable.
+                files.firstOrNull { it.name == key }?.isEnabled()
+                    ?: files.any { it.isEnabled() }
+            }
+            ?: emptyMap()
 
     private fun applyStates(directory: File, states: Map<String, Boolean>) {
-        directory.listFiles()?.filter { it.exists() }?.forEach { file ->
-            val key = file.profileKey()
-            // Files not in this profile's snapshot default to disabled (newly installed content).
-            val enabled = states[key] ?: false
-            if (enabled == file.isEnabled()) return@forEach
-            val targetName = if (enabled) key else "$key$DISABLED_SUFFIX"
-            val target = File(directory, targetName)
-            moveFile(file, target)
+        directory.listFiles()?.filter { it.exists() }?.groupBy { it.profileKey() }
+            ?.forEach { (key, _) ->
+                // Files not in this profile's snapshot default to disabled
+                // (newly installed content).
+                setGroupEnabled(directory, key, states[key] ?: false)
+            }
+    }
 
-            // A profile change must change the real filename, not only the
-            // cached indicator. Verify the move because a stale visual state
-            // is worse than a visible warning about a failed switch.
-            if (!target.exists() || target.isEnabled() != enabled) {
-                Logger.warning(
-                    TAG,
-                    "Profile state move did not produce the requested state: " +
-                        "$file -> $target (enabled=$enabled)"
-                )
+    /**
+     * Ensures exactly one canonical file remains for a logical content key.
+     * If both `name` and `name.disabled` exist, the requested target wins and
+     * the duplicate is removed when possible. This avoids iteration-order
+     * dependent results from File.listFiles().
+     */
+    private fun setGroupEnabled(directory: File, key: String, enabled: Boolean): Boolean {
+        val candidates = directory.listFiles()
+            ?.filter { it.exists() && it.profileKey() == key }
+            ?: return false
+        if (candidates.isEmpty()) return false
+
+        val target = File(directory, if (enabled) key else "$key$DISABLED_SUFFIX")
+        var changed = false
+        var successful = true
+
+        if (!target.exists()) {
+            val source = candidates.firstOrNull { it.isEnabled() == enabled }
+                ?: candidates.first()
+            if (source.absolutePath != target.absolutePath) {
+                successful = moveFile(source, target)
+                changed = successful
             }
         }
+
+        if (target.exists() && target.isEnabled() == enabled) {
+            candidates
+                .filter { it.absolutePath != target.absolutePath && it.exists() }
+                .forEach { duplicate ->
+                    val deleted = runCatching {
+                        Files.deleteIfExists(duplicate.toPath())
+                    }.onFailure {
+                        Logger.warning(
+                            TAG,
+                            "Failed to remove duplicate profile file: $duplicate",
+                            it
+                        )
+                    }.getOrDefault(false)
+                    successful = deleted && successful
+                    changed = deleted || changed
+                }
+        } else {
+            successful = false
+        }
+
+        if (!successful) {
+            Logger.warning(
+                TAG,
+                "Profile state move did not produce the requested state: " +
+                    "$directory/$key (enabled=$enabled)"
+            )
+        }
+        return changed
     }
 
     private fun File.profileKey(): String =
@@ -287,8 +364,7 @@ object VersionProfileManager {
             target.parentFile?.mkdirs()
             Files.move(
                 source.toPath(),
-                target.toPath(),
-                StandardCopyOption.REPLACE_EXISTING
+                target.toPath()
             )
             true
         }.onFailure {

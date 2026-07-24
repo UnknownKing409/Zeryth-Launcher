@@ -109,7 +109,6 @@ import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.mod.AllModReader
 import com.movtery.zalithlauncher.game.version.mod.LocalMod
 import com.movtery.zalithlauncher.game.version.mod.RemoteMod
-import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.mod.isDisabled
 import com.movtery.zalithlauncher.game.version.mod.isEnabled
 import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
@@ -180,6 +179,7 @@ import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.milliseconds
 
 private class ModsManageViewModel(
+    private val version: Version,
     modsDir: File
 ) : ViewModel() {
     val modReader = AllModReader(modsDir)
@@ -372,10 +372,11 @@ private class ModsManageViewModel(
     fun enableSelectedMods() {
         doInScope {
             withContext(Dispatchers.IO) {
-                selectedMods.forEach { mod ->
-                    if (mod.localMod.file.isDisabled()) mod.localMod.enable()
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedMods.map { it.localMod.file },
+                    enabled = true
+                )
             }
             withContext(Dispatchers.Main) {
                 refreshCounter()
@@ -388,10 +389,11 @@ private class ModsManageViewModel(
     fun disableSelectedMods() {
         doInScope {
             withContext(Dispatchers.IO) {
-                selectedMods.forEach { mod ->
-                    if (mod.localMod.file.isEnabled()) mod.localMod.disable()
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedMods.map { it.localMod.file },
+                    enabled = false
+                )
             }
             withContext(Dispatchers.Main) {
                 refreshCounter()
@@ -578,7 +580,7 @@ private fun rememberModsManageViewModel(
     return viewModel(
         key = version.toString() + "_" + VersionFolders.MOD.folderName
     ) {
-        ModsManageViewModel(modsDir)
+        ModsManageViewModel(version, modsDir)
     }
 }
 
@@ -816,10 +818,11 @@ fun ModsManagerScreen(
                                 //启用和禁用模组应该避免刷新所有模组，否则将会极度影响体验
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
-                                        mod.localMod.enable()
-                                        VersionsManager.currentVersion.value?.let {
-                                            VersionProfileManager.captureCurrentState(it)
-                                        }
+                                         VersionProfileManager.setFilesEnabled(
+                                             version = version,
+                                             files = listOf(mod.localMod.file),
+                                             enabled = true
+                                         )
                                     }
                                     withContext(Dispatchers.Main) {
                                         viewModel.refreshCounter()
@@ -829,10 +832,11 @@ fun ModsManagerScreen(
                             onDisable = { mod ->
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
-                                        mod.localMod.disable()
-                                        VersionsManager.currentVersion.value?.let {
-                                            VersionProfileManager.captureCurrentState(it)
-                                        }
+                                         VersionProfileManager.setFilesEnabled(
+                                             version = version,
+                                             files = listOf(mod.localMod.file),
+                                             enabled = false
+                                         )
                                     }
                                     withContext(Dispatchers.Main) {
                                         viewModel.refreshCounter()

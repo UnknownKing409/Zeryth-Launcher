@@ -90,7 +90,6 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.coroutine.TaskSystem
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
-import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.version.resource_pack.RemoteResourcePack
@@ -147,6 +146,7 @@ import java.util.LinkedList
 import kotlin.time.Duration.Companion.milliseconds
 
 private class ResourcePackManageViewModel(
+    private val version: Version,
     val resourcePackDir: File
 ) : ViewModel() {
     var packFilter by mutableStateOf(ResourcePackFilter())
@@ -202,14 +202,11 @@ private class ResourcePackManageViewModel(
     fun enableSelectedPacks() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                selectedPacks.forEach { pack ->
-                    val info = pack.info
-                    if (!info.isEnabled) {
-                        val newName = info.file.name.dropLast(9) // strip ".disabled"
-                        info.file.renameTo(File(resourcePackDir, newName))
-                    }
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedPacks.map { it.info.file },
+                    enabled = true
+                )
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -219,13 +216,11 @@ private class ResourcePackManageViewModel(
     fun disableSelectedPacks() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                selectedPacks.forEach { pack ->
-                    val info = pack.info
-                    if (info.isEnabled) {
-                        info.file.renameTo(File(resourcePackDir, "${info.file.name}.disabled"))
-                    }
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = selectedPacks.map { it.info.file },
+                    enabled = false
+                )
             }
             withContext(Dispatchers.Main) { selectedPacks.clear() }
             refresh(checkCount = false)
@@ -236,13 +231,11 @@ private class ResourcePackManageViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 val info = pack.info
-                if (info.isEnabled) {
-                    info.file.renameTo(File(resourcePackDir, "${info.file.name}.disabled"))
-                } else {
-                    val newName = info.file.name.dropLast(9)
-                    info.file.renameTo(File(resourcePackDir, newName))
-                }
-                VersionsManager.currentVersion.value?.let { VersionProfileManager.captureCurrentState(it) }
+                VersionProfileManager.setFilesEnabled(
+                    version = version,
+                    files = listOf(info.file),
+                    enabled = !info.isEnabled
+                )
             }
             refresh(checkCount = false)
         }
@@ -390,7 +383,7 @@ private fun rememberResourcePackManageViewModel(
 ) = viewModel(
     key = version.toString() + "_" + VersionFolders.RESOURCE_PACK.folderName
 ) {
-    ResourcePackManageViewModel(resourcePackDir)
+    ResourcePackManageViewModel(version, resourcePackDir)
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
