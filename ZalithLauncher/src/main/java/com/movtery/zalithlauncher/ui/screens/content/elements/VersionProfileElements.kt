@@ -843,14 +843,15 @@ fun VersionProfilePanel(
                 if (profiles.size > 1) {
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = itemColor(),
+                        border = BorderStroke(1.dp, primary)
                     ) {
                         Text(
                             text = "${profiles.size}",
                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = primary
                         )
                     }
                 }
@@ -881,25 +882,16 @@ fun VersionProfilePanel(
                     key = { it.name }
                 ) { profile ->
                     val isActive = profile.name == active
-                    val rowBgColor by animateColorAsState(
-                        targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
-                                      else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                        animationSpec = tween(200),
-                        label = "profileRowBg"
-                    )
                     val chipBorderColor by animateColorAsState(
-                        targetValue = if (isActive) primary
-                                      else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                        targetValue = if (isActive) primary else Color.Transparent,
                         animationSpec = tween(200),
                         label = "profileChipBorder"
                     )
                     Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(animationSpec = tween(200)),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
-                        color = rowBgColor,
-                        border = BorderStroke(1.dp, chipBorderColor),
+                        color = itemColor(),
+                        border = BorderStroke(1.5.dp, chipBorderColor),
                         onClick = {
                             VersionProfileManager.selectProfile(version, profile.name)
                             onSelected()
@@ -925,7 +917,7 @@ fun VersionProfilePanel(
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                color = if (isActive) primary
                                         else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
