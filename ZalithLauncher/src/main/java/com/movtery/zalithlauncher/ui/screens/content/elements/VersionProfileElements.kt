@@ -90,6 +90,7 @@ import com.movtery.zalithlauncher.ui.components.BackgroundCard
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.SimpleEditDialog
 import com.movtery.zalithlauncher.ui.theme.cardColor
+import com.movtery.zalithlauncher.ui.theme.itemColor
 
 private sealed interface ProfileEditor {
     data object Create : ProfileEditor
@@ -329,15 +330,12 @@ private fun ProfileCardItem(
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val cardColor by animateColorAsState(
-        targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
-                      else MaterialTheme.colorScheme.surfaceVariant,
-        animationSpec = tween(200),
-        label = "profileCardBg"
-    )
+    // Use the same base color as the version-list item cards (dark gray in dark theme).
+    // Active state is distinguished by a primary-colored border only — no bright fill.
+    val base = itemColor()
     val borderColor by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary
-                      else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                      else Color.Transparent,
         animationSpec = tween(200),
         label = "profileCardBorder"
     )
@@ -345,10 +343,10 @@ private fun ProfileCardItem(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = cardColor,
-        border = BorderStroke(1.dp, borderColor),
-        tonalElevation = if (isActive) 4.dp else 1.dp,
-        shadowElevation = if (isActive) 2.dp else 0.dp
+        color = base,
+        border = BorderStroke(1.5.dp, borderColor),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -373,7 +371,7 @@ private fun ProfileCardItem(
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                color = if (isActive) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface
             )
             AnimatedVisibility(
@@ -396,8 +394,7 @@ private fun ProfileCardItem(
                     modifier = Modifier.size(18.dp),
                     painter = painterResource(R.drawable.ic_edit_filled),
                     contentDescription = stringResource(R.string.generic_rename),
-                    tint = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
-                           else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(
