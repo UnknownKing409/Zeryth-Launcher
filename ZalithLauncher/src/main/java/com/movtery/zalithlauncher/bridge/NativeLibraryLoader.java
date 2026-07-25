@@ -22,6 +22,7 @@ import android.util.Log;
 
 public class NativeLibraryLoader {
     private static final String TAG = "NativeLibraryLoader";
+    private static volatile boolean pojavLibLoaded;
 
     /**
      * On some devices running Android 14 (API 34), the linker raised the following
@@ -89,7 +90,29 @@ public class NativeLibraryLoader {
     }
 
     public static void loadPojavLib() {
+        if (pojavLibLoaded) {
+            return;
+        }
         System.loadLibrary("pojavexec");
+        pojavLibLoaded = true;
+    }
+
+    /**
+     * Attempts to make the PojavLauncher native bridge available without
+     * turning an optional input action into an activity crash.
+     */
+    public static boolean tryLoadPojavLib() {
+        try {
+            loadPojavLib();
+            return true;
+        } catch (UnsatisfiedLinkError | SecurityException e) {
+            Log.w(TAG, "PojavLauncher native bridge is unavailable", e);
+            return false;
+        }
+    }
+
+    public static boolean isPojavLibLoaded() {
+        return pojavLibLoaded;
     }
 
     public static void loadExitHookLib() {

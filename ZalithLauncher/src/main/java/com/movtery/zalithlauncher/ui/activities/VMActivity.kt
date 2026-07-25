@@ -65,6 +65,7 @@ import com.jakewharton.processphoenix.ProcessPhoenix
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.bridge.CURSOR_DISABLED
 import com.movtery.zalithlauncher.bridge.LoggerBridge
+import com.movtery.zalithlauncher.bridge.NativeInputSafety
 import com.movtery.zalithlauncher.bridge.ZLBridge
 import com.movtery.zalithlauncher.bridge.ZLBridgeStates
 import com.movtery.zalithlauncher.coroutine.DataBridge
@@ -343,6 +344,12 @@ class VMViewModel : ViewModel() {
 class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolder.Callback {
     override fun isIgnoreNotch(): Boolean = AllSettings.gameFullScreen.getValue()
 
+    /**
+     * Guards the focus-loss/onPause/onStop callback sequence. Android can
+     * deliver more than one of these callbacks for the same transition.
+     */
+    private var escapeInjectedForBackground = false
+
     private val errorViewModel: ErrorViewModel by viewModels()
 
     private val eventViewModel: EventViewModel by viewModels()
@@ -526,12 +533,23 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
 
     override fun onResume() {
         super.onResume()
+        escapeInjectedForBackground = false
         withHandler { onResume() }
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 1)
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 1)
     }
 
+    /**
+     * VMActivity is the PojavLauncher-style activity that hosts Minecraft's
+     * rendering surface. Inject Escape before Android continues pausing it so
+     * single-player Minecraft can process the normal pause-menu action.
+     *
+     * The dispatch uses CallbackBridge's existing GLFW/JNI pipeline. That
+     * pipeline either invokes GLFW directly or queues the event for the game
+     * thread, so no parallel input system or lifecycle thread is introduced.
+     */
     override fun onPause() {
+        pauseGameBeforeBackground()
         super.onPause()
         withHandler { onPause() }
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, 0)
@@ -544,13 +562,32 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
     }
 
     override fun onStop() {
+        // Fallback for device-specific lifecycle paths that skip onPause.
+        // The transition guard keeps the normal onPause + onStop sequence
+        // from producing a second Escape event.
+        pauseGameBeforeBackground()
         super.onStop()
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_HOVERED, 0)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
+        if (hasFocus) {
+            escapeInjectedForBackground = false
+        } else {
+            pauseGameBeforeBackground()
+        }
         super.onWindowFocusChanged(hasFocus)
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, if (hasFocus) 0 else 0)
+    }
+
+    private fun pauseGameBeforeBackground() {
+        if (escapeInjectedForBackground || !vmViewModel.isRunning) return
+        if (vmViewModel.session.handler.type != HandlerType.GAME) return
+
+        // Set the guard before calling JNI because focus and lifecycle
+        // callbacks may be re-entrant during a platform transition.
+        escapeInjectedForBackground = true
+        NativeInputSafety.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE.toInt())
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
