@@ -161,15 +161,16 @@ fun ManageProfilesPopup(
                     .clickable(onClick = onDismiss)
             )
 
-            // ── Centred card — same shape / size strategy as RecordingPlayerOverlay ──
+            // ── Fixed-size centred card ───────────────────────────────────────
             BackgroundCard(
                 shape = MaterialTheme.shapes.extraLarge,
                 modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .widthIn(max = 520.dp)
+                    .fillMaxWidth(0.9f)
+                    .widthIn(max = 500.dp)
+                    .height(420.dp)
                     .align(Alignment.Center)
             ) {
-                // ── Title bar — mirrors CardTitleLayout in RecordingPlayerOverlay ──
+                // ── Title bar ────────────────────────────────────────────────
                 CardTitleLayout {
                     Row(
                         modifier = Modifier
@@ -219,7 +220,7 @@ fun ManageProfilesPopup(
                     Text(stringResource(R.string.version_profile_create))
                 }
 
-                // ── Scrollable profile list ───────────────────────────────────
+                // ── Scrollable profile card list ──────────────────────────────
                 if (profiles.isNotEmpty()) {
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
@@ -229,19 +230,12 @@ fun ManageProfilesPopup(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 360.dp)
+                            .weight(1f)
                             .verticalScroll(rememberScrollState())
-                            .padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        profiles.forEachIndexed { index, profile ->
-                            if (index > 0) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                    thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                )
-                            }
+                        profiles.forEach { profile ->
                             ProfileCardItem(
                                 profile = profile,
                                 isActive = profile.name == activeName,
@@ -335,61 +329,88 @@ private fun ProfileCardItem(
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    val cardColor by animateColorAsState(
+        targetValue = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                      else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(200),
+        label = "profileCardBg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isActive) MaterialTheme.colorScheme.primary
+                      else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+        animationSpec = tween(200),
+        label = "profileCardBorder"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = cardColor,
+        border = BorderStroke(1.dp, borderColor),
+        tonalElevation = if (isActive) 4.dp else 1.dp,
+        shadowElevation = if (isActive) 2.dp else 0.dp
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(8.dp)
-                .background(
-                    color = if (isActive) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
-                    shape = RoundedCornerShape(50)
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .background(
+                        color = if (isActive) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant,
+                        shape = RoundedCornerShape(50)
+                    )
+            )
+            Text(
+                text = profile.name,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurface
+            )
+            AnimatedVisibility(
+                visible = isActive,
+                enter = fadeIn(animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(150))
+            ) {
+                Icon(
+                    modifier = Modifier.size(16.dp),
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
                 )
-        )
-        Text(
-            text = profile.name,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface
-        )
-        if (isActive) {
-            Icon(
-                modifier = Modifier.size(14.dp),
-                painter = painterResource(R.drawable.ic_check),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-        IconButton(
-            modifier = Modifier.size(36.dp),
-            onClick = onRename
-        ) {
-            Icon(
-                modifier = Modifier.size(18.dp),
-                painter = painterResource(R.drawable.ic_edit_filled),
-                contentDescription = stringResource(R.string.generic_rename),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        IconButton(
-            modifier = Modifier.size(36.dp),
-            onClick = onDelete
-        ) {
-            Icon(
-                modifier = Modifier.size(18.dp),
-                painter = painterResource(R.drawable.ic_delete_filled),
-                contentDescription = stringResource(R.string.generic_delete),
-                tint = MaterialTheme.colorScheme.error
-            )
+            }
+            IconButton(
+                modifier = Modifier.size(36.dp),
+                onClick = onRename
+            ) {
+                Icon(
+                    modifier = Modifier.size(18.dp),
+                    painter = painterResource(R.drawable.ic_edit_filled),
+                    contentDescription = stringResource(R.string.generic_rename),
+                    tint = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                           else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(
+                modifier = Modifier.size(36.dp),
+                onClick = onDelete
+            ) {
+                Icon(
+                    modifier = Modifier.size(18.dp),
+                    painter = painterResource(R.drawable.ic_delete_filled),
+                    contentDescription = stringResource(R.string.generic_delete),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
