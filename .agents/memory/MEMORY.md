@@ -18,3 +18,4 @@
 - [Crash Analyzer Signature DB](crash_analyzer_signatures.md) — JSON schema, pattern types/fields, all 14 built-in signatures; extend DB only, no code change needed.
 - [Smart Dependency Detection](smart-dep-detection.md) — DependencyInstallPlanner.kt is authoritative; 4-tier matching; planDependencyDownloads only for MOD folder.
 - [Version Profile System](version-profile-system.md) — per-instance profiles store mod/resource/shader/account state; integrate via VersionsManager currentVersion change hook + LauncherScreen right panel icon.
+- [Custom JVM argument sanitization](custom-jvm-argument-sanitization.md) — user JVM text can inject orphan tokens as Java's main class; sanitize at the shared launch boundary while preserving value-bearing options.
