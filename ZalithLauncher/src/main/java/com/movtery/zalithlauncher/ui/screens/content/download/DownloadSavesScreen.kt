@@ -79,10 +79,14 @@ fun DownloadSavesScreen(
 
     //下载资源操作
     var operation by remember { mutableStateOf<DownloadSingleOperation>(DownloadSingleOperation.None) }
+    // 暂存当前下载操作对应的平台项目 ID（用于写入存档来源元数据）
+    var pendingProjectId by remember { mutableStateOf<String?>(null) }
     DownloadSingleOperation(
         operation = operation,
         changeOperation = { operation = it },
         doInstall = { classes, version, versions, customFileName ->
+            val platform = version.platform()
+            val projectId = pendingProjectId
             downloadSingleForVersions(
                 context = context,
                 version = version,
@@ -92,7 +96,9 @@ fun DownloadSavesScreen(
                 onFileCopied = { file, folder ->
                     unpackSaveZip(
                         zipFile = file,
-                        targetPath = folder
+                        targetPath = folder,
+                        platform = if (projectId != null) platform else null,
+                        projectId = projectId
                     )
                 },
                 onFileCancelled = { file, folder ->
@@ -170,7 +176,9 @@ fun DownloadSavesScreen(
                         key = assetsKey,
                         eventViewModel = eventViewModel,
                         autoSelect = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectSaves.getValue(),
-                        onItemClicked = { classes, version, _, deps ->
+                        onItemClicked = { classes, version, project, deps ->
+                            // 保存项目 ID，以便安装完成后写入存档来源元数据
+                            pendingProjectId = project?.platformId()
                             operation = if (isUsingMobileData(context)) {
                                 DownloadSingleOperation.WarningForMobileData(classes, version, deps)
                             } else {

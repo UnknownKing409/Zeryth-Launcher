@@ -20,6 +20,7 @@ package com.movtery.zalithlauncher.game.version.saves
 
 import com.github.steveice10.opennbt.NBTIO
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag
+import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import com.movtery.zalithlauncher.game.version.installed.utils.isBiggerOrEqualVer
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.nbt.asBooleanNotNull
@@ -30,6 +31,8 @@ import com.movtery.zalithlauncher.utils.nbt.asString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 private const val TAG = "SaveUtils"
 
@@ -129,5 +132,68 @@ suspend fun parseLevelDatFile(
 //            saveSize = fileSize,
             isValid = false
         )
+    }
+}
+
+// ----------------------
+// Download source tracking
+// ----------------------
+
+private const val DOWNLOAD_SOURCE_FILE = ".zl_save_source"
+
+/**
+ * 读取存档的下载来源信息（安装时由启动器写入）。
+ * 返回 (Platform, projectId) 或 null（表示本地创建或无记录）。
+ */
+fun readSaveDownloadSource(saveFolder: File): Pair<Platform, String>? {
+    val file = File(saveFolder, DOWNLOAD_SOURCE_FILE)
+    if (!file.exists() || !file.isFile) return null
+    return runCatching {
+        val lines = file.readLines()
+        if (lines.size >= 2) {
+            val platform = Platform.valueOf(lines[0].trim())
+            val projectId = lines[1].trim()
+            if (projectId.isNotEmpty()) platform to projectId else null
+        } else null
+    }.onFailure {
+        Logger.warning(TAG, "Failed to read save download source for ${saveFolder.name}", it)
+    }.getOrNull()
+}
+
+// ----------------------
+// World enable / disable
+// ----------------------
+
+/**
+ * 启用存档：将 level.dat.disabled 重命名回 level.dat。
+ * 成功返回 true。
+ */
+fun SaveData.enableWorld(): Boolean {
+    val disabledFile = File(saveFile, "level.dat.disabled")
+    val normalFile = File(saveFile, "level.dat")
+    if (!disabledFile.exists()) return false
+    return try {
+        Files.move(disabledFile.toPath(), normalFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        true
+    } catch (e: Exception) {
+        Logger.warning(TAG, "Failed to enable world ${saveFile.name}", e)
+        false
+    }
+}
+
+/**
+ * 禁用存档：将 level.dat 重命名为 level.dat.disabled。
+ * 成功返回 true。
+ */
+fun SaveData.disableWorld(): Boolean {
+    val normalFile = File(saveFile, "level.dat")
+    val disabledFile = File(saveFile, "level.dat.disabled")
+    if (!normalFile.exists()) return false
+    return try {
+        Files.move(normalFile.toPath(), disabledFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        true
+    } catch (e: Exception) {
+        Logger.warning(TAG, "Failed to disable world ${saveFile.name}", e)
+        false
     }
 }

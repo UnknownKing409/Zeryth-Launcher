@@ -478,9 +478,10 @@ private fun NavigationUI(
                         versionsScreenKey = versionsScreenKey,
                         version = version,
                         backToMainScreen = backToMainScreen,
-                        swapToDownload = {
-                            backScreenViewModel.navigateToDownload(
-                                targetScreen = backScreenViewModel.downloadSavesScreen
+                        onSwapMoreInfo = { projectId, platform ->
+                            backScreenViewModel.mainScreen.removeAndNavigateTo(
+                                NestedNavKey.AssetInfo::class,
+                                NestedNavKey.AssetInfo(platform, projectId, PlatformClasses.SAVES)
                             )
                         },
                         onQuickPlay = { version, saveName ->

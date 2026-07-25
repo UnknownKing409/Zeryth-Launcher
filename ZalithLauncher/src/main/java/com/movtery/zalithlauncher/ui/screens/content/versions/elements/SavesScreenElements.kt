@@ -21,6 +21,7 @@ package com.movtery.zalithlauncher.ui.screens.content.versions.elements
 import com.movtery.zalithlauncher.game.version.saves.SaveData
 import com.movtery.zalithlauncher.game.version.saves.isCompatible
 import com.movtery.zalithlauncher.utils.string.stripColorCodes
+import java.io.File
 
 sealed interface SavesOperation {
     data object None : SavesOperation
@@ -34,6 +35,8 @@ sealed interface SavesOperation {
     data class BackupSave(val saveData: SaveData) : SavesOperation
     /** 删除存档对话框 */
     data class DeleteSave(val saveData: SaveData) : SavesOperation
+    /** 批量删除选中存档的确认对话框 */
+    data class DeleteSelectedSaves(val files: List<File>) : SavesOperation
 }
 
 /**

@@ -998,6 +998,8 @@
     <string name="saves_manage_quick_play">快速游戏</string>
     <string name="saves_manage_quick_play_disabled">快速游戏（仅 1.20+）</string>
     <string name="saves_manage_no_saves">此版本没有存档</string>
+    <string name="saves_manage_delete_selected_warning">您确定要删除选中的 %d 个存档吗？此操作无法撤销！</string>
+    <string name="manage_world_disabled">已禁用</string>
     <string name="saves_manage_import_unpacking">正在解压存档：%s</string>
     <string name="saves_manage_import_failed">导入存档时发生错误</string>
     <string name="resource_pack_manage">资源包</string>

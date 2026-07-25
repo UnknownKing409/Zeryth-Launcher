@@ -18,6 +18,7 @@
 
 package com.movtery.zalithlauncher.game.version.saves
 
+import com.movtery.zalithlauncher.game.download.assets.platform.Platform
 import java.io.File
 
 /**
@@ -48,5 +49,11 @@ data class SaveData(
     /** 存档是否启用命令(作弊) */
     val allowCommands: Boolean? = null,
     /** 世界种子 */
-    val worldSeed: Long? = null
+    val worldSeed: Long? = null,
+    /** 存档是否已启用（level.dat 存在）。禁用的存档会有 level.dat.disabled 文件代替 */
+    val isWorldEnabled: Boolean = true,
+    /** 该存档下载自哪个平台（本地创建则为 null） */
+    val downloadPlatform: Platform? = null,
+    /** 该存档在平台上的项目 ID（本地创建则为 null） */
+    val downloadProjectId: String? = null
 )
