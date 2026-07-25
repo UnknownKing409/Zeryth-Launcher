@@ -59,7 +59,7 @@ public final class NativeInputSafety {
             );
             nativeInputAvailable = true;
             return true;
-        } catch (LinkageError | SecurityException e) {
+        } catch (ClassNotFoundException | LinkageError | SecurityException e) {
             Log.w(TAG, "GLFW native input bridge is unavailable", e);
             nativeInputAvailable = false;
             return false;
