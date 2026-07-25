@@ -29,6 +29,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -358,10 +359,18 @@ private fun ProfileCardItem(
             Box(
                 modifier = Modifier
                     .size(9.dp)
-                    .background(
-                        color = if (isActive) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(50)
+                    .then(
+                        if (isActive)
+                            Modifier.background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(50)
+                            )
+                        else
+                            Modifier.border(
+                                width = 1.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(50)
+                            )
                     )
             )
             Text(
@@ -904,10 +913,18 @@ fun VersionProfilePanel(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .background(
-                                        color = if (isActive) primary
-                                                else MaterialTheme.colorScheme.outlineVariant,
-                                        shape = RoundedCornerShape(50)
+                                    .then(
+                                        if (isActive)
+                                            Modifier.background(
+                                                color = primary,
+                                                shape = RoundedCornerShape(50)
+                                            )
+                                        else
+                                            Modifier.border(
+                                                width = 1.5.dp,
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
+                                                shape = RoundedCornerShape(50)
+                                            )
                                     )
                             )
                             Spacer(Modifier.width(8.dp))
