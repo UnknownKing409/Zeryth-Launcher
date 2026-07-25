@@ -18,6 +18,8 @@
 
 package com.movtery.zalithlauncher.ui.screens.content.elements
 
+import android.graphics.drawable.ColorDrawable
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -26,12 +28,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -58,6 +62,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -65,11 +70,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.version.installed.Version
@@ -81,6 +91,298 @@ import com.movtery.zalithlauncher.ui.theme.cardColor
 private sealed interface ProfileEditor {
     data object Create : ProfileEditor
     data class Rename(val profile: VersionProfile) : ProfileEditor
+}
+
+/**
+ * Centered popup for managing profiles belonging to a specific game version/instance.
+ * Uses a dark semi-transparent scrim (matching the RecordingPlayerOverlay overlay mode)
+ * over the rest of the screen, with a centered card containing a Create Profile button
+ * and a scrollable list of profile cards (each with Rename and Delete actions).
+ */
+@Composable
+fun ManageProfilesPopup(
+    version: Version,
+    onDismiss: () -> Unit
+) {
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val profileChange by VersionProfileManager.profileChanges.collectAsStateWithLifecycle()
+    val profileRevision = profileChange
+        ?.takeIf { it.versionPath == version.getVersionPath().absolutePath }
+        ?.revision ?: 0L
+    val profiles = remember(version, refreshKey, profileRevision) {
+        VersionProfileManager.listProfiles(version)
+    }
+    val activeName = remember(version, refreshKey, profileRevision) {
+        VersionProfileManager.activeProfileName(version)
+    }
+    var editor by remember { mutableStateOf<ProfileEditor?>(null) }
+    var deleteTarget by remember { mutableStateOf<VersionProfile?>(null) }
+
+    fun refresh() { refreshKey++ }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        // Clear the system dim and replace it with our own scrim so it matches
+        // the RecordingPlayerOverlay overlay (card) mode presentation.
+        val dialogView = LocalView.current
+        SideEffect {
+            val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
+            dialogWindow?.setBackgroundDrawable(
+                ColorDrawable(android.graphics.Color.TRANSPARENT)
+            )
+            dialogWindow?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            dialogWindow?.setDimAmount(0f)
+            dialogWindow?.setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Dark scrim — same colour as RecordingPlayerOverlay overlay mode
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.68f))
+                    .clickable(onClick = onDismiss)
+            )
+
+            // Centred popup card
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .widthIn(max = 500.dp)
+                    .align(Alignment.Center),
+                shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = 6.dp,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .animateContentSize(animationSpec = tween(200))
+                ) {
+                    // ── Title row ────────────────────────────────────────────
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            painter = painterResource(R.drawable.ic_style_outlined),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.version_profile_manage),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            modifier = Modifier.size(32.dp),
+                            onClick = onDismiss
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(20.dp),
+                                painter = painterResource(R.drawable.ic_close),
+                                contentDescription = stringResource(R.string.generic_close)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // ── Create Profile button ─────────────────────────────────
+                    Button(
+                        onClick = { editor = ProfileEditor.Create },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(18.dp),
+                            painter = painterResource(R.drawable.ic_add_box_outlined),
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.version_profile_create))
+                    }
+
+                    // ── Scrollable profile list ───────────────────────────────
+                    if (profiles.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        Spacer(Modifier.height(4.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 380.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            profiles.forEachIndexed { index, profile ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 4.dp),
+                                        thickness = 0.5.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                                    )
+                                }
+                                ProfileCardItem(
+                                    profile = profile,
+                                    isActive = profile.name == activeName,
+                                    onRename = { editor = ProfileEditor.Rename(profile) },
+                                    onDelete = { deleteTarget = profile }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Profile name editor (Create / Rename) ─────────────────────────────────
+    editor?.let { action ->
+        var value by remember(action) {
+            mutableStateOf(
+                when (action) {
+                    ProfileEditor.Create -> ""
+                    is ProfileEditor.Rename -> action.profile.name
+                }
+            )
+        }
+        SimpleEditDialog(
+            title = stringResource(
+                if (action is ProfileEditor.Create) R.string.version_profile_create
+                else R.string.version_profile_rename
+            ),
+            value = value,
+            onValueChange = { value = it },
+            singleLine = true,
+            onDismissRequest = { editor = null },
+            onConfirm = {
+                when (action) {
+                    ProfileEditor.Create -> VersionProfileManager.createProfile(version, value)
+                    is ProfileEditor.Rename -> VersionProfileManager.renameProfile(
+                        version, action.profile.name, value
+                    )
+                }
+                editor = null
+                refresh()
+            }
+        )
+    }
+
+    // ── Delete confirmation ───────────────────────────────────────────────────
+    deleteTarget?.let { profile ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete_filled),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text(stringResource(R.string.version_profile_delete)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.version_profile_delete_warning, profile.name),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        VersionProfileManager.deleteProfile(version, profile.name)
+                        deleteTarget = null
+                        refresh()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text(stringResource(R.string.generic_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text(stringResource(R.string.generic_cancel))
+                }
+            },
+            shape = MaterialTheme.shapes.extraLarge
+        )
+    }
+}
+
+@Composable
+private fun ProfileCardItem(
+    profile: VersionProfile,
+    isActive: Boolean,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(
+                    color = if (isActive) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(50)
+                )
+        )
+        Text(
+            text = profile.name,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (isActive) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+        )
+        if (isActive) {
+            Icon(
+                modifier = Modifier.size(14.dp),
+                painter = painterResource(R.drawable.ic_check),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        IconButton(
+            modifier = Modifier.size(36.dp),
+            onClick = onRename
+        ) {
+            Icon(
+                modifier = Modifier.size(18.dp),
+                painter = painterResource(R.drawable.ic_edit_filled),
+                contentDescription = stringResource(R.string.generic_rename),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        IconButton(
+            modifier = Modifier.size(36.dp),
+            onClick = onDelete
+        ) {
+            Icon(
+                modifier = Modifier.size(18.dp),
+                painter = painterResource(R.drawable.ic_delete_filled),
+                contentDescription = stringResource(R.string.generic_delete),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
 }
 
 /**

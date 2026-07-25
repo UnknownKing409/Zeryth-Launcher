@@ -792,10 +792,7 @@ fun VersionItemLayout(
                 )
             }
 
-            VersionProfileMenu(
-                version = version,
-                modifier = Modifier.size(48.dp)
-            )
+            var listManageProfilesOpen by remember { mutableStateOf(false) }
 
             Row {
                 var menuExpanded by remember { mutableStateOf(false) }
@@ -871,6 +868,20 @@ fun VersionItemLayout(
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text(text = stringResource(R.string.version_profile_manage)) },
+                        leadingIcon = {
+                            Icon(
+                                modifier = Modifier.size(20.dp),
+                                painter = painterResource(R.drawable.ic_style_outlined),
+                                contentDescription = stringResource(R.string.version_profile_manage)
+                            )
+                        },
+                        onClick = {
+                            listManageProfilesOpen = true
+                            menuExpanded = false
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text(text = stringResource(R.string.generic_delete)) },
                         leadingIcon = {
                             Icon(
@@ -885,6 +896,13 @@ fun VersionItemLayout(
                         }
                     )
                 }
+            }
+
+            if (listManageProfilesOpen) {
+                ManageProfilesPopup(
+                    version = version,
+                    onDismiss = { listManageProfilesOpen = false }
+                )
             }
         }
     }
@@ -1217,11 +1235,6 @@ private fun getLoaderIconRes(
                       }
                   }
 
-                  VersionProfileMenu(
-                      version = version,
-                      modifier = Modifier.size(48.dp)
-                  )
-
                   IconButton(onClick = callbacks.onSettingsClick, enabled = version.isValid()) {
                       Icon(
                           modifier = Modifier.size(20.dp),
@@ -1232,6 +1245,7 @@ private fun getLoaderIconRes(
 
                   Spacer(modifier = Modifier.weight(1f))
 
+                  var gridManageProfilesOpen by remember { mutableStateOf(false) }
                   var gridMenuExpanded by remember { mutableStateOf(false) }
                   Box {
                       IconButton(onClick = { gridMenuExpanded = !gridMenuExpanded }) {
@@ -1251,8 +1265,20 @@ private fun getLoaderIconRes(
                           DropdownMenuItem(text = { Text(stringResource(R.string.generic_copy)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_file_copy_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onCopyClick(); gridMenuExpanded = false })
                           DropdownMenuItem(text = { Text(stringResource(R.string.versions_export)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_folder_zip_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onExportClick(); gridMenuExpanded = false })
                           DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_add_shortcut)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_add_box_outlined), null, Modifier.size(20.dp)) }, onClick = { callbacks.onAddShortcutClick(); gridMenuExpanded = false })
+                          DropdownMenuItem(
+                              text = { Text(stringResource(R.string.version_profile_manage)) },
+                              leadingIcon = { Icon(painterResource(R.drawable.ic_style_outlined), null, Modifier.size(20.dp)) },
+                              onClick = { gridManageProfilesOpen = true; gridMenuExpanded = false }
+                          )
                           DropdownMenuItem(text = { Text(stringResource(R.string.generic_delete)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_delete_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onDeleteClick(); gridMenuExpanded = false })
                       }
+                  }
+
+                  if (gridManageProfilesOpen) {
+                      ManageProfilesPopup(
+                          version = version,
+                          onDismiss = { gridManageProfilesOpen = false }
+                      )
                   }
               }
 
@@ -1338,11 +1364,7 @@ private fun getLoaderIconRes(
                   )
               }
 
-              VersionProfileMenu(
-                  version = version,
-                  modifier = Modifier.size(40.dp)
-              )
-
+              var compactManageProfilesOpen by remember { mutableStateOf(false) }
               var compactMenuExpanded by remember { mutableStateOf(false) }
               Box {
                   IconButton(onClick = { compactMenuExpanded = !compactMenuExpanded }) {
@@ -1354,8 +1376,20 @@ private fun getLoaderIconRes(
                       DropdownMenuItem(text = { Text(stringResource(R.string.versions_export)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_folder_zip_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onExportClick(); compactMenuExpanded = false })
                       DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_settings)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_settings_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onSettingsClick(); compactMenuExpanded = false })
                       DropdownMenuItem(text = { Text(stringResource(R.string.versions_manage_add_shortcut)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_add_box_outlined), null, Modifier.size(20.dp)) }, onClick = { callbacks.onAddShortcutClick(); compactMenuExpanded = false })
+                      DropdownMenuItem(
+                          text = { Text(stringResource(R.string.version_profile_manage)) },
+                          leadingIcon = { Icon(painterResource(R.drawable.ic_style_outlined), null, Modifier.size(20.dp)) },
+                          onClick = { compactManageProfilesOpen = true; compactMenuExpanded = false }
+                      )
                       DropdownMenuItem(text = { Text(stringResource(R.string.generic_delete)) }, leadingIcon = { Icon(painterResource(R.drawable.ic_delete_filled), null, Modifier.size(20.dp)) }, onClick = { callbacks.onDeleteClick(); compactMenuExpanded = false })
                   }
+              }
+
+              if (compactManageProfilesOpen) {
+                  ManageProfilesPopup(
+                      version = version,
+                      onDismiss = { compactManageProfilesOpen = false }
+                  )
               }
           }
       }
