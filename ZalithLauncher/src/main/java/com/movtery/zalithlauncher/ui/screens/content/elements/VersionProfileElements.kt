@@ -20,6 +20,7 @@ package com.movtery.zalithlauncher.ui.screens.content.elements
 
 import android.graphics.drawable.ColorDrawable
 import android.view.WindowManager
+import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -85,6 +86,8 @@ import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.profile.VersionProfile
 import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
+import com.movtery.zalithlauncher.ui.components.BackgroundCard
+import com.movtery.zalithlauncher.ui.components.CardTitleLayout
 import com.movtery.zalithlauncher.ui.components.SimpleEditDialog
 import com.movtery.zalithlauncher.ui.theme.cardColor
 
@@ -122,10 +125,15 @@ fun ManageProfilesPopup(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // Allow dialog to draw behind status bar / navigation bar so the
+            // scrim covers the full physical display — identical to RecordingPlayerOverlay.
+            decorFitsSystemWindows = false
+        )
     ) {
-        // Clear the system dim and replace it with our own scrim so it matches
-        // the RecordingPlayerOverlay overlay (card) mode presentation.
+        // Mirror exactly what RecordingPlayerOverlay does in overlay (card) mode:
+        // transparent background, no system dim, and edge-to-edge window layout.
         val dialogView = LocalView.current
         SideEffect {
             val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
@@ -134,14 +142,18 @@ fun ManageProfilesPopup(
             )
             dialogWindow?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             dialogWindow?.setDimAmount(0f)
-            dialogWindow?.setLayout(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT
-            )
+            dialogWindow?.let { w ->
+                WindowCompat.setDecorFitsSystemWindows(w, false)
+                w.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT
+                )
+            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            // Dark scrim — same colour as RecordingPlayerOverlay overlay mode
+
+            // ── Full-screen scrim (same colour as RecordingPlayerOverlay card mode) ──
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -149,96 +161,93 @@ fun ManageProfilesPopup(
                     .clickable(onClick = onDismiss)
             )
 
-            // Centred popup card
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .widthIn(max = 500.dp)
-                    .align(Alignment.Center),
+            // ── Centred card — same shape / size strategy as RecordingPlayerOverlay ──
+            BackgroundCard(
                 shape = MaterialTheme.shapes.extraLarge,
-                tonalElevation = 6.dp,
-                shadowElevation = 8.dp
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .widthIn(max = 520.dp)
+                    .align(Alignment.Center)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 24.dp, vertical = 20.dp)
-                        .animateContentSize(animationSpec = tween(200))
-                ) {
-                    // ── Title row ────────────────────────────────────────────
+                // ── Title bar — mirrors CardTitleLayout in RecordingPlayerOverlay ──
+                CardTitleLayout {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            modifier = Modifier.size(20.dp),
-                            painter = painterResource(R.drawable.ic_style_outlined),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = stringResource(R.string.version_profile_manage),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            modifier = Modifier.size(32.dp),
-                            onClick = onDismiss
-                        ) {
+                        IconButton(onClick = onDismiss) {
                             Icon(
-                                modifier = Modifier.size(20.dp),
                                 painter = painterResource(R.drawable.ic_close),
                                 contentDescription = stringResource(R.string.generic_close)
                             )
                         }
-                    }
-
-                    Spacer(Modifier.height(14.dp))
-
-                    // ── Create Profile button ─────────────────────────────────
-                    Button(
-                        onClick = { editor = ProfileEditor.Create },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                        Text(
+                            text = stringResource(R.string.version_profile_manage),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 6.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Icon(
-                            modifier = Modifier.size(18.dp),
-                            painter = painterResource(R.drawable.ic_add_box_outlined),
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .size(20.dp),
+                            painter = painterResource(R.drawable.ic_style_outlined),
                             contentDescription = null
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.version_profile_create))
                     }
+                }
 
-                    // ── Scrollable profile list ───────────────────────────────
-                    if (profiles.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
-                        Spacer(Modifier.height(4.dp))
+                // ── Create Profile button ─────────────────────────────────────
+                Button(
+                    onClick = { editor = ProfileEditor.Create },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(R.drawable.ic_add_box_outlined),
+                        contentDescription = null
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.version_profile_create))
+                }
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 380.dp)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(0.dp)
-                        ) {
-                            profiles.forEachIndexed { index, profile ->
-                                if (index > 0) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                        thickness = 0.5.dp,
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                    )
-                                }
-                                ProfileCardItem(
-                                    profile = profile,
-                                    isActive = profile.name == activeName,
-                                    onRename = { editor = ProfileEditor.Rename(profile) },
-                                    onDelete = { deleteTarget = profile }
+                // ── Scrollable profile list ───────────────────────────────────
+                if (profiles.isNotEmpty()) {
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        profiles.forEachIndexed { index, profile ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                                 )
                             }
+                            ProfileCardItem(
+                                profile = profile,
+                                isActive = profile.name == activeName,
+                                onRename = { editor = ProfileEditor.Rename(profile) },
+                                onDelete = { deleteTarget = profile }
+                            )
                         }
                     }
                 }
