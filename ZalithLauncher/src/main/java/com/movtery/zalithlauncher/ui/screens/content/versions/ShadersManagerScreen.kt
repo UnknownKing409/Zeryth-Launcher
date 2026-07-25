@@ -335,6 +335,10 @@ private class ShadersManageViewModel(
                 }
                 if (isAscending) value else -value
             }
+            ?.let { sorted ->
+                val (enabled, disabled) = sorted.partition { it.info.isEnabled }
+                enabled + disabled
+            }
     }
 
     private fun startQueueProcessor() {

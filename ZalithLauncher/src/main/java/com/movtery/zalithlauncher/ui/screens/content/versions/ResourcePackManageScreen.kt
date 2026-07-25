@@ -325,6 +325,10 @@ private class ResourcePackManageViewModel(
                 // Block 4: merged — HEAD uses compact form; pr65 also uses compact form + adds startQueueProcessor body; keep pr65 arch
                 if (isAscending) value else -value
             }
+            ?.let { sorted ->
+                val (enabled, disabled) = sorted.partition { it.info.isEnabled }
+                enabled + disabled
+            }
     }
 
     private fun startQueueProcessor() {

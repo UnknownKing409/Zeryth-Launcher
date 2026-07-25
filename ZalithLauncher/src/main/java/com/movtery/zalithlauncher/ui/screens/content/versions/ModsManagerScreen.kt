@@ -345,6 +345,10 @@ private class ModsManageViewModel(
                     -value
                 }
             }
+            ?.let { sorted ->
+                val (enabled, disabled) = sorted.partition { it.localMod.file.isEnabled() }
+                enabled + disabled
+            }
         checkCanUpdate()
     }
 
