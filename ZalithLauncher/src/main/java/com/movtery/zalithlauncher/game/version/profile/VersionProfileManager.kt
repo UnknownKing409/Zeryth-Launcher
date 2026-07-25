@@ -12,6 +12,7 @@ package com.movtery.zalithlauncher.game.version.profile
 
 import com.movtery.zalithlauncher.game.account.AccountsManager
 import com.movtery.zalithlauncher.game.version.installed.Version
+import com.movtery.zalithlauncher.game.version.installed.VersionConfig
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
 import com.movtery.zalithlauncher.game.version.mod.isEnabled
@@ -54,6 +55,20 @@ object VersionProfileManager {
         AccountsManager.addOnAccountChangedListener { _ ->
             if (!isApplyingProfile) {
                 VersionsManager.currentVersion.value?.let { captureCurrentState(it) }
+            }
+        }
+
+        // Auto-capture the active profile whenever the user changes a Configuration
+        // preference (Manage Versions → Configuration). This hooks into VersionConfig's
+        // save listener so that every setting change is immediately persisted into the
+        // active profile without requiring any manual save action from the user.
+        VersionConfig.addOnSaveListener { savedPath ->
+            if (!isApplyingProfile) {
+                VersionsManager.currentVersion.value?.let { version ->
+                    if (version.getVersionPath().absolutePath == savedPath.absolutePath) {
+                        captureCurrentState(version)
+                    }
+                }
             }
         }
     }
@@ -244,9 +259,24 @@ object VersionProfileManager {
             shaderStates = snapshotStates(VersionFolders.SHADERS.getDir(version.getGameDir())),
             selectedShader = optionValue(version, SHADER_OPTION)?.takeUnless { it.isEmpty() },
             shaderEnabled = optionValue(version, SHADER_OPTION)?.isNotEmpty() == true,
-            accountId = AccountsManager.currentAccountFlow.value?.uniqueUUID
+            accountId = AccountsManager.currentAccountFlow.value?.uniqueUUID,
+            // Capture the full Configuration screen preferences as a JSON snapshot.
+            // Using GSON serialization of the live VersionConfig ensures that every
+            // current and future configuration field is captured automatically.
+            versionConfigSnapshot = captureVersionConfig(version)
         )
     }
+
+    /**
+     * Serializes the version's current [VersionConfig] to a JSON string so that
+     * all Manage Versions → Configuration preferences are captured in the profile.
+     * Returns null if serialization fails, leaving the snapshot unpopulated rather
+     * than crashing profile operations.
+     */
+    private fun captureVersionConfig(version: Version): String? =
+        runCatching { GSON.toJson(version.getVersionConfig()) }
+            .onFailure { Logger.warning(TAG, "Failed to capture version config snapshot", it) }
+            .getOrNull()
 
     private fun VersionProfile.copyStateFrom(state: VersionProfile): VersionProfile =
         copy(
@@ -256,7 +286,9 @@ object VersionProfileManager {
             shaderStates = state.shaderStates,
             selectedShader = state.selectedShader,
             shaderEnabled = state.shaderEnabled,
-            accountId = state.accountId
+            accountId = state.accountId,
+            // Propagate the Configuration snapshot when copying profile state
+            versionConfigSnapshot = state.versionConfigSnapshot
         )
 
     private fun apply(profile: VersionProfile, version: Version) {
@@ -272,8 +304,62 @@ object VersionProfileManager {
                     AccountsManager.setCurrentAccount(it)
                 }
             }
+            // Restore the Configuration screen preferences from the profile snapshot.
+            // Runs inside isApplyingProfile = true so the VersionConfig save listener
+            // does not re-capture immediately after we write the restored values.
+            applyVersionConfig(profile.versionConfigSnapshot, version)
         } finally {
             isApplyingProfile = false
+        }
+    }
+
+    /**
+     * Restores a [VersionConfig] snapshot into the live config object for [version].
+     *
+     * The snapshot is a JSON string produced by [captureVersionConfig]. Every field
+     * present in the JSON is applied to the existing config object (which is the same
+     * reference held by [Version.getVersionConfig]), so callers automatically observe
+     * the updated values without any additional indirection.
+     *
+     * [VersionConfig.pinned] is intentionally preserved from the current config
+     * because it is a version-level UI ordering preference, not a per-profile
+     * Configuration setting. All other fields from the snapshot are applied.
+     *
+     * The config is saved to disk after restoration so it persists across restarts.
+     * Because this runs inside [isApplyingProfile] = true, the save listener in
+     * [VersionProfileManager] will not trigger a re-capture.
+     */
+    private fun applyVersionConfig(snapshot: String?, version: Version) {
+        snapshot ?: return
+        try {
+            val restored = GSON.fromJson(snapshot, VersionConfig::class.java) ?: return
+            val config = version.getVersionConfig()
+
+            // Apply every Configuration screen preference from the snapshot.
+            // VersionConfig.pinned has private set and represents version-level UI ordering,
+            // not a Configuration preference — it is intentionally not restored here.
+            config.isolationType = restored.isolationType
+            config.skipGameIntegrityCheck = restored.skipGameIntegrityCheck
+            config.javaRuntime = restored.javaRuntime
+            config.jvmArgs = restored.jvmArgs
+            config.renderer = restored.renderer
+            config.driver = restored.driver
+            config.graphicsApi = restored.graphicsApi
+            config.control = restored.control
+            config.customPath = restored.customPath
+            config.customInfo = restored.customInfo
+            config.versionSummary = restored.versionSummary
+            config.serverIp = restored.serverIp
+            config.ramAllocation = restored.ramAllocation
+            config.touchVibrateDuration = restored.touchVibrateDuration
+            config.touchVibrateKind = restored.touchVibrateKind
+
+            // Persist the restored configuration to disk.
+            // Because this runs inside isApplyingProfile = true, the save listener
+            // will not trigger a re-capture loop.
+            config.save()
+        } catch (e: Exception) {
+            Logger.warning(TAG, "Failed to restore version config snapshot", e)
         }
     }
 

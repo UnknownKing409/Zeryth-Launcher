@@ -31,6 +31,10 @@ data class VersionProfile(
     val selectedShader: String? = null,
     val shaderEnabled: Boolean = false,
     val accountId: String? = null,
+    // Snapshot of the version's Configuration screen preferences (Manage Versions → Configuration).
+    // Stored as a JSON string so that every current and future VersionConfig field is
+    // automatically captured and restored without requiring explicit enumeration here.
+    val versionConfigSnapshot: String? = null,
     // Reserved for future profile categories. They are not populated yet.
     val javaRuntime: String? = null,
     val jvmArguments: String? = null,
