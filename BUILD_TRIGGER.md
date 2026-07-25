@@ -21,3 +21,5 @@ Three issues fixed across 6 files:
 | Click-to-restore dialog in `TaskMenu`, `onTaskClick` in `TaskItem` | `MainScreen.kt` |
 
 Build date: 2026-07-06
+
+Final build trigger
