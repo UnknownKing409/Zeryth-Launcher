@@ -165,7 +165,7 @@ abstract class Launcher(
         screenSize: IntSize,
         useLocalLanguage: Boolean
     ): List<String> {
-        val userArguments = userArgumentsString.splitPreservingQuotes().toMutableList()
+        val userArguments = sanitizeCustomJvmArguments(userArgumentsString).toMutableList()
         val resolvFile = ensureDNSConfig()
 
         val overridableArguments = mutableMapOf<String, String>().apply {
@@ -222,6 +222,68 @@ abstract class Launcher(
 
         userArguments += additionalArguments
         return userArguments
+    }
+
+    /**
+     * Custom JVM arguments are inserted before Minecraft's generated main
+     * class arguments. A stray token such as "t" would therefore be consumed
+     * by the Java launcher as the main class and produce
+     * ClassNotFoundException: t.
+     *
+     * Keep valid options, including options whose value is a separate token,
+     * but discard orphan non-option tokens. This is deliberately limited to
+     * user-supplied arguments; generated Minecraft arguments are not filtered.
+     */
+    private fun sanitizeCustomJvmArguments(arguments: String): List<String> {
+        if (arguments.isBlank()) return emptyList()
+
+        val valueOptions = setOf(
+            "-cp",
+            "-classpath",
+            "--class-path",
+            "-p",
+            "--module-path",
+            "--upgrade-module-path",
+            "--add-modules",
+            "--limit-modules",
+            "--add-exports",
+            "--add-reads",
+            "--patch-module",
+            "--enable-native-access",
+            "-m",
+            "--module",
+            "-javaagent",
+            "-agentlib",
+            "-agentpath"
+        )
+        val tokens = arguments.splitPreservingQuotes()
+        val sanitized = ArrayList<String>(tokens.size)
+        var expectsValue = false
+
+        tokens.forEach { token ->
+            if (expectsValue) {
+                sanitized += token
+                expectsValue = false
+                return@forEach
+            }
+
+            if (!token.startsWith("-")) {
+                Logger.warning(
+                    TAG,
+                    "Ignoring invalid custom JVM argument '$token'; JVM arguments must start with '-'."
+                )
+                return@forEach
+            }
+
+            sanitized += token
+            expectsValue = token in valueOptions
+        }
+
+        if (expectsValue) {
+            Logger.warning(TAG, "Custom JVM arguments end with an option that requires a value.")
+        }
+
+        return sanitized
     }
 
     /**
