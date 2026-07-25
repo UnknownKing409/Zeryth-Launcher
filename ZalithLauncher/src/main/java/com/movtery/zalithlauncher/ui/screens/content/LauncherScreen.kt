@@ -1571,62 +1571,64 @@ private fun RightMenuContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val pillCanInteract = !isRefreshing && version?.isValid() == true
-                val pillWidth by animateDpAsState(
-                    targetValue = if (showPanel) 68.dp else 56.dp,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    ),
-                    label = "pillWidth"
-                )
-                val pillAlpha by animateFloatAsState(
-                    targetValue = if (showPanel) 0.75f else 0.48f,
-                    animationSpec = tween(200),
-                    label = "pillAlpha"
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(top = 2.dp, bottom = 4.dp)
-                        .size(width = 64.dp, height = 20.dp)
-                        .clip(RoundedCornerShape(50))
-                        .pointerInput(version, isRefreshing, showProfiles) {
-                            var dragDistance = 0f
-                            detectVerticalDragGestures(
-                                onDragEnd = {
-                                    if (pillCanInteract) {
-                                        if (dragDistance < -24f) {
-                                            showProfiles = true
-                                        } else if (dragDistance > 24f && showProfiles) {
-                                            showProfiles = false
-                                        }
-                                    }
-                                    dragDistance = 0f
-                                },
-                                onDragCancel = { dragDistance = 0f },
-                                onVerticalDrag = { change, dragAmount ->
-                                    change.consume()
-                                    dragDistance += dragAmount
-                                }
-                            )
-                        }
-                        .clickable(
-                            enabled = pillCanInteract,
-                            role = Role.Button,
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { showProfiles = !showProfiles }
+                if (AllSettings.showVersionProfileIndicator.state) {
+                    val pillCanInteract = !isRefreshing && version?.isValid() == true
+                    val pillWidth by animateDpAsState(
+                        targetValue = if (showPanel) 68.dp else 56.dp,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
                         ),
-                    contentAlignment = Alignment.Center
-                ) {
+                        label = "pillWidth"
+                    )
+                    val pillAlpha by animateFloatAsState(
+                        targetValue = if (showPanel) 0.75f else 0.48f,
+                        animationSpec = tween(200),
+                        label = "pillAlpha"
+                    )
                     Box(
                         modifier = Modifier
-                            .size(width = pillWidth, height = 4.dp)
+                            .padding(top = 2.dp, bottom = 4.dp)
+                            .size(width = 64.dp, height = 20.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = pillAlpha)
-                            )
-                    )
+                            .pointerInput(version, isRefreshing, showProfiles) {
+                                var dragDistance = 0f
+                                detectVerticalDragGestures(
+                                    onDragEnd = {
+                                        if (pillCanInteract) {
+                                            if (dragDistance < -24f) {
+                                                showProfiles = true
+                                            } else if (dragDistance > 24f && showProfiles) {
+                                                showProfiles = false
+                                            }
+                                        }
+                                        dragDistance = 0f
+                                    },
+                                    onDragCancel = { dragDistance = 0f },
+                                    onVerticalDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragDistance += dragAmount
+                                    }
+                                )
+                            }
+                            .clickable(
+                                enabled = pillCanInteract,
+                                role = Role.Button,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { showProfiles = !showProfiles }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = pillWidth, height = 4.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = pillAlpha)
+                                )
+                        )
+                    }
                 }
                 Surface(
                     modifier = Modifier

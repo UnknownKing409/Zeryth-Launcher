@@ -180,12 +180,13 @@ fun ManageProfilesPopup(
                             .padding(start = 4.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_close),
-                                contentDescription = stringResource(R.string.generic_close)
-                            )
-                        }
+                        Icon(
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .size(20.dp),
+                            painter = painterResource(R.drawable.ic_style_outlined),
+                            contentDescription = null
+                        )
                         Text(
                             text = stringResource(R.string.version_profile_manage),
                             style = MaterialTheme.typography.titleSmall,
@@ -196,13 +197,12 @@ fun ManageProfilesPopup(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Icon(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(20.dp),
-                            painter = painterResource(R.drawable.ic_style_outlined),
-                            contentDescription = null
-                        )
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_close),
+                                contentDescription = stringResource(R.string.generic_close)
+                            )
+                        }
                     }
                 }
 
@@ -241,6 +241,10 @@ fun ManageProfilesPopup(
                             ProfileCardItem(
                                 profile = profile,
                                 isActive = profile.name == activeName,
+                                onSelect = {
+                                    VersionProfileManager.selectProfile(version, profile.name)
+                                    refresh()
+                                },
                                 onRename = { editor = ProfileEditor.Rename(profile) },
                                 onDelete = { deleteTarget = profile }
                             )
@@ -328,6 +332,7 @@ fun ManageProfilesPopup(
 private fun ProfileCardItem(
     profile: VersionProfile,
     isActive: Boolean,
+    onSelect: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -347,7 +352,8 @@ private fun ProfileCardItem(
         color = base,
         border = BorderStroke(1.5.dp, borderColor),
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+        shadowElevation = 0.dp,
+        onClick = onSelect
     ) {
         Row(
             modifier = Modifier

@@ -422,6 +422,11 @@ object AllSettings : SettingsRegistry() {
     val launcherFestivalEffects = boolSetting("launcherFestivalEffects", true)
 
     /**
+     * Show the Version Profile indicator pill above the selected version card.
+     */
+    val showVersionProfileIndicator = boolSetting("showVersionProfileIndicator", false)
+
+    /**
      * Quick Access 面板快捷方式（有序列表，存储快捷方式ID）
      * 默认顺序：FPS、文件管理器、版本管理、控制布局
      */

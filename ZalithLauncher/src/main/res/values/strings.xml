@@ -1327,6 +1327,8 @@
     <string name="settings_launcher_background_blur_summary">Adjust the background blur effect. This option consumes significant performance.</string>
     <string name="settings_launcher_festivals_effects_title">Festival Easter Eggs</string>
     <string name="settings_launcher_festivals_effects_summary">Display persistent easter egg effects during specific time periods</string>
+    <string name="settings_launcher_version_profile_indicator_title">Version Profile Indicator</string>
+    <string name="settings_launcher_version_profile_indicator_summary">Show the profile indicator pill above the selected version card</string>
     <string name="settings_launcher_home_page_title">Home Page</string>
     <string name="settings_launcher_home_page_type_blank">Blank</string>
     <string name="settings_launcher_home_page_type_local">Load from Local</string>

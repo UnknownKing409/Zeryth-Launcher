@@ -312,6 +312,14 @@ fun LauncherSettingsScreen(
 
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
+                        position = CardPosition.Middle,
+                        unit = AllSettings.showVersionProfileIndicator,
+                        title = stringResource(R.string.settings_launcher_version_profile_indicator_title),
+                        summary = stringResource(R.string.settings_launcher_version_profile_indicator_summary)
+                    )
+
+                    SwitchSettingsCard(
+                        modifier = Modifier.fillMaxWidth(),
                         position = CardPosition.Bottom,
                         unit = AllSettings.launcherFullScreen,
                         title = stringResource(R.string.settings_launcher_full_screen_title),
