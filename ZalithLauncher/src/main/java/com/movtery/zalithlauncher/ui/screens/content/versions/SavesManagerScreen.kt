@@ -77,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -129,6 +130,7 @@ import com.movtery.zalithlauncher.ui.screens.content.elements.SortByDropdownMenu
 import com.movtery.zalithlauncher.ui.screens.content.elements.SortByEnum
 import com.movtery.zalithlauncher.ui.screens.content.elements.rememberMultipleUriImportTaskBuilder
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.FileNameInputDialog
+import com.movtery.zalithlauncher.ui.screens.content.versions.elements.DisabledStateIcon
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.LoadingState
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.MinecraftColorTextNormal
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.SavesFilter
@@ -840,13 +842,17 @@ private fun SaveItemLayout(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             //存档的封面图标
-            SaveIcon(
+            DisabledStateIcon(
                 modifier = Modifier
                     .size(42.dp)
-                    .clip(shape = RoundedCornerShape(10.dp))
-                    .alpha(if (saveData.isWorldEnabled) 1f else 0.4f),
-                saveData = saveData
-            )
+                    .clip(shape = RoundedCornerShape(10.dp)),
+                isDisabled = !saveData.isWorldEnabled
+            ) { colorFilter ->
+                SaveIcon(
+                    saveData = saveData,
+                    colorFilter = colorFilter
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -1006,7 +1012,8 @@ private fun SaveItemLayout(
 private fun SaveIcon(
     modifier: Modifier = Modifier,
     saveData: SaveData,
-    triggerRefresh: Any? = null
+    triggerRefresh: Any? = null,
+    colorFilter: ColorFilter? = null
 ) {
     val iconFile = remember(saveData) {
         File(saveData.saveFile, "icon.png")
@@ -1021,7 +1028,8 @@ private fun SaveIcon(
         contentDescription = null,
         alignment = Alignment.Center,
         contentScale = ContentScale.Fit,
-        modifier = modifier
+        modifier = modifier,
+        colorFilter = colorFilter
     )
 }
 
