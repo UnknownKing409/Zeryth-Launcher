@@ -19,6 +19,7 @@ Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section l
 - [x] Customizable Main Screen Mode
 - [x] Built-In Mobile Glues and Kopper Zink Renderer
 - [x] Built-In Screen Recorder and Video Player
+- [x] Version Profile System
 - [x] Zalith Launcher 1 Controls Support
 - [ ] Zalith Launcher 1 Controls Editor
 
