@@ -100,6 +100,7 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformClasses
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
 import com.movtery.zalithlauncher.game.version.installed.VersionInfo
+import com.movtery.zalithlauncher.game.version.saves.DISABLED_SAVES_FOLDER
 import com.movtery.zalithlauncher.game.version.saves.SaveData
 import com.movtery.zalithlauncher.game.version.saves.disableWorld
 import com.movtery.zalithlauncher.game.version.saves.enableWorld
@@ -183,12 +184,17 @@ private class SavesManageViewModel(
 
             withContext(Dispatchers.IO) {
                 val tempList = mutableListOf<SaveData>()
-                savesDir.listFiles()?.filter { it.isDirectory }?.takeIf { it.isNotEmpty() }?.let { dirs ->
+                val disabledSavesDir = File(savesDir.parentFile, DISABLED_SAVES_FOLDER)
+                // 同时扫描 saves/（启用）和 disabled_saves/（禁用）两个目录
+                val dirsToScan = buildList {
+                    savesDir.listFiles()?.filter { it.isDirectory }?.let { addAll(it) }
+                    disabledSavesDir.listFiles()?.filter { it.isDirectory }?.let { addAll(it) }
+                }
+                if (dirsToScan.isNotEmpty()) {
                     try {
-                        dirs.forEach { dir ->
+                        dirsToScan.forEach { dir ->
                             ensureActive()
-                            // 通过文件夹名是否以 "." 开头判断存档是否被禁用
-                            val isEnabled = !dir.name.startsWith(".")
+                            val isEnabled = dir.parentFile?.absolutePath == savesDir.absolutePath
                             val levelDat = File(dir, "level.dat")
                             val downloadSource = readSaveDownloadSource(dir)
                             val data = parseLevelDatFile(

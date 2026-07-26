@@ -164,16 +164,21 @@ fun readSaveDownloadSource(saveFolder: File): Pair<Platform, String>? {
 // World enable / disable
 // ----------------------
 
+/** 禁用存档的存放文件夹名称（位于游戏目录下，与 saves 同级） */
+const val DISABLED_SAVES_FOLDER = "disabled_saves"
+
 /**
- * 启用存档：将存档文件夹名称前缀的 "." 去掉（例如 ".WorldName" → "WorldName"）。
- * 成功返回重命名后的新文件夹，失败返回 null。
+ * 启用存档：将存档文件夹从 disabled_saves 移回 saves 目录。
+ * 成功返回移动后的新文件夹，失败返回 null。
  */
 fun SaveData.enableWorld(): File? {
-    if (!saveFile.name.startsWith(".")) return null
-    val newFolder = File(saveFile.parentFile, saveFile.name.removePrefix("."))
+    // saveFile.parentFile = disabled_saves/, parentFile.parentFile = gameDir/
+    val savesDir = File(saveFile.parentFile.parentFile, "saves")
+    val target = File(savesDir, saveFile.name)
+    savesDir.mkdirs()
     return try {
-        Files.move(saveFile.toPath(), newFolder.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        newFolder
+        Files.move(saveFile.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        target
     } catch (e: Exception) {
         Logger.warning(TAG, "Failed to enable world ${saveFile.name}", e)
         null
@@ -181,15 +186,17 @@ fun SaveData.enableWorld(): File? {
 }
 
 /**
- * 禁用存档：在存档文件夹名称前加 "."（例如 "WorldName" → ".WorldName"）。
- * 成功返回重命名后的新文件夹，失败返回 null。
+ * 禁用存档：将存档文件夹从 saves 移动到 disabled_saves 目录。
+ * 成功返回移动后的新文件夹，失败返回 null。
  */
 fun SaveData.disableWorld(): File? {
-    if (saveFile.name.startsWith(".")) return null
-    val newFolder = File(saveFile.parentFile, ".${saveFile.name}")
+    // saveFile.parentFile = saves/, parentFile.parentFile = gameDir/
+    val disabledDir = File(saveFile.parentFile.parentFile, DISABLED_SAVES_FOLDER)
+    val target = File(disabledDir, saveFile.name)
+    disabledDir.mkdirs()
     return try {
-        Files.move(saveFile.toPath(), newFolder.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        newFolder
+        Files.move(saveFile.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        target
     } catch (e: Exception) {
         Logger.warning(TAG, "Failed to disable world ${saveFile.name}", e)
         null
