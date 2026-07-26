@@ -176,9 +176,9 @@ fun DownloadSavesScreen(
                         key = assetsKey,
                         eventViewModel = eventViewModel,
                         autoSelect = AllSettings.autoSelectDownloadContent.getValue() && AllSettings.autoSelectSaves.getValue(),
-                        onItemClicked = { classes, version, project, deps ->
+                        onItemClicked = { classes, version, _, deps ->
                             // 保存项目 ID，以便安装完成后写入存档来源元数据
-                            pendingProjectId = project?.platformId()
+                            pendingProjectId = assetsKey.projectId
                             operation = if (isUsingMobileData(context)) {
                                 DownloadSingleOperation.WarningForMobileData(classes, version, deps)
                             } else {
