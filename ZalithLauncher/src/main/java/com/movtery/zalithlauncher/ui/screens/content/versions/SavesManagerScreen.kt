@@ -896,14 +896,6 @@ private fun SaveItemLayout(
                             }
                         }
 
-                        // 禁用状态提示
-                        if (!saveData.isWorldEnabled) {
-                            LittleTextLabel(
-                                text = stringResource(R.string.manage_world_disabled),
-                                color = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
-                        }
                     }
                 }
 
