@@ -22,6 +22,7 @@ Zeryth Launcher inherits all features from **Zalith Launcher 2**. This section l
 - [x] Version Profile System
 - [x] Zalith Launcher 1 Controls Support
 - [ ] Zalith Launcher 1 Controls Editor
+- [ ] Crash Analyzer
 
 > More features will be added as development continues. 
 
