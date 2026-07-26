@@ -49,7 +49,7 @@ enum class QuickAccessShortcut(
     DOWNLOAD_MODS("download_mods", R.drawable.ic_extension_outlined, R.string.quick_access_shortcut_download_mods),
     DOWNLOAD_MODPACKS("download_modpacks", R.drawable.ic_package_2_outlined, R.string.quick_access_shortcut_download_modpacks),
     DOWNLOAD_RESOURCE_PACKS("download_resource_packs", R.drawable.ic_format_paint_outlined, R.string.quick_access_shortcut_download_resource_packs),
-    DOWNLOAD_SAVES("download_saves", R.drawable.ic_save_filled, R.string.quick_access_shortcut_download_saves),
+    DOWNLOAD_SAVES("download_saves", R.drawable.ic_public, R.string.quick_access_shortcut_download_saves),
     DOWNLOAD_SHADERS("download_shaders", R.drawable.ic_lightbulb, R.string.quick_access_shortcut_download_shaders),
 
     // ── Settings shortcuts ─────────────────────────────────────────────────────
