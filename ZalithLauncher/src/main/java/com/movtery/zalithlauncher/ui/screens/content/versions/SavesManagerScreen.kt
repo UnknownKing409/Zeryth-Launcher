@@ -24,7 +24,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -43,11 +42,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -112,8 +109,6 @@ import com.movtery.zalithlauncher.game.version.saves.unpackSaveZip
 import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.ui.base.BaseScreen
 import com.movtery.zalithlauncher.ui.components.CardTitleLayout
-import com.movtery.zalithlauncher.ui.components.ContentCheckBox
-import com.movtery.zalithlauncher.ui.components.EdgeDirection
 import com.movtery.zalithlauncher.ui.components.IconTextButton
 import com.movtery.zalithlauncher.ui.components.LittleTextLabel
 import com.movtery.zalithlauncher.ui.components.ProgressDialog
@@ -121,7 +116,6 @@ import com.movtery.zalithlauncher.ui.components.ScalingLabel
 import com.movtery.zalithlauncher.ui.components.SimpleAlertDialog
 import com.movtery.zalithlauncher.ui.components.SimpleTextInputField
 import com.movtery.zalithlauncher.ui.components.TooltipIconButton
-import com.movtery.zalithlauncher.ui.components.fadeEdge
 import com.movtery.zalithlauncher.ui.screens.NestedNavKey
 import com.movtery.zalithlauncher.ui.screens.NormalNavKey
 import com.movtery.zalithlauncher.ui.screens.TitledNavKey
@@ -562,6 +556,43 @@ private fun SavesActionsHeader(
                         onClick = { expanded = !expanded }
                     ) {
                         Icon(
+                            painter = painterResource(R.drawable.ic_filter_alt_outlined),
+                            contentDescription = stringResource(R.string.mods_update_task_filter)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(text = stringResource(R.string.manage_only_show_valid))
+                            },
+                            onClick = {
+                                onSavesFilterChange(
+                                    savesFilter.copy(onlyShowCompatible = !savesFilter.onlyShowCompatible)
+                                )
+                                expanded = false
+                            },
+                            trailingIcon = if (savesFilter.onlyShowCompatible) {
+                                {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_check),
+                                        contentDescription = null
+                                    )
+                                }
+                            } else null
+                        )
+                    }
+                }
+
+                Box {
+                    var expanded by remember { mutableStateOf(false) }
+                    IconButton(
+                        onClick = { expanded = !expanded }
+                    ) {
+                        Icon(
                             painter = painterResource(R.drawable.ic_sort),
                             contentDescription = stringResource(R.string.sort_by)
                         )
@@ -652,65 +683,37 @@ private fun SavesActionsHeader(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                val scrollState = rememberScrollState()
-                LaunchedEffect(Unit) {
-                    scrollState.scrollTo(scrollState.maxValue)
-                }
-                Row(
-                    modifier = Modifier
-                        .fadeEdge(
-                            state = scrollState,
-                            length = 32.dp,
-                            direction = EdgeDirection.Horizontal
+                val taskBuilder = rememberMultipleUriImportTaskBuilder(
+                    id = "ContentManager.Saves.Import",
+                    targetDir = savesDir,
+                    checkExtension = listOf("zip"),
+                    errorMessage = stringResource(R.string.saves_manage_import_failed),
+                    submitError = submitError,
+                    onImported = refreshSaves,
+                    onFileCopied = { task, file ->
+                        task.updateProgress(-1f)
+                        task.updateMessage(androidText(
+                            R.string.saves_manage_import_unpacking, file.name
+                        ))
+                        unpackSaveZip(file, savesDir)
+                    }
+                )
+                ImportMultipleFileButton(
+                    extension = "zip",
+                    progressUris = { uris ->
+                        TaskSystem.submitTask(
+                            taskBuilder(uris)
                         )
-                        .widthIn(max = this@BoxWithConstraints.maxWidth / 2)
-                        .horizontalScroll(scrollState),
-                    verticalAlignment = Alignment.CenterVertically
+                    }
+                )
+
+                IconButton(
+                    onClick = refreshSaves
                 ) {
-                    ContentCheckBox(
-                        checked = savesFilter.onlyShowCompatible,
-                        onCheckedChange = { onSavesFilterChange(savesFilter.copy(onlyShowCompatible = it)) }
-                    ) {
-                        Text(
-                            text = stringResource(R.string.manage_only_show_valid),
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    val taskBuilder = rememberMultipleUriImportTaskBuilder(
-                        id = "ContentManager.Saves.Import",
-                        targetDir = savesDir,
-                        checkExtension = listOf("zip"),
-                        errorMessage = stringResource(R.string.saves_manage_import_failed),
-                        submitError = submitError,
-                        onImported = refreshSaves,
-                        onFileCopied = { task, file ->
-                            task.updateProgress(-1f)
-                            task.updateMessage(androidText(
-                                R.string.saves_manage_import_unpacking, file.name
-                            ))
-                            unpackSaveZip(file, savesDir)
-                        }
+                    Icon(
+                        painter = painterResource(R.drawable.ic_refresh),
+                        contentDescription = stringResource(R.string.generic_refresh)
                     )
-                    ImportMultipleFileButton(
-                        extension = "zip",
-                        progressUris = { uris ->
-                            TaskSystem.submitTask(
-                                taskBuilder(uris)
-                            )
-                        }
-                    )
-
-                    IconButton(
-                        onClick = refreshSaves
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_refresh),
-                            contentDescription = stringResource(R.string.generic_refresh)
-                        )
-                    }
                 }
             }
         }
