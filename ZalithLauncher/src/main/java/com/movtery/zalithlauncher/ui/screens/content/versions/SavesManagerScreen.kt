@@ -127,6 +127,7 @@ import com.movtery.zalithlauncher.ui.screens.content.versions.elements.FileNameI
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.DisabledStateIcon
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.LoadingState
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.MinecraftColorTextNormal
+import com.movtery.zalithlauncher.ui.screens.content.versions.elements.SaveStateFilter
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.SavesFilter
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.SavesOperation
 import com.movtery.zalithlauncher.ui.screens.content.versions.elements.filterSaves
@@ -152,7 +153,7 @@ private class SavesManageViewModel(
     val minecraftVersion: String,
     val savesDir: File
 ) : ViewModel() {
-    var savesFilter by mutableStateOf(SavesFilter(onlyShowCompatible = false, saveName = ""))
+    var savesFilter by mutableStateOf(SavesFilter())
         private set
 
     var allSaves by mutableStateOf<List<SaveData>>(emptyList())
@@ -243,7 +244,7 @@ private class SavesManageViewModel(
     private fun filterSaves() {
         filteredSaves = allSaves
             .takeIf { it.isNotEmpty() }
-            ?.filterSaves(minecraftVersion, savesFilter)
+            ?.filterSaves(savesFilter)
             ?.sortedWith { o1, o2 ->
                 val file1 = o1.saveFile
                 val file2 = o2.saveFile
@@ -446,6 +447,9 @@ fun SavesManagerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             savesFilter = viewModel.savesFilter,
                             onSavesFilterChange = { viewModel.updateFilter(it) },
+                            allSavesCount = viewModel.allSaves.size,
+                            enabledSavesCount = viewModel.allSaves.count { it.isWorldEnabled },
+                            disabledSavesCount = viewModel.allSaves.count { !it.isWorldEnabled },
                             supportedSortByEnums = viewModel.supportedSortByEnums,
                             sortByEnum = viewModel.sortByEnum,
                             onSortByChanged = { viewModel.updateSortBy(it) },
@@ -525,6 +529,9 @@ private fun SavesActionsHeader(
     modifier: Modifier,
     savesFilter: SavesFilter,
     onSavesFilterChange: (SavesFilter) -> Unit,
+    allSavesCount: Int,
+    enabledSavesCount: Int,
+    disabledSavesCount: Int,
     supportedSortByEnums: List<SortByEnum>,
     sortByEnum: SortByEnum,
     onSortByChanged: (SortByEnum) -> Unit,
@@ -565,25 +572,36 @@ private fun SavesActionsHeader(
                         onDismissRequest = { expanded = false },
                         shape = MaterialTheme.shapes.large
                     ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(text = stringResource(R.string.manage_only_show_valid))
-                            },
-                            onClick = {
-                                onSavesFilterChange(
-                                    savesFilter.copy(onlyShowCompatible = !savesFilter.onlyShowCompatible)
-                                )
-                                expanded = false
-                            },
-                            trailingIcon = if (savesFilter.onlyShowCompatible) {
-                                {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_check),
-                                        contentDescription = null
-                                    )
-                                }
-                            } else null
-                        )
+                        SaveStateFilter.entries.forEach { filter ->
+                            val count = when (filter) {
+                                SaveStateFilter.Enabled -> enabledSavesCount
+                                SaveStateFilter.Disabled -> disabledSavesCount
+                                else -> allSavesCount
+                            }
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(text = stringResource(filter.textRes))
+                                        Text(text = "($count)")
+                                    }
+                                },
+                                onClick = {
+                                    onSavesFilterChange(savesFilter.copy(stateFilter = filter))
+                                    expanded = false
+                                },
+                                trailingIcon = if (filter == savesFilter.stateFilter) {
+                                    {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_check),
+                                            contentDescription = null
+                                        )
+                                    }
+                                } else null
+                            )
+                        }
                     }
                 }
 
