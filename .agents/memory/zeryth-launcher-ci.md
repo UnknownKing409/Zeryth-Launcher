@@ -13,5 +13,8 @@ This repl only has Android `platform-tools` in Nix, no `compileSdk` platforms/bu
 - Repo convention (per the project's own agent instructions): use `[skip ci]` on intermediate commits, and push a
   final commit without `[skip ci]` to trigger the real build; then poll with `gh run list` / `gh run view --json
   status,conclusion,jobs` (using `GH_TOKEN="$GITHUB_TOKEN" gh ...`) until all arch jobs report `conclusion: success`.
-- The repo's own `origin` remote URL already embeds a working push token, so plain `git push origin <branch>` works
-  even when the platform's `gitPush` callback fails with `NO_CREDENTIALS` (no Replit GitHub integration attached).
+- Keep `origin` as the clean HTTPS repository URL. For pushes without a connected Replit GitHub integration, use the
+  stored token through a temporary Basic authorization header with the `x-access-token` username; never persist
+  credentials in the remote URL.
+- Fetch `origin` before pushing because the primary branch may advance independently; rebase local work onto the
+  fetched branch instead of force-pushing.
