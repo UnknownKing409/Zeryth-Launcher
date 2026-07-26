@@ -45,7 +45,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -865,8 +864,9 @@ private fun SaveItemLayout(
             //存档的封面图标
             DisabledStateIcon(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(shape = RoundedCornerShape(10.dp)),
+                    .align(Alignment.CenterVertically)
+                    .size(40.dp)
+                    .clip(shape = MaterialTheme.shapes.medium),
                 isDisabled = !saveData.isWorldEnabled
             ) { colorFilter ->
                 SaveIcon(
