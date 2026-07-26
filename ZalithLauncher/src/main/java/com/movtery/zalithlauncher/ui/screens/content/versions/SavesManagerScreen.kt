@@ -358,6 +358,7 @@ fun SavesManagerScreen(
     version: Version,
     onQuickPlay: (Version, String) -> Unit,
     backToMainScreen: () -> Unit,
+    swapToDownload: () -> Unit,
     onSwapMoreInfo: (id: String, Platform) -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
@@ -455,6 +456,7 @@ fun SavesManagerScreen(
                             isAscending = viewModel.isAscending,
                             onToggleSortOrder = { viewModel.updateSortOrder() },
                             savesDir = savesDir,
+                            swapToDownload = swapToDownload,
                             refreshSaves = { viewModel.refresh() },
                             submitError = submitError,
                             isSavesSelected = viewModel.selectedSaves.isNotEmpty(),
@@ -537,6 +539,7 @@ private fun SavesActionsHeader(
     isAscending: Boolean,
     onToggleSortOrder: () -> Unit,
     savesDir: File,
+    swapToDownload: () -> Unit,
     refreshSaves: () -> Unit,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit,
     isSavesSelected: Boolean,
@@ -722,6 +725,12 @@ private fun SavesActionsHeader(
                             taskBuilder(uris)
                         )
                     }
+                )
+
+                IconTextButton(
+                    onClick = swapToDownload,
+                    painter = painterResource(R.drawable.ic_download_2_filled),
+                    text = stringResource(R.string.generic_download)
                 )
 
                 IconButton(

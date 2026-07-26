@@ -478,6 +478,11 @@ private fun NavigationUI(
                         versionsScreenKey = versionsScreenKey,
                         version = version,
                         backToMainScreen = backToMainScreen,
+                        swapToDownload = {
+                            backScreenViewModel.navigateToDownload(
+                                targetScreen = backScreenViewModel.downloadShadersScreen
+                            )
+                        },
                         onSwapMoreInfo = { projectId, platform ->
                             backScreenViewModel.mainScreen.removeAndNavigateTo(
                                 NestedNavKey.AssetInfo::class,
