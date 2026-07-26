@@ -50,7 +50,7 @@ data class SaveData(
     val allowCommands: Boolean? = null,
     /** 世界种子 */
     val worldSeed: Long? = null,
-    /** 存档是否已启用（level.dat 存在）。禁用的存档会有 level.dat.disabled 文件代替 */
+    /** 存档是否已启用（文件夹名不以 "." 开头为启用，以 "." 开头为禁用） */
     val isWorldEnabled: Boolean = true,
     /** 该存档下载自哪个平台（本地创建则为 null） */
     val downloadPlatform: Platform? = null,

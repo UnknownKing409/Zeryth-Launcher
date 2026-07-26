@@ -187,18 +187,13 @@ private class SavesManageViewModel(
                     try {
                         dirs.forEach { dir ->
                             ensureActive()
-                            // 优先读取 level.dat；若只有 level.dat.disabled，则读取它（世界被禁用）
+                            // 通过文件夹名是否以 "." 开头判断存档是否被禁用
+                            val isEnabled = !dir.name.startsWith(".")
                             val levelDat = File(dir, "level.dat")
-                            val levelDatDisabled = File(dir, "level.dat.disabled")
-                            val (effectiveLevelDat, isEnabled) = when {
-                                levelDat.exists() -> levelDat to true
-                                levelDatDisabled.exists() -> levelDatDisabled to false
-                                else -> levelDat to true
-                            }
                             val downloadSource = readSaveDownloadSource(dir)
                             val data = parseLevelDatFile(
                                 saveFile = dir,
-                                levelDatFile = effectiveLevelDat,
+                                levelDatFile = levelDat,
                                 worldGenDatFile = File(dir, "data/minecraft/world_gen_settings.dat")
                                     .takeIf { it.isFile && it.exists() }
                             ).copy(
@@ -266,11 +261,11 @@ private class SavesManageViewModel(
             }
     }
 
-    /** 立即更新某个存档的启用/禁用状态（不重新解析所有存档） */
-    fun updateWorldEnabledState(saveData: SaveData, isEnabled: Boolean) {
+    /** 立即更新某个存档的启用/禁用状态及文件夹路径（不重新解析所有存档） */
+    fun updateWorldEnabledState(saveData: SaveData, isEnabled: Boolean, newSaveFile: File) {
         allSaves = allSaves.map { save ->
             if (save.saveFile.absolutePath == saveData.saveFile.absolutePath) {
-                save.copy(isWorldEnabled = isEnabled)
+                save.copy(isWorldEnabled = isEnabled, saveFile = newSaveFile)
             } else {
                 save
             }
@@ -302,9 +297,12 @@ private class SavesManageViewModel(
         doInScope {
             withContext(Dispatchers.IO) {
                 selectedSaves.toList().forEach { save ->
-                    if (!save.isWorldEnabled && save.enableWorld()) {
-                        withContext(Dispatchers.Main) {
-                            updateWorldEnabledState(save, true)
+                    if (!save.isWorldEnabled) {
+                        val newFile = save.enableWorld()
+                        if (newFile != null) {
+                            withContext(Dispatchers.Main) {
+                                updateWorldEnabledState(save, true, newFile)
+                            }
                         }
                     }
                 }
@@ -319,9 +317,12 @@ private class SavesManageViewModel(
         doInScope {
             withContext(Dispatchers.IO) {
                 selectedSaves.toList().forEach { save ->
-                    if (save.isWorldEnabled && save.disableWorld()) {
-                        withContext(Dispatchers.Main) {
-                            updateWorldEnabledState(save, false)
+                    if (save.isWorldEnabled) {
+                        val newFile = save.disableWorld()
+                        if (newFile != null) {
+                            withContext(Dispatchers.Main) {
+                                updateWorldEnabledState(save, false, newFile)
+                            }
                         }
                     }
                 }
@@ -479,9 +480,10 @@ fun SavesManagerScreen(
                             onEnable = { saveData ->
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
-                                        if (saveData.enableWorld()) {
+                                        val newFile = saveData.enableWorld()
+                                        if (newFile != null) {
                                             withContext(Dispatchers.Main) {
-                                                viewModel.updateWorldEnabledState(saveData, true)
+                                                viewModel.updateWorldEnabledState(saveData, true, newFile)
                                             }
                                         }
                                     }
@@ -490,9 +492,10 @@ fun SavesManagerScreen(
                             onDisable = { saveData ->
                                 viewModel.doInScope {
                                     withContext(Dispatchers.IO) {
-                                        if (saveData.disableWorld()) {
+                                        val newFile = saveData.disableWorld()
+                                        if (newFile != null) {
                                             withContext(Dispatchers.Main) {
-                                                viewModel.updateWorldEnabledState(saveData, false)
+                                                viewModel.updateWorldEnabledState(saveData, false, newFile)
                                             }
                                         }
                                     }

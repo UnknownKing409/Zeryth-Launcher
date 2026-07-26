@@ -165,35 +165,33 @@ fun readSaveDownloadSource(saveFolder: File): Pair<Platform, String>? {
 // ----------------------
 
 /**
- * 启用存档：将 level.dat.disabled 重命名回 level.dat。
- * 成功返回 true。
+ * 启用存档：将存档文件夹名称前缀的 "." 去掉（例如 ".WorldName" → "WorldName"）。
+ * 成功返回重命名后的新文件夹，失败返回 null。
  */
-fun SaveData.enableWorld(): Boolean {
-    val disabledFile = File(saveFile, "level.dat.disabled")
-    val normalFile = File(saveFile, "level.dat")
-    if (!disabledFile.exists()) return false
+fun SaveData.enableWorld(): File? {
+    if (!saveFile.name.startsWith(".")) return null
+    val newFolder = File(saveFile.parentFile, saveFile.name.removePrefix("."))
     return try {
-        Files.move(disabledFile.toPath(), normalFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        true
+        Files.move(saveFile.toPath(), newFolder.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        newFolder
     } catch (e: Exception) {
         Logger.warning(TAG, "Failed to enable world ${saveFile.name}", e)
-        false
+        null
     }
 }
 
 /**
- * 禁用存档：将 level.dat 重命名为 level.dat.disabled。
- * 成功返回 true。
+ * 禁用存档：在存档文件夹名称前加 "."（例如 "WorldName" → ".WorldName"）。
+ * 成功返回重命名后的新文件夹，失败返回 null。
  */
-fun SaveData.disableWorld(): Boolean {
-    val normalFile = File(saveFile, "level.dat")
-    val disabledFile = File(saveFile, "level.dat.disabled")
-    if (!normalFile.exists()) return false
+fun SaveData.disableWorld(): File? {
+    if (saveFile.name.startsWith(".")) return null
+    val newFolder = File(saveFile.parentFile, ".${saveFile.name}")
     return try {
-        Files.move(normalFile.toPath(), disabledFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        true
+        Files.move(saveFile.toPath(), newFolder.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        newFolder
     } catch (e: Exception) {
         Logger.warning(TAG, "Failed to disable world ${saveFile.name}", e)
-        false
+        null
     }
 }
