@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Surface
@@ -609,8 +610,8 @@ private fun SaveItemLayout(
             //存档的封面图标
             SaveIcon(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(shape = MaterialTheme.shapes.medium),
+                    .size(42.dp)
+                    .clip(shape = RoundedCornerShape(10.dp)),
                 saveData = saveData
             )
 
@@ -755,7 +756,7 @@ private fun SaveIcon(
         model = model,
         contentDescription = null,
         alignment = Alignment.Center,
-        contentScale = ContentScale.Crop,
+        contentScale = ContentScale.Fit,
         modifier = modifier
     )
 }
