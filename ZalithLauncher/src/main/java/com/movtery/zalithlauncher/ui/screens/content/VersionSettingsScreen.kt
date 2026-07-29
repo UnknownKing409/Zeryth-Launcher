@@ -480,7 +480,7 @@ private fun NavigationUI(
                         backToMainScreen = backToMainScreen,
                         swapToDownload = {
                             backScreenViewModel.navigateToDownload(
-                                targetScreen = backScreenViewModel.downloadShadersScreen
+                                targetScreen = backScreenViewModel.downloadSavesScreen
                             )
                         },
                         onSwapMoreInfo = { projectId, platform ->
