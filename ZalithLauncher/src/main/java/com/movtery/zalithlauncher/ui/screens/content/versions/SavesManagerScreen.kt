@@ -75,6 +75,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -875,12 +876,13 @@ private fun SaveItemLayout(
             DisabledStateIcon(
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
-                    .size(64.dp)
-                    .clip(shape = MaterialTheme.shapes.large)
+                    .size(48.dp)
+                    .clip(shape = RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 isDisabled = !saveData.isWorldEnabled
             ) { colorFilter ->
                 SaveIcon(
+                    modifier = Modifier.fillMaxSize(),
                     saveData = saveData,
                     colorFilter = colorFilter
                 )
