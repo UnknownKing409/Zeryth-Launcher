@@ -29,6 +29,7 @@ import com.movtery.zalithlauncher.game.download.assets.platform.getVersions
 import com.movtery.zalithlauncher.game.download.assets.platform.mcim.mapMCIMMirrorUrls
 import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.AndroidStringText
 import com.movtery.zalithlauncher.ui.androidText
@@ -88,6 +89,10 @@ fun downloadSingleForVersions(
                 if (targetFile.exists() && !targetFile.delete()) throw IOException("Failed to properly delete the existing target file.")
                 cacheFile.copyTo(targetFile)
                 onFileCopied(targetFile, targetFolder) //文件已复制回调
+                // Register the newly downloaded file as enabled in the active Version
+                // Profile so that synchronizeForLaunch() does not default it to
+                // disabled the next time profiles are applied.
+                VersionProfileManager.captureCurrentState(ver)
             }
         },
         onError = { e ->
