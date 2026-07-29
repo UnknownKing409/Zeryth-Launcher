@@ -30,9 +30,12 @@ import com.movtery.zalithlauncher.game.download.assets.platform.PlatformVersion
 import com.movtery.zalithlauncher.game.download.assets.platform.mcim.mapMCIMMirrorUrls
 import com.movtery.zalithlauncher.game.download.game.GameDownloadInfo
 import com.movtery.zalithlauncher.game.download.game.GameInstaller
+import com.movtery.zalithlauncher.game.version.installed.Version
 import com.movtery.zalithlauncher.game.version.installed.VersionConfig
 import com.movtery.zalithlauncher.game.version.installed.VersionFolders
+import com.movtery.zalithlauncher.game.version.installed.VersionType
 import com.movtery.zalithlauncher.game.version.installed.VersionsManager
+import com.movtery.zalithlauncher.game.version.profile.VersionProfileManager
 import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.ui.androidText
 import com.movtery.zalithlauncher.utils.file.copyDirectoryContents
@@ -318,10 +321,26 @@ class ModPackInstaller(
             }
 
             //创建版本信息
-            VersionConfig.createIsolation(targetClientDir).apply {
+            val installedVersionConfig = VersionConfig.createIsolation(targetClientDir).apply {
                 this.versionSummary = modpackInfo.summary ?: "" //整合包描述
                 this.ramAllocation = modpackInfo.ram ?: -1
-            }.save()
+            }
+            installedVersionConfig.save()
+
+            // Snapshot every installed mod as enabled in the new version's active
+            // profile. Without this explicit capture, synchronizeForLaunch() would
+            // default any mod absent from the profile snapshot to disabled — the
+            // same root cause that was fixed for individual mod downloads.
+            // A minimal Version wrapper is used so captureCurrentState reads the
+            // correct isolated game directory (targetClientDir/mods/).
+            val installedVersion = Version(
+                versionName = targetClientDir.name,
+                versionConfig = installedVersionConfig,
+                versionInfo = null,
+                isValid = false,
+                versionType = VersionType.UNKNOWN
+            )
+            VersionProfileManager.captureCurrentState(installedVersion)
 
             //清理临时整合包目录
             task.updateProgress(-1f)
