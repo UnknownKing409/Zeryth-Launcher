@@ -874,8 +874,8 @@ private fun SaveItemLayout(
             DisabledStateIcon(
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
-                    .size(40.dp)
-                    .clip(shape = MaterialTheme.shapes.medium),
+                    .size(64.dp)
+                    .clip(shape = MaterialTheme.shapes.large),
                 isDisabled = !saveData.isWorldEnabled
             ) { colorFilter ->
                 SaveIcon(
