@@ -21,6 +21,7 @@ package com.movtery.zalithlauncher.ui.screens.content.versions
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
@@ -875,7 +876,8 @@ private fun SaveItemLayout(
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
                     .size(64.dp)
-                    .clip(shape = MaterialTheme.shapes.large),
+                    .clip(shape = MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 isDisabled = !saveData.isWorldEnabled
             ) { colorFilter ->
                 SaveIcon(
@@ -1049,7 +1051,7 @@ private fun SaveIcon(
         model = model,
         contentDescription = null,
         alignment = Alignment.Center,
-        contentScale = ContentScale.Fit,
+        contentScale = ContentScale.Crop,
         modifier = modifier,
         colorFilter = colorFilter
     )
