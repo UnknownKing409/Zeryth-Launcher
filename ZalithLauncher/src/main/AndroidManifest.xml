@@ -151,6 +151,7 @@
             android:name=".game.recorder.MediaProjectionForegroundService"
             android:enabled="true"
             android:exported="false"
+            android:process=":game"
             android:foregroundServiceType="mediaProjection" />
 
         <service
