@@ -584,6 +584,12 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         if (escapeInjectedForBackground || !vmViewModel.isRunning) return
         if (vmViewModel.session.handler.type != HandlerType.GAME) return
 
+        // The MediaProjection consent dialog is part of the screen-recording start
+        // flow, not the user choosing to leave the game.  Suppress the automatic
+        // Escape-key injection so the game does not enter the pause menu just because
+        // the OS permission dialog appeared.
+        if (GameRecorder.isConsentPending) return
+
         // Set the guard before calling JNI because focus and lifecycle
         // callbacks may be re-entrant during a platform transition.
         escapeInjectedForBackground = true

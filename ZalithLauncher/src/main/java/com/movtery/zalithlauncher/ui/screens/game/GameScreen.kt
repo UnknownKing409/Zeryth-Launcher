@@ -159,6 +159,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -581,6 +583,7 @@ fun GameScreen(
         context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
     var pendingStartRecording by remember { mutableStateOf(false) }
+    val recordingCoroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // stopProjectionService has no dependency on any val below, so it is safe here.
     fun stopProjectionService() {
@@ -588,26 +591,59 @@ fun GameScreen(
     }
 
     // Step 2: consent dialog result — stopProjectionService is already in scope above.
+    //
+    // Android 15+ (API 35+) tightened FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION enforcement:
+    // startForeground() with that type silently fails when called before the user has granted
+    // MediaProjection consent in the current session, and Android then fires
+    // ForegroundServiceDidNotStartInTimeException after the 5-second deadline.
+    //
+    // Fix: start the foreground service here, AFTER consent is obtained.  The service signals
+    // readiness via MediaProjectionForegroundService.isReady so we can safely call
+    // getMediaProjection() only once startForeground() has completed.
     val requestProjection = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         pendingStartRecording = false
+        GameRecorder.endConsentFlow()
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            val projection = mediaProjectionManager
-                .getMediaProjection(result.resultCode, result.data!!)
-                ?: run { stopProjectionService(); return@rememberLauncherForActivityResult }
-            GameRecorder.start(context, projection)
-            eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+            val resultCode = result.resultCode
+            val resultData = result.data!!
+            // Reset before starting so we don't observe a stale true from a previous session.
+            MediaProjectionForegroundService.resetReadyState()
+            context.startForegroundService(
+                Intent(context, MediaProjectionForegroundService::class.java)
+            )
+            recordingCoroutineScope.launch {
+                // Wait for the foreground service to call startForeground() before
+                // requesting the projection token (Android 14+ requirement).
+                val ready = withTimeoutOrNull(5_000L) {
+                    MediaProjectionForegroundService.isReady.first { it }
+                }
+                if (ready == null) {
+                    // Service did not become ready in time — clean up gracefully.
+                    stopProjectionService()
+                    return@launch
+                }
+                val projection = withContext(Dispatchers.Main) {
+                    mediaProjectionManager.getMediaProjection(resultCode, resultData)
+                } ?: run { stopProjectionService(); return@launch }
+                GameRecorder.start(context, projection)
+                eventViewModel.sendToast(androidText(R.string.recorder_started), Toast.LENGTH_SHORT)
+            }
         } else {
             stopProjectionService()
         }
     }
 
     // launchProjectionConsent references requestProjection, so it must come after it.
+    // The foreground service is intentionally NOT started here — it must be started
+    // only after the user grants consent (Android 15+ requirement; see requestProjection).
     fun launchProjectionConsent() {
-        context.startForegroundService(
-            Intent(context, MediaProjectionForegroundService::class.java)
-        )
+        // Mark consent as pending so that the automatic game-pause and music-mute
+        // features know to suppress themselves during this OS permission flow.
+        // The consent dialog is NOT the user choosing to leave the game — it is a
+        // required part of the recording start sequence.
+        GameRecorder.beginConsentFlow()
         requestProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 

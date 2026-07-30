@@ -37,6 +37,7 @@ import com.movtery.zalithlauncher.game.launch.GameLauncher
 import com.movtery.zalithlauncher.game.launch.LaunchConfig
 import com.movtery.zalithlauncher.game.launch.MCOptions
 import com.movtery.zalithlauncher.game.launch.loadLanguage
+import com.movtery.zalithlauncher.game.recorder.GameRecorder
 import com.movtery.zalithlauncher.game.version.installed.GraphicsApi
 import com.movtery.zalithlauncher.game.version.installed.utils.isLowerVer
 import com.movtery.zalithlauncher.setting.AllSettings
@@ -161,6 +162,12 @@ class GameHandler(
     }
 
     override fun onPause() {
+        // The MediaProjection consent dialog is part of the recording start flow, not
+        // the user genuinely leaving the game.  Suppress music muting so that the
+        // game audio is not interrupted (and no F3+T restore fires on resume).
+        // savedMusicVolume stays null, so onResume() naturally skips the restore.
+        if (GameRecorder.isConsentPending) return
+
         // Mute Minecraft's ambient background music when the launcher is backgrounded.
         // Integrates into the same lifecycle hook used for automatic game pausing.
         // All file I/O runs on Dispatchers.IO to avoid blocking the Android UI thread.

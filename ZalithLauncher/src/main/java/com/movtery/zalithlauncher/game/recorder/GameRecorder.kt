@@ -187,6 +187,20 @@ object GameRecorder {
     @Volatile private var pendingUri:  android.net.Uri? = null
     @Volatile private var pendingFile: File?            = null
 
+    // ── Consent-dialog guard ───────────────────────────────────────────────────
+    // Set to true from the moment launchProjectionConsent() is called until the
+    // activity-result callback fires.  Used to suppress automatic game-pause and
+    // music-mute while the OS MediaProjection permission dialog is visible — that
+    // dialog is part of the recording start flow, not a genuine background event.
+    @Volatile private var _isConsentPending = false
+    val isConsentPending: Boolean get() = _isConsentPending
+
+    /** Called immediately before launching the MediaProjection consent dialog. */
+    fun beginConsentFlow() { _isConsentPending = true }
+
+    /** Called in the activity-result callback regardless of the user's choice. */
+    fun endConsentFlow()   { _isConsentPending = false }
+
     // ─────────────────────────────────────────────────────────────── API ──────
 
     /**
@@ -1174,6 +1188,7 @@ object GameRecorder {
         totalPausedUs      = 0L
         pendingUri         = null
         pendingFile        = null
+        _isConsentPending  = false
 
         _state.value = RecordingState.IDLE
     }
