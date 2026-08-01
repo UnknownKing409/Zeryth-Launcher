@@ -48,6 +48,7 @@ import com.movtery.zalithlauncher.ui.screens.navigateTo
 import com.movtery.zalithlauncher.ui.screens.onBack
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.screens.rememberTransitionSpec
+import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.network.isUsingMobileData
 import com.movtery.zalithlauncher.viewmodel.ErrorViewModel
 import com.movtery.zalithlauncher.viewmodel.EventViewModel
@@ -103,6 +104,9 @@ fun DownloadResourcePackScreen(
                     submitError = submitError,
                     onEachError = { name, error ->
                         failedDependencies += "${name}: ${error}"
+                    },
+                    onEachSkipped = { name ->
+                        Logger.info("DownloadResourcePack", "Skipping already installed dependency: $name")
                     }
                 )
                 if (failedDependencies.isNotEmpty()) {
@@ -112,6 +116,42 @@ fun DownloadResourcePackScreen(
                             message = androidText(failedDependencies.joinToString("\n"))
                         )
                     )
+                }
+            }
+        },
+        onInstallWithDependencies = { classes, version, gameVersions, requiredDeps ->
+            //一键安装：先安装所选资源包本体，再复用现有前置解析/下载/安装流水线安装所有必需前置项目
+            downloadSingleForVersions(
+                context = context,
+                version = version,
+                versions = gameVersions,
+                folder = classes.versionFolder.folderName,
+                submitError = submitError
+            )
+            if (requiredDeps.isNotEmpty()) {
+                scope.launch {
+                    val failedDependencies = mutableListOf<String>()
+                    downloadDependenciesBatch(
+                        context = context,
+                        deps = requiredDeps,
+                        gameVersions = gameVersions,
+                        folder = classes.versionFolder.folderName,
+                        submitError = submitError,
+                        onEachError = { name, error ->
+                            failedDependencies += "${name}: ${error}"
+                        },
+                        onEachSkipped = { name ->
+                            Logger.info("DownloadResourcePack", "Skipping already installed dependency: $name")
+                        }
+                    )
+                    if (failedDependencies.isNotEmpty()) {
+                        submitError(
+                            ErrorViewModel.ThrowableMessage(
+                                title = androidText(R.string.download_assets_install_with_deps),
+                                message = androidText(failedDependencies.joinToString("\n"))
+                            )
+                        )
+                    }
                 }
             }
         }
