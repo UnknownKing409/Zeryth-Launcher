@@ -212,6 +212,60 @@ object VersionProfileManager {
     }
 
     /**
+     * Registers a single newly-installed file as enabled in the active Version
+     * Profile and ensures the file is physically in the enabled state on disk.
+     *
+     * Unlike [captureCurrentState] (which re-snapshots the entire directory and
+     * can record a file as disabled if [apply] ran between the copy and the
+     * capture), this method atomically updates only the one key that matters:
+     * the newly installed file is recorded as enabled regardless of whether a
+     * concurrent [apply] managed to rename it to `.disabled` in the meantime.
+     *
+     * Only the active profile is updated. Every other profile is left untouched,
+     * so profile isolation is preserved: switching to another profile that did
+     * not previously contain the file will still disable it.
+     *
+     * After updating the profile and re-enabling the file on disk,
+     * [notifyProfileChanged] is emitted so that management screens refresh
+     * immediately.
+     *
+     * @param version The game version the file was installed into.
+     * @param file    The installed file (its parent directory determines whether
+     *                it is a mod, resource pack, or shader).
+     */
+    @Synchronized
+    fun registerInstalledContent(version: Version, file: File) {
+        val folder = file.parentFile ?: return
+        val key = file.profileKey()
+
+        val modsDir = VersionFolders.MOD.getDir(version.getGameDir())
+        val resourcePacksDir = VersionFolders.RESOURCE_PACK.getDir(version.getGameDir())
+        val shadersDir = VersionFolders.SHADERS.getDir(version.getGameDir())
+
+        val profileFile = read(version)
+        val active = profileFile.profiles.firstOrNull { it.name == profileFile.activeProfile }
+            ?: return
+
+        val updatedProfile = when (folder.absolutePath) {
+            modsDir.absolutePath ->
+                active.copy(modStates = active.modStates + (key to true))
+            resourcePacksDir.absolutePath ->
+                active.copy(resourcePackStates = active.resourcePackStates + (key to true))
+            shadersDir.absolutePath ->
+                active.copy(shaderStates = active.shaderStates + (key to true))
+            else -> return // not a profile-managed folder; nothing to do
+        }
+
+        // Re-enable the file in case a concurrent apply() renamed it to .disabled
+        // between the file copy and this call. The @Synchronized lock prevents any
+        // subsequent apply() from disabling it again before we finish writing.
+        setGroupEnabled(folder, key, true)
+
+        write(version, profileFile.copy(profiles = profileFile.profiles.replaceProfile(updatedProfile)))
+        notifyProfileChanged(version)
+    }
+
+    /**
      * Applies a user-requested enabled/disabled state to files and immediately
      * persists the resulting filesystem state into the active profile.
      *

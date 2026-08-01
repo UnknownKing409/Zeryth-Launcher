@@ -89,10 +89,13 @@ fun downloadSingleForVersions(
                 if (targetFile.exists() && !targetFile.delete()) throw IOException("Failed to properly delete the existing target file.")
                 cacheFile.copyTo(targetFile)
                 onFileCopied(targetFile, targetFolder) //文件已复制回调
-                // Register the newly downloaded file as enabled in the active Version
-                // Profile so that synchronizeForLaunch() does not default it to
-                // disabled the next time profiles are applied.
-                VersionProfileManager.captureCurrentState(ver)
+                // Register the newly installed file as enabled in the active Version
+                // Profile. Using registerInstalledContent (rather than
+                // captureCurrentState) ensures the update is atomic and surgical:
+                // it marks only this file as enabled, re-enables it on disk if a
+                // concurrent apply() already renamed it to .disabled, and emits
+                // notifyProfileChanged so management screens refresh immediately.
+                VersionProfileManager.registerInstalledContent(ver, targetFile)
             }
         },
         onError = { e ->
