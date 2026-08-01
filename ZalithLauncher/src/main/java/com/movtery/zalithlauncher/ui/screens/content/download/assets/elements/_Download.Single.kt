@@ -239,7 +239,7 @@ fun DownloadSingleOperation(
                         operation.classes,
                         operation.version,
                         operation.versions,
-                        operation.dependencies
+                        emptyList()
                     )
                 },
                 onDismiss = {
