@@ -1239,6 +1239,23 @@ object GameRecorder {
     }
 
     /**
+     * Play the screenshot feedback sound from [R.raw.screenshot_sound].
+     *
+     * Uses the same [AudioAttributes.USAGE_ALARM] routing as recording status sounds so
+     * it plays even in silent/vibrate mode and is excluded from [AudioPlaybackCaptureConfiguration]
+     * (which only captures USAGE_GAME / USAGE_MEDIA / USAGE_UNKNOWN) — the sound will never
+     * bleed into an ongoing screen recording.
+     *
+     * Safe to call from any thread.  If called rapidly, each invocation creates an
+     * independent [MediaPlayer] that is released automatically on completion, so there
+     * is no blocking and no forced overlap — playback instances overlap naturally but
+     * are individually short-lived and do not accumulate.
+     */
+    fun playScreenshotSound() {
+        playRawSound(com.movtery.zalithlauncher.R.raw.screenshot_sound)
+    }
+
+    /**
      * Create a [MediaPlayer] for the given raw resource, apply USAGE_ALARM audio
      * attributes so the sound bypasses silent/vibrate mode, start it, and release it
      * automatically when playback finishes.

@@ -987,8 +987,11 @@ fun GameScreen(
                     // Inject F2 press + release through the existing native input bridge.
                     // Minecraft handles the rest: it saves the screenshot to its own
                     // screenshots folder and displays its built-in confirmation toast.
+                    // The custom screenshot sound plays immediately after the key is sent,
+                    // using USAGE_ALARM routing so it is excluded from screen recording capture.
                     onTakeScreenshot = {
                         CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F2.toInt())
+                        GameRecorder.playScreenshotSound()
                     }
                 )
             }

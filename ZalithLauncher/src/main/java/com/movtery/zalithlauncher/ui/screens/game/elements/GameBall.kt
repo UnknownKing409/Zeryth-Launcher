@@ -169,6 +169,19 @@ private fun RecordingControlContent(
                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
         }
+        // Screenshot — placed immediately beside the Microphone toggle for quick access.
+        // Injects F2 through the existing native input bridge so Minecraft captures the
+        // screenshot itself (identical to pressing F2 on a physical keyboard).
+        IconButton(
+            onClick = onTakeScreenshot,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_screenshot),
+                contentDescription = stringResource(R.string.recorder_screenshot),
+                modifier = Modifier.size(18.dp)
+            )
+        }
         // Pause / Resume toggle
         IconButton(
             onClick = if (isPaused) onResume else onPause,
@@ -195,18 +208,6 @@ private fun RecordingControlContent(
                 contentDescription = stringResource(R.string.recorder_stop_and_save),
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.error
-            )
-        }
-        // Screenshot — injects F2 through the existing native input bridge so Minecraft
-        // captures the screenshot itself (identical to pressing F2 on a physical keyboard).
-        IconButton(
-            onClick = onTakeScreenshot,
-            modifier = Modifier.size(28.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_screenshot),
-                contentDescription = stringResource(R.string.recorder_screenshot),
-                modifier = Modifier.size(18.dp)
             )
         }
     }
