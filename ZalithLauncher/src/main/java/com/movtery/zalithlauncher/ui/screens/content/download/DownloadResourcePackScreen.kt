@@ -131,19 +131,30 @@ fun DownloadResourcePackScreen(
             if (requiredDeps.isNotEmpty()) {
                 scope.launch {
                     val failedDependencies = mutableListOf<String>()
-                    downloadDependenciesBatch(
-                        context = context,
-                        deps = requiredDeps,
-                        gameVersions = gameVersions,
-                        folder = classes.versionFolder.folderName,
-                        submitError = submitError,
-                        onEachError = { name, error ->
-                            failedDependencies += "${name}: ${error}"
-                        },
-                        onEachSkipped = { name ->
-                            Logger.info("DownloadResourcePack", "Skipping already installed dependency: $name")
-                        }
-                    )
+                    // Each dependency may have its own target folder (e.g. a resource pack can
+                    // require a mod — that mod must land in "mods/", not "resourcepacks/").
+                    // Group by the dependency project's own platformClasses folder so every dep
+                    // reaches the correct directory, and so mod deps get the full
+                    // "already-installed" check that planDependencyDownloads provides.
+                    val depsByFolder = requiredDeps.groupBy { (_, project) ->
+                        project.platformClasses(classes).versionFolder.folderName
+                    }
+                    for ((folder, deps) in depsByFolder) {
+                        if (folder.isEmpty()) continue  // NONE / MOD_PACK — no target folder
+                        downloadDependenciesBatch(
+                            context = context,
+                            deps = deps,
+                            gameVersions = gameVersions,
+                            folder = folder,
+                            submitError = submitError,
+                            onEachError = { name, error ->
+                                failedDependencies += "${name}: ${error}"
+                            },
+                            onEachSkipped = { name ->
+                                Logger.info("DownloadResourcePack", "Skipping already installed dependency: $name")
+                            }
+                        )
+                    }
                     if (failedDependencies.isNotEmpty()) {
                         submitError(
                             ErrorViewModel.ThrowableMessage(
