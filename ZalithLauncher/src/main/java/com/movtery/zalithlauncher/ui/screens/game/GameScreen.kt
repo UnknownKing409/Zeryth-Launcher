@@ -983,7 +983,13 @@ fun GameScreen(
                             android.widget.Toast.LENGTH_SHORT
                         )
                     },
-                    onToggleMic = { GameRecorder.toggleMicrophone() }
+                    onToggleMic = { GameRecorder.toggleMicrophone() },
+                    // Inject F2 press + release through the existing native input bridge.
+                    // Minecraft handles the rest: it saves the screenshot to its own
+                    // screenshots folder and displays its built-in confirmation toast.
+                    onTakeScreenshot = {
+                        CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_F2.toInt())
+                    }
                 )
             }
         }

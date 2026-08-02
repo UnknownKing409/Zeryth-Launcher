@@ -1818,6 +1818,7 @@
     <string name="recorder_notification_text">Game audio and screen are being captured</string>
     <string name="recorder_saved">Recording saved</string>
     <string name="recorder_error">Recording failed to start</string>
+    <string name="recorder_screenshot">Screenshot (F2)</string>
 
     <!-- Recordings screen -->
     <string name="page_title_recordings">Recordings</string>

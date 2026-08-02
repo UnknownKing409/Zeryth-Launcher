@@ -73,7 +73,8 @@ fun DraggableGameBall(
     onPauseRecording: () -> Unit = {},
     onResumeRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
-    onToggleMic: () -> Unit = {}
+    onToggleMic: () -> Unit = {},
+    onTakeScreenshot: () -> Unit = {}
 ) {
     val isRecordingActive = recordingState == RecordingState.RECORDING ||
             recordingState == RecordingState.PAUSED
@@ -103,6 +104,7 @@ fun DraggableGameBall(
             onResumeRecording = onResumeRecording,
             onStopRecording = onStopRecording,
             onToggleMic = onToggleMic,
+            onTakeScreenshot = onTakeScreenshot,
         )
     }
 }
@@ -128,7 +130,8 @@ private fun RecordingControlContent(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
-    onToggleMic: () -> Unit
+    onToggleMic: () -> Unit,
+    onTakeScreenshot: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
@@ -194,6 +197,18 @@ private fun RecordingControlContent(
                 tint = MaterialTheme.colorScheme.error
             )
         }
+        // Screenshot — injects F2 through the existing native input bridge so Minecraft
+        // captures the screenshot itself (identical to pressing F2 on a physical keyboard).
+        IconButton(
+            onClick = onTakeScreenshot,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_screenshot),
+                contentDescription = stringResource(R.string.recorder_screenshot),
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 
@@ -224,6 +239,7 @@ private fun GameBallContent(
     onResumeRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
     onToggleMic: () -> Unit = {},
+    onTakeScreenshot: () -> Unit = {},
 ) {
     val showFps = remember(gameFps) {
         gameFps != null
@@ -320,6 +336,7 @@ private fun GameBallContent(
                 onResume = onResumeRecording,
                 onStop = onStopRecording,
                 onToggleMic = onToggleMic,
+                onTakeScreenshot = onTakeScreenshot,
             )
         }
     }
