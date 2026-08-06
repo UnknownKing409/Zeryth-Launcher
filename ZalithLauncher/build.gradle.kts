@@ -394,6 +394,11 @@ dependencies {
     implementation(project(":LayerController"))
     implementation(project(":ColorPicker"))
     implementation(project(":Terracotta"))
+
+
+    implementation(project(":InputMap"))
+    //Utils
+
     implementation(libs.bytehook)
     implementation(libs.gson)
     implementation(libs.commons.io)

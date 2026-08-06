@@ -111,7 +111,6 @@ fun GameMenuSubscreen(
     onToggleMouseCursor: () -> Unit = {},
     onSendKeycode: () -> Unit,
     onReplacementControl: () -> Unit,
-    onManageJoystick: () -> Unit,
     onEditLayout: () -> Unit,
     onShowToast: (AndroidStringText, Int) -> Unit,
     onStartRecording: () -> Unit = {}
@@ -170,7 +169,6 @@ fun GameMenuSubscreen(
                                 onToggleMouseCursor = onToggleMouseCursor,
                                 onSendKeycode = onSendKeycode,
                                 onReplacementControl = onReplacementControl,
-                                onManageJoystick = onManageJoystick,
                                 onEditLayout = onEditLayout
                             )
                         }
@@ -428,7 +426,6 @@ private fun ControlOverview(
     onToggleMouseCursor: () -> Unit = {},
     onSendKeycode: () -> Unit,
     onReplacementControl: () -> Unit,
-    onManageJoystick: () -> Unit,
     onEditLayout: () -> Unit
 ) {
     val display = LocalContext.current.display
@@ -522,6 +519,7 @@ private fun ControlOverview(
                 contentColor = contentColor,
             )
         }
+
         //帧率上限
         item {
             MenuSwitchButton(
@@ -585,6 +583,8 @@ private fun ControlOverview(
                 contentColor = contentColor,
             )
         }
+
+
     }
 }
 
