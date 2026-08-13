@@ -204,9 +204,11 @@ object VersionProfileManager {
      * this boundary here guarantees that the files, options, and account used
      * by the launch pipeline come from the active profile.
      */
-    @Synchronized
+@Synchronized
     fun synchronizeForLaunch(version: Version) {
         ensure(version)
+        // Recapture options.txt so in-game changes made prior to launch aren't overwritten
+        captureCurrentState(version)
         apply(activeProfile(version), version)
         notifyProfileChanged(version)
     }
@@ -345,28 +347,29 @@ object VersionProfileManager {
             versionConfigSnapshot = state.versionConfigSnapshot
         )
 
-    private fun apply(profile: VersionProfile, version: Version) {
+private fun apply(profile: VersionProfile, version: Version) {
         isApplyingProfile = true
         try {
             applyStates(VersionFolders.MOD.getDir(version.getGameDir()), profile.modStates)
             applyStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir()), profile.resourcePackStates)
             applyStates(VersionFolders.SHADERS.getDir(version.getGameDir()), profile.shaderStates)
-            writeOptionList(version, RESOURCE_PACK_OPTION, profile.resourcePackOrder)
+            
+            // Only write resource packs to options.txt if the profile actually contains saved entries
+            if (profile.resourcePackOrder.isNotEmpty()) {
+                writeOptionList(version, RESOURCE_PACK_OPTION, profile.resourcePackOrder)
+            }
+            
             writeOptionValue(version, SHADER_OPTION, if (profile.shaderEnabled) profile.selectedShader.orEmpty() else "")
             profile.accountId?.let { id ->
                 AccountsManager.accountsFlow.value.firstOrNull { it.uniqueUUID == id }?.let {
                     AccountsManager.setCurrentAccount(it)
                 }
             }
-            // Restore the Configuration screen preferences from the profile snapshot.
-            // Runs inside isApplyingProfile = true so the VersionConfig save listener
-            // does not re-capture immediately after we write the restored values.
             applyVersionConfig(profile.versionConfigSnapshot, version)
         } finally {
             isApplyingProfile = false
         }
-    }
-
+}
     /**
      * Restores a [VersionConfig] snapshot into the live config object for [version].
      *
