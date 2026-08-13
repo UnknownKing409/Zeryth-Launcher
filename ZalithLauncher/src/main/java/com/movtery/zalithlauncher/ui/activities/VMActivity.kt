@@ -463,19 +463,15 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             }
         }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (vmViewModel.textInputMode == TextInputMode.ENABLE) {
-                    //那应该是想退出输入框了
-                    vmViewModel.disableInputMode()
-                    return
-                }
-                if (!vmViewModel.keyHandle) return
-
-                eventViewModel.sendEvent(EventViewModel.Event.Game.OnBack)
-            }
-        })
-
+onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+    override fun handleOnBackPressed() {
+        if (vmViewModel.textInputMode == TextInputMode.ENABLE) {
+            vmViewModel.disableInputMode()
+            return
+        }
+        // Removed: eventViewModel.sendEvent(EventViewModel.Event.Game.OnBack)
+    }
+})
         //关闭菜单之后，每次启动游戏都提醒，防止部分人误触了不知道怎么解决 >:(
         if (!AllSettings.showMenuBall.getValue()) {
             Toast.makeText(
@@ -580,21 +576,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
         CallbackBridge.nativeSetWindowAttrib(LwjglGlfwKeycode.GLFW_FOCUSED, if (hasFocus) 0 else 0)
     }
 
-    private fun pauseGameBeforeBackground() {
-        if (escapeInjectedForBackground || !vmViewModel.isRunning) return
-        if (vmViewModel.session.handler.type != HandlerType.GAME) return
-
-        // The MediaProjection consent dialog is part of the screen-recording start
-        // flow, not the user choosing to leave the game.  Suppress the automatic
-        // Escape-key injection so the game does not enter the pause menu just because
-        // the OS permission dialog appeared.
-        if (GameRecorder.isConsentPending) return
-
-        // Set the guard before calling JNI because focus and lifecycle
-        // callbacks may be re-entrant during a platform transition.
-        escapeInjectedForBackground = true
-        NativeInputSafety.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ESCAPE.toInt())
-    }
+private fun pauseGameBeforeBackground() {
+    // Disabled escape key injection on focus loss/pause
+}
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
