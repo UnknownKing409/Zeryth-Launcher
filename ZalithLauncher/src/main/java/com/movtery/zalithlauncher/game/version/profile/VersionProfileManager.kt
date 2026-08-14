@@ -306,22 +306,27 @@ object VersionProfileManager {
         )
     }
 
-    private fun capture(version: Version): VersionProfile {
-        return VersionProfile(
-            name = "",
-            modStates = snapshotStates(VersionFolders.MOD.getDir(version.getGameDir())),
-            resourcePackStates = snapshotStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir())),
-            resourcePackOrder = optionList(version, RESOURCE_PACK_OPTION),
-            shaderStates = snapshotStates(VersionFolders.SHADERS.getDir(version.getGameDir())),
-            selectedShader = optionValue(version, SHADER_OPTION)?.takeUnless { it.isEmpty() },
-            shaderEnabled = optionValue(version, SHADER_OPTION)?.isNotEmpty() == true,
-            accountId = AccountsManager.currentAccountFlow.value?.uniqueUUID,
-            // Capture the full Configuration screen preferences as a JSON snapshot.
-            // Using GSON serialization of the live VersionConfig ensures that every
-            // current and future configuration field is captured automatically.
-            versionConfigSnapshot = captureVersionConfig(version)
-        )
+private fun capture(version: Version): VersionProfile {
+    val existingProfile = read(version).let { file ->
+        file.profiles.firstOrNull { it.name == file.activeProfile }
     }
+    
+    val currentOrder = optionList(version, RESOURCE_PACK_OPTION)
+    // Fall back to the saved profile's order if options.txt returned empty
+    val resolvedOrder = currentOrder.ifEmpty { existingProfile?.resourcePackOrder.orEmpty() }
+
+    return VersionProfile(
+        name = "",
+        modStates = snapshotStates(VersionFolders.MOD.getDir(version.getGameDir())),
+        resourcePackStates = snapshotStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir())),
+        resourcePackOrder = resolvedOrder,
+        shaderStates = snapshotStates(VersionFolders.SHADERS.getDir(version.getGameDir())),
+        selectedShader = optionValue(version, SHADER_OPTION)?.takeUnless { it.isEmpty() },
+        shaderEnabled = optionValue(version, SHADER_OPTION)?.isNotEmpty() == true,
+        accountId = AccountsManager.currentAccountFlow.value?.uniqueUUID,
+        versionConfigSnapshot = captureVersionConfig(version)
+    )
+}
 
     /**
      * Serializes the version's current [VersionConfig] to a JSON string so that
