@@ -533,9 +533,16 @@ private fun apply(profile: VersionProfile, version: Version) {
         updateOption(version, key, value)
     }
 
-    private fun writeOptionList(version: Version, key: String, values: List<String>) {
-        updateOption(version, key, values.joinToString(prefix = "[", postfix = "]") { "\"$it\"" })
+private fun writeOptionList(version: Version, key: String, values: List<String>) {
+    if (key == RESOURCE_PACK_OPTION && values.isEmpty()) {
+        val currentPacks = optionList(version, key)
+        if (currentPacks.isNotEmpty()) {
+            // Keep existing options.txt resource packs instead of wiping them
+            return
+        }
     }
+    updateOption(version, key, values.joinToString(prefix = "[", postfix = "]") { "\"$it\"" })
+}
 
     private fun updateOption(version: Version, key: String, value: String) {
         val file = optionsFile(version)
