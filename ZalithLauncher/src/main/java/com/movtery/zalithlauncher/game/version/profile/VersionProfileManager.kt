@@ -359,27 +359,30 @@ private fun capture(version: Version): VersionProfile {
         )
 
 private fun apply(profile: VersionProfile, version: Version) {
-        isApplyingProfile = true
-        try {
-            applyStates(VersionFolders.MOD.getDir(version.getGameDir()), profile.modStates)
-            applyStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir()), profile.resourcePackStates)
-            applyStates(VersionFolders.SHADERS.getDir(version.getGameDir()), profile.shaderStates)
-            
-            // Only write resource packs to options.txt if the profile actually contains saved entries
-            if (profile.resourcePackOrder.isNotEmpty()) {
-                writeOptionList(version, RESOURCE_PACK_OPTION, profile.resourcePackOrder)
-            }
-            
-            writeOptionValue(version, SHADER_OPTION, if (profile.shaderEnabled) profile.selectedShader.orEmpty() else "")
-            profile.accountId?.let { id ->
-                AccountsManager.accountsFlow.value.firstOrNull { it.uniqueUUID == id }?.let {
-                    AccountsManager.setCurrentAccount(it)
-                }
-            }
-            applyVersionConfig(profile.versionConfigSnapshot, version)
-        } finally {
-            isApplyingProfile = false
+    isApplyingProfile = true
+    try {
+        applyStates(VersionFolders.MOD.getDir(version.getGameDir()), profile.modStates)
+        applyStates(VersionFolders.RESOURCE_PACK.getDir(version.getGameDir()), profile.resourcePackStates)
+        applyStates(VersionFolders.SHADERS.getDir(version.getGameDir()), profile.shaderStates)
+        
+        val formattedPacks = profile.resourcePackOrder.map { pack ->
+            if (pack.endsWith(".zip") && !pack.startsWith("file/")) "file/$pack" else pack
         }
+
+        if (formattedPacks.isNotEmpty()) {
+            writeOptionList(version, RESOURCE_PACK_OPTION, formattedPacks)
+        }
+        
+        writeOptionValue(version, SHADER_OPTION, if (profile.shaderEnabled) profile.selectedShader.orEmpty() else "")
+        profile.accountId?.let { id ->
+            AccountsManager.accountsFlow.value.firstOrNull { it.uniqueUUID == id }?.let {
+                AccountsManager.setCurrentAccount(it)
+            }
+        }
+        applyVersionConfig(profile.versionConfigSnapshot, version)
+    } finally {
+        isApplyingProfile = false
+    }
 }
     /**
      * Restores a [VersionConfig] snapshot into the live config object for [version].
