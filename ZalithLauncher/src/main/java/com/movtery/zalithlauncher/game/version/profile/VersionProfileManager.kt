@@ -235,38 +235,44 @@ object VersionProfileManager {
      * @param file    The installed file (its parent directory determines whether
      *                it is a mod, resource pack, or shader).
      */
-    @Synchronized
-    fun registerInstalledContent(version: Version, file: File) {
-        val folder = file.parentFile ?: return
-        val key = file.profileKey()
+@Synchronized
+fun registerInstalledContent(version: Version, file: File) {
+    val folder = file.parentFile ?: return
+    val key = file.profileKey()
 
-        val modsDir = VersionFolders.MOD.getDir(version.getGameDir())
-        val resourcePacksDir = VersionFolders.RESOURCE_PACK.getDir(version.getGameDir())
-        val shadersDir = VersionFolders.SHADERS.getDir(version.getGameDir())
+    val modsDir = VersionFolders.MOD.getDir(version.getGameDir())
+    val resourcePacksDir = VersionFolders.RESOURCE_PACK.getDir(version.getGameDir())
+    val shadersDir = VersionFolders.SHADERS.getDir(version.getGameDir())
 
-        val profileFile = read(version)
-        val active = profileFile.profiles.firstOrNull { it.name == profileFile.activeProfile }
-            ?: return
+    val profileFile = read(version)
+    val active = profileFile.profiles.firstOrNull { it.name == profileFile.activeProfile }
+        ?: return
 
-        val updatedProfile = when (folder.absolutePath) {
-            modsDir.absolutePath ->
-                active.copy(modStates = active.modStates + (key to true))
-            resourcePacksDir.absolutePath ->
-                active.copy(resourcePackStates = active.resourcePackStates + (key to true))
-            shadersDir.absolutePath ->
-                active.copy(shaderStates = active.shaderStates + (key to true))
-            else -> return // not a profile-managed folder; nothing to do
+    val updatedProfile = when (folder.absolutePath) {
+        modsDir.absolutePath ->
+            active.copy(modStates = active.modStates + (key to true))
+        resourcePacksDir.absolutePath -> {
+            val formattedKey = if (key.endsWith(".zip")) "file/$key" else key
+            val newOrder = if (!active.resourcePackOrder.contains(formattedKey)) {
+                active.resourcePackOrder + formattedKey
+            } else {
+                active.resourcePackOrder
+            }
+            active.copy(
+                resourcePackStates = active.resourcePackStates + (key to true),
+                resourcePackOrder = newOrder
+            )
         }
-
-        // Re-enable the file in case a concurrent apply() renamed it to .disabled
-        // between the file copy and this call. The @Synchronized lock prevents any
-        // subsequent apply() from disabling it again before we finish writing.
-        setGroupEnabled(folder, key, true)
-
-        write(version, profileFile.copy(profiles = profileFile.profiles.replaceProfile(updatedProfile)))
-        notifyProfileChanged(version)
+        shadersDir.absolutePath ->
+            active.copy(shaderStates = active.shaderStates + (key to true))
+        else -> return
     }
 
+    setGroupEnabled(folder, key, true)
+
+    write(version, profileFile.copy(profiles = profileFile.profiles.replaceProfile(updatedProfile)))
+    notifyProfileChanged(version)
+}
     /**
      * Applies a user-requested enabled/disabled state to files and immediately
      * persists the resulting filesystem state into the active profile.
