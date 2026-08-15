@@ -598,13 +598,9 @@ private fun writeOptionList(version: Version, key: String, values: List<String>)
     private fun ensure(version: Version) = read(version)
 
     private fun write(version: Version, value: VersionProfileFile) {
-        val key = version.getVersionPath().absolutePath
-        cache[key] = value
-        val directory = VersionsManager.getZalithVersionPath(version)
-        if (!directory.exists()) directory.mkdirs()
-        runCatching {
-            FileWriter(File(directory, PROFILE_FILE_NAME), false).use { it.write(GSON.toJson(value)) }
-        }.onFailure { Logger.error(TAG, "Failed to save version profiles.", it) }
+    val key = version.getVersionPath().absolutePath
+    cache[key] = value
+    // Disabled saving profile changes to disk completely
     }
 
     private fun uniqueName(existing: List<VersionProfile>, requested: String): String {
