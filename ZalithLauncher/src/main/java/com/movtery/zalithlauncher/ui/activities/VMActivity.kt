@@ -177,47 +177,6 @@ class VMViewModel : ViewModel() {
     private var _session: LaunchSession? = null
     val session: LaunchSession
         get() = _session ?: error("LaunchSession not initialized")
-
-private var droidWebView: WebView? = null
-
-fun openDroidWebView(url: String) {
-    runOnUiThread {
-        closeDroidWebView()
-
-        val root = findViewById<ViewGroup>(android.R.id.content)
-            ?: return@runOnUiThread
-
-        droidWebView = WebView(this).apply {
-            webViewClient = WebViewClient()
-
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.loadsImagesAutomatically = true
-
-            loadUrl(url)
-        }
-
-        root.addView(
-            droidWebView,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-    }
-}
-
-fun closeDroidWebView() {
-    runOnUiThread {
-        droidWebView?.let { webView ->
-            (webView.parent as? ViewGroup)?.removeView(webView)
-            webView.stopLoading()
-            webView.destroy()
-        }
-
-        droidWebView = null
-    }
-}
         
     fun initSession(
         activity: VMActivity,
