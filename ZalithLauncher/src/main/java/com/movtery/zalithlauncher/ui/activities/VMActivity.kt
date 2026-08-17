@@ -662,12 +662,13 @@ private fun pauseGameBeforeBackground() {
         return IntSize(windowWidth, windowHeight)
     }
 
-    override fun onDestroy() {
-        GameSurfaceRegistry.unregister()
-        stopAllService()
-        withHandler { onDestroy() }
-        super.onDestroy()
-    }
+override fun onDestroy() {
+    closeDroidWebView()
+    GameSurfaceRegistry.unregister()
+    stopAllService()
+    withHandler { onDestroy() }
+    super.onDestroy()
+}
 
     private fun stopAllService() {
         stopService(Intent(this, GameService::class.java))
